@@ -1,0 +1,19 @@
+[package]
+name = "ralp"
+version = "0.1.0"
+edition = "2021"
+authors = ["Dirk Van Haerenborgh <vhdirk@gmail.com>"]
+description = "Implementation of a DASH7 ALP protocol codec."
+readme = "README.md"
+repository = "https://github.com/vhdirk/ralp"
+license = "MIT"
+keywords = ["dash7", "alp", "parser", "protocol"]
+categories = ["encoding", "parser-implementations"]
+
+[dependencies]
+bit-struct = "0.3.0"
+packed_struct = { version = "0.10.1", features = ["serde", "serde_derive", "use_serde"] }
+serde = { version = "1.0.147", features = ["serde_derive"] }
+
+[dev-dependencies]
+hex-literal = "0.3.4"
