@@ -1,8 +1,9 @@
-use packed_struct::prelude::*;
+use modular_bitfield::prelude::*;
 
-use crate::{types::CompressedValue, physical::ChannelId};
+use crate::{types::CompressedValue, physical::ChannelId, network::Addressee};
 
-#[derive(PrimitiveEnum_u8, Clone, Copy, Debug, PartialEq)]
+#[derive(BitfieldSpecifier, Clone, Debug, PartialEq)]
+#[bits = 3]
 pub enum ResponseMode {
     No = 0,
     All = 1,
@@ -12,69 +13,51 @@ pub enum ResponseMode {
     Preferred = 6,
 }
 
-#[derive(PrimitiveEnum_u8, Clone, Copy, Debug, PartialEq)]
+/// The Retry Modes define the pattern for re-flushing a FIFO that terminates on error.
+///
+/// In other words, what is the retry policy when sending your payload.
+
+#[derive(BitfieldSpecifier, Clone, Debug, PartialEq)]
+#[bits = 3]
 pub enum RetryMode {
     No = 0,
 }
 
-#[derive(PackedStruct, Debug)]
-#[packed_struct(bit_numbering = "msb0")]
+#[bitfield]
+#[derive(BitfieldSpecifier, Clone, Debug, PartialEq)]
 pub struct QoS {
-
-    #[packed_field(bits = "0")]
     pub stop_on_error: bool,
-
-    #[packed_field(bits = "1")]
     pub record: bool,
-
-    #[packed_field(bits = "2..=4", ty = "enum")]
     pub retry_mode: RetryMode,
-
-    #[packed_field(bits = "5..=7", ty = "enum")]
     pub response_mode: ResponseMode,
 }
 
-#[derive(PackedStruct, Debug)]
-#[packed_struct(bit_numbering = "msb0")]
+#[bitfield]
+#[derive(BitfieldSpecifier, Clone, Debug, PartialEq)]
 pub struct Dash7InterfaceConfiguration {
-    #[packed_field(element_size_bytes = "1")]
     pub qos: QoS,
-
-    #[packed_field(element_size_bytes = "1")]
     pub dormant_session_timeout: CompressedValue,
-
-    #[packed_field(element_size_bytes = "7")]
     pub addressee: Addressee,
 }
 
-#[derive(PackedStruct, Debug)]
-#[packed_struct(bit_numbering = "msb0")]
+#[bitfield]
+#[derive(BitfieldSpecifier, Clone, Debug, PartialEq)]
 pub struct Status {
-    #[packed_field(element_size_bytes = "3")]
     pub channel_id: ChannelId,
-
     pub rx_level: u8,
     pub link_budget: u8,
     pub target_rx_level: u8,
-
-    #[packed_field(bits = "0")]
     pub nls: bool,
-
-    #[packed_field(bits = "1")]
     pub missed: bool,
-
-    #[packed_field(bits = "2")]
     pub retry: bool,
-
-    #[packed_field(bits = "3")]
     pub unicast: bool,
-
+    #[skip] __: B4,
     pub fifo_token: u8,
     pub sequence_number: u8,
-
-    #[packed_field(element_size_bytes = "1")]
     pub response_timeout: CompressedValue,
-    pub addressee: Addressee,
+
+    // TODO: does not fit
+    pub addressee: B48,
 }
 
 

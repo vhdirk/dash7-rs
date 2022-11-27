@@ -1,10 +1,9 @@
-use packed_struct::prelude::PrimitiveEnum_u8;
-
+use modular_bitfield::prelude::*;
 use crate::types::CompressedValue;
 
-
 /// Encryption algorithm for over-the-air packets
-#[derive(PrimitiveEnum_u8, Clone, Copy, Debug, PartialEq)]
+#[derive(BitfieldSpecifier, Clone, Debug, PartialEq)]
+#[bits = 4]
 pub enum NlsMethod {
     None,
     AesCtr,
@@ -16,7 +15,8 @@ pub enum NlsMethod {
     AesCcm32,
 }
 
-#[derive(PrimitiveEnum_u8, Clone, Copy, Debug, PartialEq)]
+#[derive(BitfieldSpecifier, Clone, Debug, PartialEq)]
+#[bits = 2]
 pub enum AddressType {
     NbId,
     NoId,
@@ -24,12 +24,27 @@ pub enum AddressType {
     Vid,
 }
 
+// #[derive(BitfieldSpecifier, Clone, Copy, Debug, PartialEq)]
+pub enum Address {
+    /// Broadcast to an estimated number of receivers, encoded in compressed format on a byte.
+    NbId(u8),
+    /// Broadcast to everyone
+    NoId,
+    /// Unicast to target via its UID (Unique Dash7 ID)
+    Uid(u64),
+    /// Unicast to target via its VID (Virtual ID)
+    Vid(u16),
+}
 
+#[bitfield]
+#[derive(BitfieldSpecifier, Clone, Copy, Debug, PartialEq)]
 pub struct Addressee {
+    // #[packed_field(bits = "0..=1", ty = "enum")]
     pub id_type: AddressType,
-    pub access_class: u8,
-    pub nls_method: NlsMethod,
-    pub compressed_value: CompressedValue,
-    pub id: long,
 
+    pub nls_method: NlsMethod,
+
+    pub access_class: B8,
+
+    pub address: B10,
 }

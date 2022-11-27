@@ -11,8 +11,7 @@ keywords = ["dash7", "alp", "parser", "protocol"]
 categories = ["encoding", "parser-implementations"]
 
 [dependencies]
-bit-struct = "0.3.0"
-packed_struct = { version = "0.10.1", features = ["serde", "serde_derive", "use_serde"] }
+modular-bitfield = { version = "0.11.2", git = "https://github.com/bramp/modular-bitfield.git", branch = "master"}
 serde = { version = "1.0.147", features = ["serde_derive"] }
 
 [dev-dependencies]
