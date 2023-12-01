@@ -1,4 +1,3 @@
-use bit_struct::{bit_struct, enums};
 
 // #[derive(Clone, Debug, PartialEq)]
 // pub enum NlsState {
@@ -40,41 +39,8 @@ use bit_struct::{bit_struct, enums};
 //     }
 
 //     fn encoded_size(&self) -> usize {
-//         match self {
-//             Self::None => 0,
-//             _ => 5,
-//         }
-//     }
-
-//     fn get_data(&self) -> Option<&[u8; 5]> {
-//         match self {
-//             Self::None => None,
-//             Self::AesCtr(state) => Some(state),
-//             Self::AesCbcMac128(state) => Some(state),
-//             Self::AesCbcMac64(state) => Some(state),
-//             Self::AesCbcMac32(state) => Some(state),
-//             Self::AesCcm128(state) => Some(state),
-//             Self::AesCcm64(state) => Some(state),
-//             Self::AesCcm32(state) => Some(state),
-//         }
-//     }
-// }
-
-// #[derive(Clone, Debug, PartialEq)]
-// #[repr(u8)]
 
 
-// impl From<u8> for AddressType {
-//     fn from(n: u8) -> Self {
-//         match n {
-//             0 => Self::NbId,
-//             1 => Self::NoId,
-//             2 => Self::Uid,
-//             3 => Self::Vid,
-//             _ => panic!(),
-//         }
-//     }
-// }
 
 // /// Dash7 address types
 // // ALP SPEC: Where is this defined?

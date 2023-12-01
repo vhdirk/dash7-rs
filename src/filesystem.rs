@@ -1,86 +1,89 @@
-use modular_bitfield::prelude::*;
+use deku::prelude::*;
 
-#[derive(BitfieldSpecifier, Clone, Debug, PartialEq)]
-#[bits = 3]
-#[endian = 1]
-#[repr(C)]
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
+#[deku(bits = 3, endian = "big", type = "u8")]
 pub enum ActionCondition {
-    List = 0,
-    Read = 1,
-    Write = 2,
-    WriteFlush = 3,
+    #[deku(id = "0")]
+    List,
+    #[deku(id = "1")]
+    Read,
+    #[deku(id = "2")]
+    Write,
+    #[deku(id = "3")]
+    WriteFlush,
 }
 
-#[derive(BitfieldSpecifier, Clone, Debug, PartialEq)]
-#[bits = 2]
-#[endian = 1]
-#[repr(C)]
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
+#[deku(bits = 2, type = "u8")]
 pub enum StorageClass {
     /// The content is not kept in memory. It cannot be read back.
-    Transient = 0,
+    #[deku(id = "0")]
+    Transient,
     /// The content is kept in a volatile memory of the device. It is accessible for
     /// read, and is lost on power off.
-    Volatile = 1,
+    #[deku(id = "1")]
+    Volatile,
     /// The content is kept in a volatile memory of the device. It is accessible for
     /// read, and can be backed-up upon request in a permanent storage
     /// location. It is restored from the permanent location on device power on.
-    Restorable = 2,
+    #[deku(id = "2")]
+    Restorable,
     /// The content is kept in a permanent memory of the device. It is accessible
     /// for read and write.
-    Permanent = 3,
+    #[deku(id = "3")]
+    Permanent,
 }
 
-#[bitfield(bits = 3)]
-#[derive(BitfieldSpecifier, Clone, Debug, PartialEq)]
-#[repr(C)]
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct UserPermissions {
+    #[deku(bits = 1)]
     pub read: bool,
+    #[deku(bits = 1)]
     pub write: bool,
+    #[deku(bits = 1)]
     pub executable: bool,
 }
 
-#[bitfield]
-#[derive(BitfieldSpecifier, Clone, Debug, PartialEq)]
-#[repr(C)]
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FilePermissions {
+    #[deku(bits = 1)]
     pub encrypted: bool,
+    #[deku(bits = 1)]
     pub executable: bool,
-    // pub user: UserPermissions,
-    // pub guest: UserPermissions,
-
-
-    pub user_readable: bool,
-    pub user_writable: bool,
-    pub user_executable: bool,
-    pub guest_readable: bool,
-    pub guest_writable: bool,
-    pub guest_executable: bool,
+    pub user: UserPermissions,
+    pub guest: UserPermissions,
 }
 
-#[bitfield]
-#[derive(BitfieldSpecifier, Clone, Debug, PartialEq)]
-#[repr(C)]
+
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FileProperties {
     /// Enables the D7AActP (ALP action to trigger upon some type of access to this file)
+    #[deku(bits=1)]
     pub enabled: bool,
+
     /// Type of access needed to trigger the D7AActP
     pub condition: ActionCondition,
 
-    #[skip]
-    __: B2,
     /// Type of storage of this file
+    #[deku(pad_bits_before = "2")]
     pub storage_class: StorageClass,
 }
 
-#[bitfield]
-#[derive(BitfieldSpecifier, Clone, Debug, PartialEq)]
-#[repr(C)]
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FileHeader {
     pub permissions: FilePermissions,
     pub properties: FileProperties,
     pub alp_command_file_id: u8,
     pub interface_file_id: u8,
+    #[deku(endian="big")]
     pub file_size: u32,
+    #[deku(endian="big")]
     pub allocated_size: u32,
 }
 
@@ -91,58 +94,40 @@ mod test {
 
     #[test]
     fn test_file_permissions() {
-        let permissions = FilePermissions::new()
-            .with_encrypted(true)
-            .with_executable(false)
 
-                    .with_user_readable(true)
-                    .with_user_writable(true)
-                    .with_user_executable(true)
-                    .with_guest_readable(false)
-                    .with_guest_writable(false)
-                    .with_guest_executable(false)
-            ;
+        let permissions = FilePermissions {
+                encrypted: true,
+                executable: false,
+                user: UserPermissions { read: true, write: true, executable: true },
+                guest: UserPermissions { read: false, write: false, executable: false },
+        };
 
         let expected = hex!("B8");
 
-        assert_eq!(permissions.bytes, expected);
-        assert_eq!(FilePermissions::from_bytes(expected), permissions);
+
+        assert_eq!(permissions.to_bytes().unwrap(), expected);
+        assert_eq!(FilePermissions::from_bytes((&expected, 0)).unwrap().1, permissions);
     }
 
-    // #[test]
-    // fn test_file_header() {
-    //     let header = FileHeader::new()
-    //         .with_permissions(
-    //             FilePermissions::new()
-    //                 .with_encrypted(true)
-    //                 .with_executable(false)
-    //                 .with_user(
-    //                     UserPermissions::new()
-    //                         .with_read(true)
-    //                         .with_write(true)
-    //                         .with_executable(true),
-    //                 )
-    //                 .with_guest(
-    //                     UserPermissions::new()
-    //                         .with_read(false)
-    //                         .with_write(false)
-    //                         .with_executable(false),
-    //                 ),
-    //         )
-    //         .with_properties(
-    //             FileProperties::new()
-    //                 .with_enabled(false)
-    //                 .with_condition(ActionCondition::Read)
-    //                 .with_storage_class(StorageClass::Permanent),
-    //         )
-    //         .with_alp_command_file_id(1)
-    //         .with_interface_file_id(2)
-    //         .with_file_size(0xDEAD_BEEF)
-    //         .with_allocated_size(0xBAAD_FACE);
+    #[test]
+    fn test_file_header() {
+        let header = FileHeader{
+            permissions: FilePermissions {
+                encrypted: true,
+                executable: false,
+                user: UserPermissions { read: true, write: true, executable: true },
+                guest: UserPermissions { read: false, write: false, executable: false },
+            },
+            properties: FileProperties { enabled: false, condition: ActionCondition::Read, storage_class: StorageClass::Permanent },
+            alp_command_file_id: 1,
+            interface_file_id: 2,
+            file_size: 0xDEAD_BEEF,
+            allocated_size: 0xBAAD_FACE,
+        };
 
-    //     let expected = hex!("B8 13 01 02 DEADBEEF BAADFACE");
+        let expected = hex!("B8 13 01 02 DEADBEEF BAADFACE");
 
-    //     assert_eq!(header.bytes, expected);
-    //     assert_eq!(FileHeader::from_bytes(expected), header);
-    // }
+        assert_eq!(header.to_bytes().unwrap(), expected);
+        assert_eq!(FileHeader::from_bytes((&expected, 0)).unwrap().1, header);
+    }
 }

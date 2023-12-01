@@ -1,17 +1,22 @@
-// // #[cfg(test)]
-// // use crate::codec::{Codec, WithSize};
+// #[cfg(not(feature = "std"))]
+// use alloc::fmt;
 
-// #[cfg(test)]
-// pub fn test_item<T: Codec + std::fmt::Debug + std::cmp::PartialEq>(item: T, data: &[u8])
-// where
-//     T::Error: std::fmt::Debug,
-// {
-//     assert_eq!(item.encode()[..], *data);
-//     assert_eq!(
-//         T::decode(&data).expect("should be parsed without error"),
-//         WithSize {
-//             value: item,
-//             size: data.len(),
-//         }
-//     );
-// }
+// #[cfg(feature = "std")]
+// use std::fmt::Debug;
+
+use core::fmt::Debug;
+
+use deku::{DekuContainerRead, DekuContainerWrite};
+
+pub fn test_item<T>(item: T, data: &[u8], rest: &[u8], descr: &str)
+where
+    T: Debug + PartialEq + DekuContainerWrite + for<'a> DekuContainerRead<'a>,
+{
+    let result = item.to_bytes().unwrap();
+    assert_eq!(result.as_slice(), data, "{} | Left: item::to_bytes, Right: expected data", descr);
+
+    assert_eq!(
+        T::from_bytes((&data, 0)).expect("should be parsed without error"),
+        ((rest, rest.len(),), item)
+    );
+}

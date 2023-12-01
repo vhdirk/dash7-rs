@@ -1,10 +1,12 @@
+use deku::prelude::*;
 
-use modular_bitfield::prelude::*;
+use crate::{
+    // physical::{ChannelHeader, SubBand},
+    varint::VarInt,
+};
 
-use crate::{physical::{ChannelHeader, SubBand}, types::CompressedValue};
-
-#[derive(BitfieldSpecifier, Clone, Debug, PartialEq)]
-#[bits = 6]
+#[deku_derive(DekuRead, DekuWrite)]
+#[deku(bits=6, type="u8")]
 pub enum CsmaCaMode {
     Unc = 0,
     Aind = 1,
@@ -12,15 +14,14 @@ pub enum CsmaCaMode {
     Rigd = 3,
 }
 
-#[bitfield]
-#[derive(BitfieldSpecifier, Debug, PartialEq)]
+#[deku_derive(DekuRead, DekuWrite)]
 pub struct SubProfile {
     pub subband_bitmap: u8,
-    pub scan_automation_period: CompressedValue,
+    pub scan_automation_period: VarInt,
 }
 
-pub struct AccessProfile {
-    pub channel_header: ChannelHeader,
-    pub sub_profiles: [SubProfile; 4],
-    pub sub_bands: [SubBand; 8],
-}
+// pub struct AccessProfile {
+//     pub channel_header: ChannelHeader,
+//     pub sub_profiles: [SubProfile; 4],
+//     pub sub_bands: [SubBand; 8],
+// }

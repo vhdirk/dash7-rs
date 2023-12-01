@@ -1,110 +1,210 @@
-// use crate::codec::{StdError, WithOffset, WithSize};
-// pub const MAX: u32 = 0x3F_FF_FF_FF;
-// /// Returns whether the value is encodable into a varint or not.
-// pub fn is_valid(n: u32) -> bool {
-//     n <= MAX
-// }
+use deku::{
+    bitvec::{BitSlice, BitVec, BitView, Msb0},
+    ctx::{BitSize, Endian},
+    prelude::*,
+};
 
-// /// Calculate the size in bytes of the value encoded as a varint.
-// ///
-// /// # Safety
-// /// Only call this on u32 that are less than 0x3F_FF_FF_FF.
-// ///
-// /// Calling this on a large integer will return a size of 4 which
-// /// is technically incorrect because the integer is non-encodable.
-// pub unsafe fn size(n: u32) -> u8 {
-//     if n <= 0x3F {
-//         1
-//     } else if n <= 0x3F_FF {
-//         2
-//     } else if n <= 0x3F_FF_FF {
-//         3
-//     } else {
-//         4
-//     }
-// }
+use core::convert::TryFrom;
+use core::ops::Deref;
 
-// /// Encode the value into a varint.
-// ///
-// /// # Safety
-// /// Only call this on u32 that are less than 0x3F_FF_FF_FF.
-// ///
-// /// Calling this on a large integer will return an unpredictable
-// /// result (it won't crash).
-// pub unsafe fn encode_in(n: u32, out: &mut [u8]) -> u8 {
-//     let u8_size = size(n);
-//     let size = u8_size as usize;
-//     for (i, byte) in out.iter_mut().enumerate().take(size) {
-//         *byte = ((n >> ((size - 1 - i) * 8)) & 0xFF) as u8;
-//     }
-//     out[0] |= ((size - 1) as u8) << 6;
-//     u8_size
-// }
+#[cfg(not(feature = "std"))]
+use alloc::fmt;
 
-// /// Decode a byte array as a varint.
-// pub fn decode(out: &[u8]) -> Result<WithSize<u32>, WithOffset<StdError>> {
-//     if out.is_empty() {
-//         return Err(WithOffset::new(0, StdError::MissingBytes(1)));
-//     }
-//     let size = ((out[0] >> 6) + 1) as usize;
-//     if out.len() < size as usize {
-//         return Err(WithOffset::new(
-//             0,
-//             StdError::MissingBytes(size as usize - out.len()),
-//         ));
-//     }
-//     let mut ret = (out[0] & 0x3F) as u32;
-//     for byte in out.iter().take(size).skip(1) {
-//         ret = (ret << 8) + *byte as u32;
-//     }
-//     Ok(WithSize { value: ret, size })
-// }
+#[cfg(feature = "std")]
+use std::fmt;
 
-// #[cfg(test)]
-// mod test {
-//     use super::*;
-//     use hex_literal::hex;
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct VarInt {
+    value: u32,
+    ceil: bool,
+}
 
-//     #[test]
-//     fn test_is_valid() {
-//         assert!(is_valid(0x3F_FF_FF_FF));
-//         assert!(!is_valid(0x40_00_00_00));
-//     }
+impl VarInt {
+    pub const MAX: u32 = 507904;
 
-//     #[test]
-//     fn test_unsafe_size() {
-//         unsafe {
-//             assert_eq!(size(0x00), 1);
-//             assert_eq!(size(0x3F), 1);
-//             assert_eq!(size(0x3F_FF), 2);
-//             assert_eq!(size(0x3F_FF_FF), 3);
-//             assert_eq!(size(0x3F_FF_FF_FF), 4);
-//         }
-//     }
+    pub fn new(value: u32, ceil: bool) -> Self {
+        // TODO: check bounds
+        Self { value, ceil }
+    }
 
-//     #[test]
-//     fn test_encode_in() {
-//         fn test(n: u32, truth: &[u8]) {
-//             let mut encoded = vec![0u8; truth.len()];
-//             assert_eq!(unsafe { encode_in(n, &mut encoded[..]) }, truth.len() as u8);
-//             assert_eq!(*truth, encoded[..]);
-//         }
-//         test(0x00, &[0]);
-//         test(0x3F, &hex!("3F"));
-//         test(0x3F_FF, &hex!("7F FF"));
-//         test(0x3F_FF_FF, &hex!("BF FF FF"));
-//         test(0x3F_FF_FF_FF, &hex!("FF FF FF FF"));
-//     }
+    pub fn decompress(exponent: u8, mantissa: u8, ceil: bool) -> Self {
+        // TODO: bounds checks on exp and mantissa
+        Self {
+            value: 4u32.pow(exponent as u32) * mantissa as u32,
+            ceil,
+        }
+    }
 
-//     #[test]
-//     fn test_decode() {
-//         fn test_ok(data: &[u8], value: u32, size: usize) {
-//             assert_eq!(decode(data), Ok(WithSize { value, size }),);
-//         }
-//         test_ok(&[0], 0x00, 1);
-//         test_ok(&hex!("3F"), 0x3F, 1);
-//         test_ok(&hex!("7F FF"), 0x3F_FF, 2);
-//         test_ok(&hex!("BF FF FF"), 0x3F_FF_FF, 3);
-//         test_ok(&hex!("FF FF FF FF"), 0x3F_FF_FF_FF, 4);
-//     }
-// }
+    pub fn compress(&self) -> Result<(/*exponent: */ u8, /*mantissa: */ u8), ()> {
+        if !Self::is_valid(self.value) {
+            // TODO proper error
+            return Err(());
+        }
+
+        for i in 0..8 {
+            let exp = 4u32.pow(i);
+            if self.value <= exp * 31 {
+                let remainder = self.value % exp;
+
+                let mut mantissa = self.value / exp;
+                if self.ceil && remainder > 0 {
+                    mantissa = mantissa + 1;
+                }
+                return Ok((i as u8, mantissa as u8));
+            }
+        }
+
+        // TODO proper error
+        Err(())
+    }
+
+    /// Returns whether the value is encodable into a varint or not.
+    /// Makes no guarantees about precision
+    pub fn is_valid(n: u32) -> bool {
+        n <= Self::MAX
+    }
+}
+
+impl Deref for VarInt {
+    type Target = u32;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+impl DekuContainerRead<'_> for VarInt {
+    fn from_bytes(input: (&'_ [u8], usize)) -> Result<((&'_ [u8], usize), Self), DekuError> {
+        let input_bits = input.0.view_bits::<Msb0>();
+
+        let (rest, this) = VarInt::read(&input_bits[input.1..], ())?;
+        let pad = 8 * ((rest.len() + 7) / 8) - rest.len();
+        let index = input_bits.len() - (rest.len() + pad);
+        Ok((
+            (input_bits[index..].domain().region().unwrap().1, pad),
+            this,
+        ))
+    }
+}
+impl DekuRead<'_, ()> for VarInt {
+    fn read(
+        input: &'_ BitSlice<u8, Msb0>,
+        _ctx: (),
+    ) -> Result<(&'_ BitSlice<u8, Msb0>, Self), DekuError>
+    where
+        Self: Sized,
+    {
+        let (rest, exponent) = <u8 as DekuRead<'_, _>>::read(input, (Endian::Big, BitSize(3)))?;
+        let (rest, mantissa) = <u8 as DekuRead<'_, _>>::read(rest, (Endian::Big, BitSize(5)))?;
+        Ok((rest, Self::decompress(exponent, mantissa, false)))
+    }
+}
+
+impl TryFrom<&'_ [u8]> for VarInt {
+    type Error = DekuError;
+    fn try_from(input: &'_ [u8]) -> Result<Self, Self::Error> {
+        let (rest, res) = <Self as DekuContainerRead>::from_bytes((input, 0))?;
+        if !rest.0.is_empty() {
+            return Err(DekuError::Parse({
+                let res = fmt::format(format_args!("Too much data"));
+                res
+            }));
+        }
+        Ok(res)
+    }
+}
+
+impl DekuContainerWrite for VarInt {
+    fn to_bytes(&self) -> Result<Vec<u8>, DekuError> {
+        let acc: BitVec<u8, Msb0> = self.to_bits()?;
+        Ok(acc.into_vec())
+    }
+    fn to_bits(&self) -> Result<BitVec<u8, Msb0>, DekuError> {
+        let mut out: BitVec<u8, Msb0> = BitVec::new();
+        self.write(&mut out, ())?;
+        Ok(out)
+    }
+}
+impl DekuUpdate for VarInt {
+    fn update(&mut self) -> Result<(), DekuError> {
+        Ok(())
+    }
+}
+impl DekuWrite<()> for VarInt {
+    fn write(&self, output: &mut BitVec<u8, Msb0>, _: ()) -> Result<(), DekuError> {
+        match self.compress() {
+            Ok((exponent, mantissa)) => {
+                DekuWrite::write(&exponent, output, (Endian::Big, BitSize(3)))?;
+                DekuWrite::write(&mantissa, output, (Endian::Big, BitSize(5)))?;
+                Ok(())
+            }
+            Err(()) => Err(DekuError::Unexpected(
+                "Could not compress value".to_string(),
+            )),
+        }
+    }
+}
+
+impl TryFrom<VarInt> for BitVec<u8, Msb0> {
+    type Error = DekuError;
+    fn try_from(input: VarInt) -> Result<Self, Self::Error> {
+        input.to_bits()
+    }
+}
+impl TryFrom<VarInt> for Vec<u8> {
+    type Error = DekuError;
+    fn try_from(input: VarInt) -> Result<Self, Self::Error> {
+        DekuContainerWrite::to_bytes(&input)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test_tools::test_item;
+
+    #[test]
+    fn test_is_valid() {
+        assert!(VarInt::is_valid(507904));
+        assert!(!VarInt::is_valid(0x40_00_00_00));
+    }
+
+    #[test]
+    fn test_decompress() {
+        assert_eq!(0, *VarInt::decompress(0, 0, false));
+        assert_eq!(4, *VarInt::decompress(1, 1, false));
+        assert_eq!(32, *VarInt::decompress(2, 2, false));
+        assert_eq!(192, *VarInt::decompress(3, 3, false));
+        assert_eq!(507904, *VarInt::decompress(7, 31, false));
+    }
+
+    #[test]
+    fn test_serialization() {
+        let data = VarInt::new(0, false).to_bytes().unwrap();
+        assert_eq!(data.as_slice(), [0x00u8]);
+
+        let data = VarInt::new(1, false).to_bytes().unwrap();
+        assert_eq!(data.as_slice(), [0x01u8]);
+
+
+        test_item(VarInt::new(507904, false), &[0xFFu8], &[], "");
+    }
+
+    #[test]
+    fn test_deserialization() {
+        let data = [0x00u8];
+        let (_rest, val) = VarInt::from_bytes((&data, 0)).unwrap();
+
+        assert_eq!(val.value, 0);
+
+        let data = [0b00100001u8];
+        let (_rest, val) = VarInt::from_bytes((&data, 0)).unwrap();
+
+        assert_eq!(val.value, 4);
+
+        let data = [0b11111111u8];
+        let (_rest, val) = VarInt::from_bytes((&data, 0)).unwrap();
+
+        assert_eq!(val.value, 507904);
+    }
+}

@@ -12,6 +12,7 @@
 
 #[derive(BitFieldSpecifier, Clone, Copy, Debug, PartialEq)]
 #[bits = 3]
+#[endian = "big"]
 pub enum ArithmeticComparisonType {
     Inequal = 0,
     Equal = 1,
@@ -20,6 +21,22 @@ pub enum ArithmeticComparisonType {
     GreaterThan = 4,
     GreaterThanOrEqual = 5,
 }
+
+#[bitfield(endian = "big", bits=4)]
+#[derive(BitFieldSpecifier, Clone, Copy, Debug, PartialEq)]
+pub struct ArithmeticQueryParams {
+    pub signed: boolean,
+    pub comparison_type: ArithmeticComparisonType,
+}
+
+
+pub struct LengthOperand {
+    pub size: B2,
+
+
+    pub value: // TODO: depends on 'size'
+}
+
 
 #[bitfield]
 #[derive(BitFieldSpecifier, Clone, Copy, Debug, PartialEq)]

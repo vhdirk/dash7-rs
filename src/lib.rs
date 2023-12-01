@@ -1,11 +1,3 @@
-pub mod filesystem;
-pub mod network;
-pub mod action;
-pub mod physical;
-pub mod datalink;
-pub mod session;
-pub mod types;
-
 // //! Implementation of a [Dash7](https://dash7-alliance.org/) ALP protocol parser from its
 // //! public specification.
 // //!
@@ -36,34 +28,39 @@ pub mod types;
 // //! - If the group contains queries, a prior Logical action will determine how they
 // //! are composed between them (OR, XOR, NOR, NAND). Without any Logical action, the
 // //! queries are AND'ed.
-// //!
-// //! Codec trait
-// //! ------------------------------------------------------------------------------
-// //! This trait implements the encode/decode methods. You very probably want to import
-// //! it into scope.
 
-// #[cfg(test)]
-// mod test_tools;
-// #[cfg(test)]
-// use hex_literal::hex;
+use mutually_exclusive_features::exactly_one_of;
+exactly_one_of!("spec_v1_2", "subiot_v0", "wizzilab_v5_3");
 
-// /// ALP basic Actions used to build Commands
-// pub mod action;
-// /// A Codec module specifying how to encode/decode each encodable items
-// pub mod codec;
-// /// Dash7 specific items (most of the ALP protocol could be in theory be used over any
-// /// communication link)
-// pub mod dash7;
-// /// Filesystem related items
-// pub mod data;
+
+/// ALP basic Actions used to build Commands
+pub mod action;
+
+
+/// Filesystem related items
+pub mod filesystem;
+
 // /// Module managing the creation of protected items
 // pub mod new;
 // /// Operands used to build the ALP Actions
 // pub mod operand;
-// /// ALP variable int codec implementation
-// pub mod varint;
+
+/// ALP variable int codec implementation
+pub mod varint;
 // pub use action::Action;
 // pub use codec::{Codec, WithOffset, WithSize};
+
+
+pub mod network;
+pub mod physical;
+pub mod datalink;
+pub mod session;
+
+
+
+#[cfg(test)]
+mod test_tools;
+
 
 // // TODO Verify each item's name against the SPEC
 
