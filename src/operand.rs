@@ -1,84 +1,75 @@
-// #[cfg(test)]
-// use crate::test_tools::test_item;
+use deku::prelude::*;
 // use crate::{
 //     codec::{Codec, StdError, WithOffset, WithSize},
 //     dash7, varint,
 // };
-// #[cfg(test)]
-// use hex_literal::hex;
 
 // // TODO
 // // Protect varint values
 
-#[derive(BitFieldSpecifier, Clone, Copy, Debug, PartialEq)]
-#[bits = 3]
-#[endian = "big"]
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
+#[deku(bits=3, type="u8")]
 pub enum ArithmeticComparisonType {
-    Inequal = 0,
-    Equal = 1,
-    LessThan = 2,
-    LessThanOrEqual = 3,
-    GreaterThan = 4,
-    GreaterThanOrEqual = 5,
+    #[deku(id="0")]Inequal,
+    #[deku(id="1")]Equal,
+    #[deku(id="2")]LessThan,
+    #[deku(id="3")]LessThanOrEqual,
+    #[deku(id="4")]GreaterThan,
+    #[deku(id="5")]GreaterThanOrEqual,
 }
 
-#[bitfield(endian = "big", bits=4)]
-#[derive(BitFieldSpecifier, Clone, Copy, Debug, PartialEq)]
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ArithmeticQueryParams {
-    pub signed: boolean,
+    #[deku(bits=1)]
+    pub signed: bool,
     pub comparison_type: ArithmeticComparisonType,
 }
 
-
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LengthOperand {
-    pub size: B2,
+    #[deku(bits=2)]
+    pub size: u8,
 
 
-    pub value: // TODO: depends on 'size'
+    pub value: u8,// TODO: depends on 'size'
 }
 
 
-#[bitfield]
-#[derive(BitFieldSpecifier, Clone, Copy, Debug, PartialEq)]
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FileDataOperand {
     pub offset: FileOffsetOperand,
     pub length: LengthOperand,
     // pub  data: byte[],
 }
 
-
-
-
-
-
-
-
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum InterfaceId {
-    Host = 0,
-    D7asp = 0xD7,
-}
-
 // /// Meta data required to send a packet depending on the sending interface type
-#[derive(Clone, Debug, PartialEq)]
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
+#[deku(bits=8, type="u8")]
 pub enum InterfaceConfiguration {
-    Host,
-    D7asp(dash7::InterfaceConfiguration),
+    #[deku(id="0")] Host,
+    #[deku(id="0xD7")] D7asp(dash7::InterfaceConfiguration),
 }
 
-// #[derive(Clone, Debug, PartialEq)]
-// pub struct InterfaceStatusUnknown {
-//     pub id: u8,
-//     pub data: Box<[u8]>,
-// }
-// /// Meta data from a received packet depending on the receiving interface type
-// #[derive(Clone, Debug, PartialEq)]
-// pub enum InterfaceStatus {
-//     Host,
-//     D7asp(dash7::InterfaceStatus),
-//     Unknown(InterfaceStatusUnknown),
-// }
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct InterfaceStatusUnknown {
+    pub id: u8,
+    pub data: Vec<u8>,
+}
+/// Meta data from a received packet depending on the receiving interface type
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
+#[deku(bits=8, type="u8")]
+pub enum InterfaceStatus {
+    #[deku(id="0")] Host,
+    #[deku(id="0xD7")] D7asp(dash7::InterfaceStatus),
+    Unknown(InterfaceStatusUnknown),
+}
 // #[derive(Debug, Copy, Clone, Hash, PartialEq)]
 // pub enum InterfaceStatusDecodingError {
 //     MissingBytes(usize),
@@ -219,15 +210,16 @@ pub enum InterfaceConfiguration {
 //     test_item(InterfaceStatus::Host, &hex!("00 00"))
 // }
 
-// // ===============================================================================
-// // Operands
-// // ===============================================================================
-// /// Describe the location of some data on the filesystem (file + data offset).
-// #[derive(Clone, Copy, Debug, PartialEq)]
-// pub struct FileOffset {
-//     pub id: u8,
-//     pub offset: u32,
-// }
+// ===============================================================================
+// Operands
+// ===============================================================================
+/// Describe the location of some data on the filesystem (file + data offset).
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct FileOffset {
+    pub id: u8,
+    pub offset: u32,
+}
 
 // #[derive(Debug, Copy, Clone, Hash, PartialEq)]
 // pub enum FileOffsetDecodingError {
@@ -276,38 +268,38 @@ pub enum InterfaceConfiguration {
 //     )
 // }
 
-// pub mod status_code {
-//     //! Status code that can be received as a result of some ALP actions.
-//     /// Action received and partially completed at response. To be completed after response
-//     pub const RECEIVED: u8 = 1;
-//     pub const OK: u8 = 0;
-//     pub const FILE_ID_MISSING: u8 = 0xFF;
-//     pub const CREATE_FILE_ID_ALREADY_EXIST: u8 = 0xFE;
-//     pub const FILE_IS_NOT_RESTORABLE: u8 = 0xFD;
-//     pub const INSUFFICIENT_PERMISSION: u8 = 0xFC;
-//     pub const CREATE_FILE_LENGTH_OVERFLOW: u8 = 0xFB;
-//     pub const CREATE_FILE_ALLOCATION_OVERFLOW: u8 = 0xFA; // ALP_SPEC: ??? Difference with the previous one?;
-//     pub const WRITE_OFFSET_OVERFLOW: u8 = 0xF9;
-//     pub const WRITE_DATA_OVERFLOW: u8 = 0xF8;
-//     pub const WRITE_STORAGE_UNAVAILABLE: u8 = 0xF7;
-//     pub const UNKNOWN_OPERATION: u8 = 0xF6;
-//     pub const OPERAND_INCOMPLETE: u8 = 0xF5;
-//     pub const OPERAND_WRONG_FORMAT: u8 = 0xF4;
-//     pub const UNKNOWN_ERROR: u8 = 0x80;
-// }
+pub mod status_code {
+    //! Status code that can be received as a result of some ALP actions.
+    /// Action received and partially completed at response. To be completed after response
+    pub const RECEIVED: u8 = 1;
+    pub const OK: u8 = 0;
+    pub const FILE_ID_MISSING: u8 = 0xFF;
+    pub const CREATE_FILE_ID_ALREADY_EXIST: u8 = 0xFE;
+    pub const FILE_IS_NOT_RESTORABLE: u8 = 0xFD;
+    pub const INSUFFICIENT_PERMISSION: u8 = 0xFC;
+    pub const CREATE_FILE_LENGTH_OVERFLOW: u8 = 0xFB;
+    pub const CREATE_FILE_ALLOCATION_OVERFLOW: u8 = 0xFA; // ALP_SPEC: ??? Difference with the previous one?;
+    pub const WRITE_OFFSET_OVERFLOW: u8 = 0xF9;
+    pub const WRITE_DATA_OVERFLOW: u8 = 0xF8;
+    pub const WRITE_STORAGE_UNAVAILABLE: u8 = 0xF7;
+    pub const UNKNOWN_OPERATION: u8 = 0xF6;
+    pub const OPERAND_INCOMPLETE: u8 = 0xF5;
+    pub const OPERAND_WRONG_FORMAT: u8 = 0xF4;
+    pub const UNKNOWN_ERROR: u8 = 0x80;
+}
 
-// /// Result of an action in a previously sent request
-// #[derive(Clone, Copy, Debug, PartialEq)]
-// pub struct Status {
-//     /// Index of the ALP action associated with this status, in the original request as seen from
-//     /// the receiver side.
-//     // ALP_SPEC This is complicated to process because we have to known/possibly infer the position
-//     // of the action on the receiver side, and that we have to do that while also interpreting who
-//     // responded (the local modem won't have the same index as the distant device.).
-//     pub action_id: u8,
-//     /// Result code
-//     pub status: u8,
-// }
+/// Result of an action in a previously sent request
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Status {
+    /// Index of the ALP action associated with this status, in the original request as seen from
+    /// the receiver side.
+    // ALP_SPEC This is complicated to process because we have to known/possibly infer the position
+    // of the action on the receiver side, and that we have to do that while also interpreting who
+    // responded (the local modem won't have the same index as the distant device.).
+    pub action_id: u8,
+    /// Result code
+    pub status: u8,
+}
 // impl Codec for Status {
 //     type Error = StdError;
 //     fn encoded_size(&self) -> usize {

@@ -18,7 +18,6 @@ pub enum ResponseMode {
 /// The Retry Modes define the pattern for re-flushing a FIFO that terminates on error.
 ///
 /// In other words, what is the retry policy when sending your payload.
-
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
 #[deku(bits = 3, type="u8")]

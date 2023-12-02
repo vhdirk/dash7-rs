@@ -43,12 +43,13 @@ impl VarInt {
 
         for i in 0..8 {
             let exp = 4u32.pow(i);
-            if self.value <= exp * 31 {
+
+            if self.value <= (exp * 31) {
+                let mut mantissa = self.value / exp;
                 let remainder = self.value % exp;
 
-                let mut mantissa = self.value / exp;
                 if self.ceil && remainder > 0 {
-                    mantissa = mantissa + 1;
+                    mantissa += 1;
                 }
                 return Ok((i as u8, mantissa as u8));
             }
@@ -179,32 +180,12 @@ mod test {
     }
 
     #[test]
-    fn test_serialization() {
-        let data = VarInt::new(0, false).to_bytes().unwrap();
-        assert_eq!(data.as_slice(), [0x00u8]);
-
-        let data = VarInt::new(1, false).to_bytes().unwrap();
-        assert_eq!(data.as_slice(), [0x01u8]);
-
-
-        test_item(VarInt::new(507904, false), &[0xFFu8], &[], "");
+    fn test() {
+        test_item(VarInt::new(0, false), &[0x00], &[]);
+        test_item(VarInt::new(1, false), &[0x01u8], &[]);
+        test_item(VarInt::new(32, false), &[0b00101000u8], &[]);
+        test_item(VarInt::new(507904, false), &[0xFFu8], &[]);
     }
 
-    #[test]
-    fn test_deserialization() {
-        let data = [0x00u8];
-        let (_rest, val) = VarInt::from_bytes((&data, 0)).unwrap();
 
-        assert_eq!(val.value, 0);
-
-        let data = [0b00100001u8];
-        let (_rest, val) = VarInt::from_bytes((&data, 0)).unwrap();
-
-        assert_eq!(val.value, 4);
-
-        let data = [0b11111111u8];
-        let (_rest, val) = VarInt::from_bytes((&data, 0)).unwrap();
-
-        assert_eq!(val.value, 507904);
-    }
 }

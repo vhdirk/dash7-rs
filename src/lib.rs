@@ -34,7 +34,7 @@ exactly_one_of!("spec_v1_2", "subiot_v0", "wizzilab_v5_3");
 
 
 /// ALP basic Actions used to build Commands
-pub mod action;
+// pub mod action;
 
 
 /// Filesystem related items
@@ -42,7 +42,7 @@ pub mod filesystem;
 
 // /// Module managing the creation of protected items
 // pub mod new;
-// /// Operands used to build the ALP Actions
+/// Operands used to build the ALP Actions
 // pub mod operand;
 
 /// ALP variable int codec implementation
