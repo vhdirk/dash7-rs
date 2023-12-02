@@ -1,10 +1,12 @@
 # Dash7-rs
 
 [![MIT licensed][mit-badge]][mit-url]
+[![codecov][codecov-badge]][codecov-url]
 
 [mit-badge]: https://img.shields.io/badge/license-MIT-blue.svg
 [mit-url]: LICENSE
-
+[codecov-badge]: https://codecov.io/gh/vhdirk/dash7-rs/graph/badge.svg?token=3ATUANHK0O
+[codecov-url]: https://codecov.io/gh/vhdirk/dash7-rs
 
 An attempt to write the dash7 stack in Rust
 
