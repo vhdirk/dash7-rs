@@ -1,6 +1,6 @@
 use deku::prelude::*;
 
-use crate::{
+use crate::alp::{
     physical::{ChannelHeader, SubBand},
     varint::VarInt,
 };

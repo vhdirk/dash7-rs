@@ -1,13 +1,14 @@
 use deku::prelude::*;
 
-use crate::varint::VarInt;
+use crate::alp::varint::VarInt;
 
 /// Encryption algorithm for over-the-air packets
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 #[deku(ctx = "nls_method: u8", id = "nls_method")]
 #[repr(u8)]
 pub enum NlsState {
+    #[default]
     #[deku(id = "0x00")]
     None,
     #[deku(id = "0x01")]
@@ -45,8 +46,14 @@ pub enum Address {
     Vid(#[deku(endian = "big")] u16),
 }
 
+impl Default for Address {
+    fn default() -> Self {
+        Self::NbId(VarInt::default())
+    }
+}
+
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct Addressee {
     #[deku(pad_bits_before = "2", bits = 2)]
     address_type: u8,
@@ -141,18 +148,18 @@ mod tests {
         );
 
         test_item(
-            Addressee::new(Address::NoId, NlsState::AesCbcMac128([10, 20, 30, 40, 50]), 0xBE),
-            &[
-                0b00010010, 0xBE, 10, 20, 30, 40, 50,
-            ],
+            Addressee::new(
+                Address::NoId,
+                NlsState::AesCbcMac128([10, 20, 30, 40, 50]),
+                0xBE,
+            ),
+            &[0b00010010, 0xBE, 10, 20, 30, 40, 50],
             &[],
         );
 
         test_item(
             Addressee::new(Address::NbId(VarInt::new(100, false)), NlsState::None, 0),
-            &[
-                0, 0, 0x39
-            ],
+            &[0, 0, 0x39],
             &[],
         );
     }

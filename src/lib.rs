@@ -33,28 +33,10 @@ use mutually_exclusive_features::exactly_one_of;
 exactly_one_of!("spec_v1_2", "subiot_v0", "wizzilab_v5_3");
 
 
-/// ALP basic Actions used to build Commands
-// pub mod action;
 
+/// ALP
+pub mod alp;
 
-/// Filesystem related items
-pub mod filesystem;
-
-// /// Module managing the creation of protected items
-// pub mod new;
-/// Operands used to build the ALP Actions
-// pub mod operand;
-
-/// ALP variable int codec implementation
-pub mod varint;
-// pub use action::Action;
-// pub use codec::{Codec, WithOffset, WithSize};
-
-
-pub mod network;
-pub mod physical;
-pub mod datalink;
-pub mod session;
 
 
 
