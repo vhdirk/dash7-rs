@@ -6,6 +6,7 @@ use crate::varint::VarInt;
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
 #[deku(ctx = "nls_method: u8", id = "nls_method")]
+#[repr(u8)]
 pub enum NlsState {
     #[deku(id = "0x00")]
     None,
@@ -27,7 +28,8 @@ pub enum NlsState {
 
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
-#[deku(ctx = "address_type: u8", id = "address_type" )]
+#[deku(ctx = "address_type: u8", id = "address_type")]
+#[repr(u8)]
 pub enum Address {
     /// Broadcast to an estimated number of receivers, encoded in compressed format on a byte.
     #[deku(id = "0x00")]
@@ -37,10 +39,10 @@ pub enum Address {
     NoId,
     /// Unicast to target via its UID (Unique Dash7 ID)
     #[deku(id = "0x02")]
-    Uid(#[deku(endian="big")]u64),
+    Uid(#[deku(endian = "big")] u64),
     /// Unicast to target via its VID (Virtual ID)
     #[deku(id = "0x03")]
-    Vid(#[deku(endian="big")]u16),
+    Vid(#[deku(endian = "big")] u16),
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
@@ -93,4 +95,65 @@ mod tests {
         )
     }
 
+    #[test]
+    fn test() {
+        test_item(
+            Addressee::new(Address::NoId, NlsState::None, 0),
+            &[0b00010000, 0],
+            &[],
+        );
+
+        test_item(
+            Addressee::new(Address::NbId(VarInt::new(0, false)), NlsState::None, 0),
+            &[0, 0, 0],
+            &[],
+        );
+
+        test_item(
+            Addressee::new(Address::Uid(0), NlsState::None, 0),
+            &[0b00100000, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            &[],
+        );
+
+        test_item(
+            Addressee::new(
+                Address::NbId(VarInt::new(1, false)),
+                NlsState::AesCtr([0, 1, 2, 3, 4]),
+                0,
+            ),
+            &[0b00000001, 0, 1, 0, 1, 2, 3, 4],
+            &[],
+        );
+
+        test_item(
+            Addressee::new(Address::Vid(0x1234), NlsState::None, 5),
+            &[0b00110000, 5, 0b00010010, 0b00110100],
+            &[],
+        );
+
+        test_item(
+            Addressee::new(Address::Uid(0x1234567890123456), NlsState::None, 105),
+            &[
+                0b00100000, 105, 0b00010010, 0b00110100, 0b01010110, 0b01111000, 0b10010000,
+                0b00010010, 0b00110100, 0b01010110,
+            ],
+            &[],
+        );
+
+        test_item(
+            Addressee::new(Address::NoId, NlsState::AesCbcMac128([10, 20, 30, 40, 50]), 0xBE),
+            &[
+                0b00010010, 0xBE, 10, 20, 30, 40, 50,
+            ],
+            &[],
+        );
+
+        test_item(
+            Addressee::new(Address::NbId(VarInt::new(100, false)), NlsState::None, 0),
+            &[
+                0, 0, 0x39
+            ],
+            &[],
+        );
+    }
 }
