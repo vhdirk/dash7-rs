@@ -17,3 +17,5 @@ pub mod session;
 
 /// ALP basic Actions used to build Commands
 pub mod action;
+
+pub mod query;

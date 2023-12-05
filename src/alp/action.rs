@@ -6,7 +6,7 @@ use deku::{
 
 use crate::alp::filesystem::FileHeader;
 
-use super::operand::{FileOffset, Length};
+use super::operand::{self, FileOffset, Length, Permission, PermissionLevel};
 
 // ===============================================================================
 // Opcodes
@@ -149,8 +149,8 @@ pub enum Action {
     // ActionQuery(QueryAction),
     // #[deku(id = "9")]
     // BreakQuery(QueryAction),
-    // #[deku(id = "10")]
-    // PermissionRequest(PermissionRequest),
+    #[deku(id = "OpCode::PermissionRequest")]
+    PermissionRequest(PermissionRequest),
     // #[deku(id = "11")]
     // VerifyChecksum(QueryAction),
 
@@ -165,8 +165,8 @@ pub enum Action {
     RestoreFile(FileId),
     #[deku(id = "OpCode::FlushFile")]
     FlushFile(FileId),
-    // #[deku(id = "23")]
-    // CopyFile(CopyFile),
+    #[deku(id = "OpCode::CopyFile")]
+    CopyFile(CopyFile),
     #[deku(id = "OpCode::ExecuteFile")]
     ExecuteFile(FileId),
 
@@ -189,10 +189,10 @@ pub enum Action {
     // Forward(Forward),
     // #[deku(id = "51")]
     // IndirectForward(IndirectForward),
-    // #[deku(id = "52")]
-    // RequestTag(RequestTag),
-    // #[deku(id = "63")]
-    // Extension(Extension),
+    #[deku(id = "OpCode::RequestTag")]
+    RequestTag(RequestTag),
+    #[deku(id = "OpCode::Extension")]
+    Extension(Extension),
 }
 
 /// File access type event that will trigger an ALP action.
@@ -253,11 +253,7 @@ pub struct FileId {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FileData {
     pub header: ActionHeader,
-    pub offset: FileOffset,
-    pub length: Length,
-
-    #[deku(count = "Into::<u32>::into(*length)")]
-    pub data: Vec<u8>,
+    pub operand: operand::FileData,
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
@@ -354,66 +350,14 @@ pub struct ReadFileData {
 // }
 
 /// Request a level of permission using some permission type
-// #[deku_derive(DekuRead, DekuWrite)]
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct PermissionRequest {
-//     pub header: ActionHeader,
-//     /// See operand::permission_level
-//     pub level: u8,
-//     pub permission: Permission,
-// }
-// #[derive(Debug, Copy, Clone, Hash, PartialEq)]
-// pub enum PermissionRequestDecodingError {
-//     MissingBytes(usize),
-//     Permission(operand::PermissionDecodingError),
-// }
-// impl Codec for PermissionRequest {
-//     type Error = PermissionRequestDecodingError;
-//     fn encoded_size(&self) -> usize {
-//         1 + 1 + encoded_size!(self.permission)
-//     }
-//     unsafe fn encode_in(&self, out: &mut [u8]) -> usize {
-//         out[0] = control_byte!(self.group, self.resp, OpCode::PermissionRequest);
-//         out[1] = self.level;
-//         1 + serialize_all!(&mut out[2..], self.permission)
-//     }
-//     fn decode(out: &[u8]) -> Result<WithSize<Self>, WithOffset<Self::Error>> {
-//         if out.is_empty() {
-//             Err(WithOffset::new_head(Self::Error::MissingBytes(1)))
-//         } else {
-//             let mut offset = 1;
-//             let level = out[offset];
-//             offset += 1;
-//             let WithSize {
-//                 value: permission,
-//                 size,
-//             } = operand::Permission::decode(&out[offset..])
-//                 .map_err(|e| e.shift(offset).map_value(Self::Error::Permission))?;
-//             offset += size;
-//             Ok(WithSize {
-//                 value: Self {
-//                     group: out[0] & 0x80 != 0,
-//                     resp: out[0] & 0x40 != 0,
-//                     level,
-//                     permission,
-//                 },
-//                 size: offset,
-//             })
-//         }
-//     }
-// }
-// #[test]
-// fn test_permission_request() {
-//     test_item(
-//         PermissionRequest {
-//             group: false,
-//             resp: false,
-//             level: operand::permission_level::ROOT,
-//             permission: operand::Permission::Dash7(hex!("0102030405060708")),
-//         },
-//         &hex!("0A   01 42 0102030405060708"),
-//     )
-// }
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct PermissionRequest {
+    pub header: ActionHeader,
+    /// See operand::permission_level
+    pub level: PermissionLevel,
+    pub permission: Permission,
+}
 
 /// Calculate checksum of file and compare with checksum in query
 // ALP_SPEC: Is the checksum calculated on the targeted data (offset, size) or the whole file?
@@ -446,138 +390,6 @@ pub struct ReadFileData {
 //     )
 // }
 
-// Management
-/// Checks whether a file exists
-// ALP_SPEC: How is the result of this command different from a read file of size 0?
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct ExistFile {
-    /// Group with next action
-    pub header: ActionHeader,
-    pub file_id: u8,
-}
-// impl_simple_op!(ExistFile, group, resp, file_id);
-// #[test]
-// fn test_exist_file() {
-//     test_item(
-//         ExistFile {
-//             group: false,
-//             resp: false,
-//             file_id: 9,
-//         },
-//         &hex!("10 09"),
-//     )
-// }
-
-/// Create a new file
-// ALP_SPEC: How do you create a remote file? Is this Wizzilab specific.
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct CreateNewFile {
-    /// Group with next action
-    pub header: ActionHeader,
-    pub file_id: u8,
-    pub file_header: FileHeader,
-}
-// impl_header_op!(CreateNewFile, group, resp, file_id, header);
-// #[test]
-// fn test_create_new_file() {
-//     test_item(
-//         CreateNewFile {
-//             group: true,
-//             resp: false,
-//             file_id: 3,
-//             header: data::FileHeader {
-//                 permissions: data::Permissions {
-//                     encrypted: true,
-//                     executable: false,
-//                     user: data::UserPermissions {
-//                         read: true,
-//                         write: true,
-//                         run: true,
-//                     },
-//                     guest: data::UserPermissions {
-//                         read: false,
-//                         write: false,
-//                         run: false,
-//                     },
-//                 },
-//                 properties: data::FileProperties {
-//                     act_en: false,
-//                     act_cond: data::ActionCondition::Read,
-//                     storage_class: data::StorageClass::Permanent,
-//                 },
-//                 alp_cmd_fid: 1,
-//                 interface_file_id: 2,
-//                 file_size: 0xDEAD_BEEF,
-//                 allocated_size: 0xBAAD_FACE,
-//             },
-//         },
-//         &hex!("91   03   B8 13 01 02 DEADBEEF BAADFACE"),
-//     )
-// }
-
-/// Deletes a file.
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct DeleteFile {
-    pub header: ActionHeader,
-    pub file_id: u8,
-}
-// impl_simple_op!(DeleteFile, group, resp, file_id);
-// #[test]
-// fn test_delete_file() {
-//     test_item(
-//         DeleteFile {
-//             group: false,
-//             resp: true,
-//             file_id: 9,
-//         },
-//         &hex!("52 09"),
-//     )
-// }
-
-/// Restores a restorable file
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct RestoreFile {
-    pub header: ActionHeader,
-    pub file_id: u8,
-}
-// impl_simple_op!(RestoreFile, group, resp, file_id);
-// #[test]
-// fn test_restore_file() {
-//     test_item(
-//         RestoreFile {
-//             group: true,
-//             resp: true,
-//             file_id: 9,
-//         },
-//         &hex!("D3 09"),
-//     )
-// }
-
-/// Flush a file
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct FlushFile {
-    pub header: ActionHeader,
-
-    pub file_id: u8,
-}
-// impl_simple_op!(FlushFile, group, resp, file_id);
-// #[test]
-// fn test_flush_file() {
-//     test_item(
-//         FlushFile {
-//             group: false,
-//             resp: false,
-//             file_id: 9,
-//         },
-//         &hex!("14 09"),
-//     )
-// }
-
 /// Copy a file to another file
 // ALP_SPEC: What does that mean? Is it a complete file copy including the file properties or just
 // the data? If not then if the destination file is bigger than the source, does the copy only
@@ -591,181 +403,6 @@ pub struct CopyFile {
     pub src_file_id: u8,
     pub dst_file_id: u8,
 }
-// impl_simple_op!(CopyFile, group, resp, src_file_id, dst_file_id);
-// #[test]
-// fn test_copy_file() {
-//     test_item(
-//         CopyFile {
-//             group: false,
-//             resp: false,
-//             src_file_id: 0x42,
-//             dst_file_id: 0x24,
-//         },
-//         &hex!("17 42 24"),
-//     )
-// }
-
-/// Execute a file if executable
-// ALP_SPEC: Is that an "ALP executable" or a binary executable?
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct ExecuteFile {
-    pub header: ActionHeader,
-    pub file_id: u8,
-}
-// impl_simple_op!(ExecuteFile, group, resp, file_id);
-// #[test]
-// fn test_execute_file() {
-//     test_item(
-//         ExecuteFile {
-//             group: false,
-//             resp: false,
-//             file_id: 9,
-//         },
-//         &hex!("1F 09"),
-//     )
-// }
-
-// Response
-/// Responds to a ReadFileData request.
-///
-/// This can also be used to report unsollicited data.
-// #[deku_derive(DekuRead, DekuWrite)]
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct ReturnFileData {
-//     /// Group with next action
-//     pub header: ActionHeader,
-//     pub file_id: u8,
-
-//     pub offset: u32,
-//     pub data: Vec<u8>,
-// }
-// impl ReturnFileData {
-//     pub fn validate(&self) -> Result<(), OperandValidationError> {
-//         if self.offset > varint::MAX {
-//             return Err(OperandValidationError::OffsetTooBig);
-//         }
-//         let size = self.data.len() as u32;
-//         if size > varint::MAX {
-//             return Err(OperandValidationError::SizeTooBig);
-//         }
-//         Ok(())
-//     }
-// }
-// impl Codec for ReturnFileData {
-//     type Error = StdError;
-//     fn encoded_size(&self) -> usize {
-//         1 + 1
-//             + unsafe_varint_serialize_sizes!(self.offset, self.data.len() as u32) as usize
-//             + self.data.len()
-//     }
-//     unsafe fn encode_in(&self, out: &mut [u8]) -> usize {
-//         out[0] = control_byte!(self.group, self.resp, OpCode::ReturnFileData);
-//         out[1] = self.file_id;
-//         let mut offset = 2;
-//         offset += unsafe_varint_serialize!(out[2..], self.offset, self.data.len() as u32) as usize;
-//         out[offset..offset + self.data.len()].clone_from_slice(&self.data[..]);
-//         offset += self.data.len();
-//         offset
-//     }
-//     fn decode(out: &[u8]) -> Result<WithSize<Self>, WithOffset<Self::Error>> {
-//         let min_size = 1 + 1 + 1 + 1;
-//         if out.len() < min_size {
-//             return Err(WithOffset::new(
-//                 0,
-//                 Self::Error::MissingBytes(min_size - out.len()),
-//             ));
-//         }
-//         let group = out[0] & 0x80 != 0;
-//         let resp = out[0] & 0x40 != 0;
-//         let file_id = out[1];
-//         let mut off = 2;
-//         let WithSize {
-//             value: offset,
-//             size: offset_size,
-//         } = varint::decode(&out[off..])?;
-//         off += offset_size;
-//         let WithSize {
-//             value: size,
-//             size: size_size,
-//         } = varint::decode(&out[off..])?;
-//         off += size_size;
-//         let size = size as usize;
-//         let mut data = vec![0u8; size].into_boxed_slice();
-//         data.clone_from_slice(&out[off..off + size]);
-//         off += size;
-//         Ok(WithSize {
-//             value: Self {
-//                 group,
-//                 resp,
-//                 file_id,
-//                 offset,
-//                 data,
-//             },
-//             size: off,
-//         })
-//     }
-// }
-// #[test]
-// fn test_return_file_data() {
-//     test_item(
-//         ReturnFileData {
-//             group: false,
-//             resp: false,
-//             file_id: 9,
-//             offset: 5,
-//             data: Box::new(hex!("01 02 03")),
-//         },
-//         &hex!("20   09 05 03  010203"),
-//     )
-// }
-
-/// Result of a ReadFileProperties request
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct ReturnFileProperties {
-    /// Group with next action
-    pub header: ActionHeader,
-    pub file_id: u8,
-    pub file_header: FileHeader,
-}
-// impl_header_op!(ReturnFileProperties, group, resp, file_id, header);
-// #[test]
-// fn test_return_file_properties() {
-//     test_item(
-//         ReturnFileProperties {
-//             group: false,
-//             resp: false,
-//             file_id: 9,
-//             header: data::FileHeader {
-//                 permissions: data::Permissions {
-//                     encrypted: true,
-//                     executable: false,
-//                     user: data::UserPermissions {
-//                         read: true,
-//                         write: true,
-//                         run: true,
-//                     },
-//                     guest: data::UserPermissions {
-//                         read: false,
-//                         write: false,
-//                         run: false,
-//                     },
-//                 },
-//                 properties: data::FileProperties {
-//                     act_en: false,
-//                     act_cond: data::ActionCondition::Read,
-//                     storage_class: data::StorageClass::Permanent,
-//                 },
-//                 alp_cmd_fid: 1,
-//                 interface_file_id: 2,
-//                 file_size: 0xDEAD_BEEF,
-//                 allocated_size: 0xBAAD_FACE,
-//             },
-//         },
-//         &hex!("21   09   B8 13 01 02 DEADBEEF BAADFACE"),
-//     )
-// }
 
 // #[derive(Clone, Copy, Debug, PartialEq)]
 // pub enum StatusType {
@@ -1047,41 +684,10 @@ pub struct RequestTag {
     /// Ask for end of packet
     ///
     /// Signal the last response packet for the request `id`
-    #[deku(bits = 1)]
+    #[deku(bits = 1, pad_bits_after = "7")]
     pub eop: bool,
     pub id: u8,
 }
-// impl Codec for RequestTag {
-//     type Error = StdError;
-//     fn encoded_size(&self) -> usize {
-//         1 + 1
-//     }
-//     unsafe fn encode_in(&self, out: &mut [u8]) -> usize {
-//         out[0] = control_byte!(self.eop, false, OpCode::RequestTag);
-//         out[1] = self.id;
-//         1 + 1
-//     }
-//     fn decode(out: &[u8]) -> Result<WithSize<Self>, WithOffset<Self::Error>> {
-//         let min_size = 1 + 1;
-//         if out.len() < min_size {
-//             return Err(WithOffset::new(
-//                 0,
-//                 Self::Error::MissingBytes(min_size - out.len()),
-//             ));
-//         }
-//         Ok(WithSize {
-//             value: Self {
-//                 eop: out[0] & 0x80 != 0,
-//                 id: out[1],
-//             },
-//             size: 2,
-//         })
-//     }
-// }
-// #[test]
-// fn test_request_tag() {
-//     test_item(RequestTag { eop: true, id: 8 }, &hex!("B4 08"))
-// }
 
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
@@ -1095,7 +701,10 @@ mod test {
 
     use super::*;
     use crate::{
-        alp::filesystem::{self, FilePermissions, UserPermissions},
+        alp::{
+            filesystem::{self, FilePermissions, UserPermissions},
+            operand::PermissionLevel,
+        },
         test_tools::test_item,
     };
 
@@ -1171,15 +780,57 @@ mod test {
                     group: true,
                     response: false,
                 },
-                offset: FileOffset {
-                    file_id: 9,
-                    offset: 5u32.into(),
-                },
-                length: data.len().into(),
-                data,
+                operand: operand::FileData::new(
+                    FileOffset {
+                        file_id: 9,
+                        offset: 5u32.into(),
+                    },
+                    data,
+                ),
             })
             .into(),
             &hex!("84 09 05 03 010203"),
+            (&[], 0),
+        )
+    }
+
+    #[test]
+    fn test_return_file_properties() {
+        test_item::<Operation>(
+            Action::ReturnFileProperties(FileProperties {
+                header: ActionHeader {
+                    group: false,
+                    response: false,
+                },
+                file_id: 9,
+                file_header: FileHeader {
+                    permissions: FilePermissions {
+                        encrypted: true,
+                        executable: false,
+                        user: UserPermissions {
+                            read: true,
+                            write: true,
+                            executable: true,
+                        },
+                        guest: UserPermissions {
+                            read: false,
+                            write: false,
+                            executable: false,
+                        },
+                    },
+                    properties: filesystem::FileProperties {
+                        enabled: false,
+                        condition: filesystem::ActionCondition::Read,
+                        storage_class: filesystem::StorageClass::Permanent,
+                    },
+                    alp_command_file_id: 1,
+                    interface_file_id: 2,
+                    file_size: 0xDEAD_BEEF,
+                    allocated_size: 0xBAAD_FACE,
+                },
+            })
+            .into(),
+            &hex!("21 09  B8 13 01 02 DEADBEEF BAADFACE"),
             (&[], 0),
         )
     }
@@ -1226,23 +877,213 @@ mod test {
     }
 
     #[test]
+    fn test_permission_request() {
+        test_item::<Operation>(
+            Action::PermissionRequest(PermissionRequest {
+                header: ActionHeader {
+                    group: false,
+                    response: false,
+                },
+                level: PermissionLevel::Root,
+                permission: Permission::Dash7(hex!("0102030405060708")),
+            })
+            .into(),
+            &hex!("0A 01 42 0102030405060708"),
+            (&[], 0),
+        )
+    }
+
+    #[test]
+    fn test_exist_file() {
+        test_item::<Operation>(
+            Action::ExistFile(FileId {
+                header: ActionHeader {
+                    group: false,
+                    response: false,
+                },
+                file_id: 9,
+            })
+            .into(),
+            &hex!("10 09"),
+            (&[], 0),
+        )
+    }
+
+    #[test]
+    fn test_create_new_file() {
+        test_item::<Operation>(
+            Action::CreateNewFile(FileProperties {
+                header: ActionHeader {
+                    group: true,
+                    response: false,
+                },
+                file_id: 3,
+                file_header: FileHeader {
+                    permissions: FilePermissions {
+                        encrypted: true,
+                        executable: false,
+                        user: UserPermissions {
+                            read: true,
+                            write: true,
+                            executable: true,
+                        },
+                        guest: UserPermissions {
+                            read: false,
+                            write: false,
+                            executable: false,
+                        },
+                    },
+                    properties: filesystem::FileProperties {
+                        enabled: false,
+                        condition: filesystem::ActionCondition::Read,
+                        storage_class: filesystem::StorageClass::Permanent,
+                    },
+                    alp_command_file_id: 1,
+                    interface_file_id: 2,
+                    file_size: 0xDEAD_BEEF,
+                    allocated_size: 0xBAAD_FACE,
+                },
+            })
+            .into(),
+            &hex!("91   03   B8 13 01 02 DEADBEEF BAADFACE"),
+            (&[], 0),
+        )
+    }
+
+    #[test]
+    fn test_delete_file() {
+        test_item::<Operation>(
+            Action::DeleteFile(FileId {
+                header: ActionHeader {
+                    group: false,
+                    response: true,
+                },
+                file_id: 9,
+            })
+            .into(),
+            &hex!("52 09"),
+            (&[], 0),
+        )
+    }
+
+    #[test]
+    fn test_restore_file() {
+        test_item::<Operation>(
+            Action::RestoreFile(FileId {
+                header: ActionHeader {
+                    group: true,
+                    response: true,
+                },
+                file_id: 9,
+            })
+            .into(),
+            &hex!("D3 09"),
+            (&[], 0),
+        )
+    }
+
+    #[test]
+    fn test_flush_file() {
+        test_item::<Operation>(
+            Action::FlushFile(FileId {
+                header: ActionHeader {
+                    group: false,
+                    response: false,
+                },
+                file_id: 9,
+            })
+            .into(),
+            &hex!("14 09"),
+            (&[], 0),
+        )
+    }
+
+    #[test]
+    fn test_copy_file() {
+        test_item::<Operation>(
+            Action::CopyFile(CopyFile {
+                header: ActionHeader {
+                    group: false,
+                    response: false,
+                },
+                src_file_id: 0x42,
+                dst_file_id: 0x24,
+            })
+            .into(),
+            &hex!("17 42 24"),
+            (&[], 0),
+        )
+    }
+
+    #[test]
+    fn test_execute_file() {
+        test_item::<Operation>(
+            Action::ExecuteFile(FileId {
+                header: ActionHeader {
+                    group: false,
+                    response: false,
+                },
+                file_id: 9,
+            })
+            .into(),
+            &hex!("1F 09"),
+            (&[], 0),
+        )
+    }
+
+    #[test]
+    fn test_return_file_data() {
+        let data = hex!("01 02 03").to_vec();
+
+        test_item::<Operation>(
+            Action::ReturnFileData(FileData {
+                header: ActionHeader {
+                    group: false,
+                    response: false,
+                },
+                operand: operand::FileData::new(
+                    FileOffset {
+                        file_id: 9,
+                        offset: 5u32.into(),
+                    },
+                    data,
+                ),
+            })
+            .into(),
+            &hex!("20 09 05 03 010203"),
+            (&[], 0),
+        )
+    }
+
+    #[test]
+    fn test_request_tag() {
+        test_item::<Operation>(
+            Action::RequestTag(RequestTag { eop: true, id: 8 }).into(),
+            &hex!("B4 08"),
+            (&[], 0),
+        )
+    }
+
+    #[test]
     fn test_logic() {
-        test_item(
-            Logic {
+        test_item::<Operation>(
+            Action::Logic(Logic {
                 logic: LogicOp::Nand,
-            },
-            &[0b1100_0000],
+            })
+            .into(),
+            &[0b1111_0001],
             (&[], 0),
         )
     }
 
     #[test]
     fn test_chunk() {
-        test_item(
-            Chunk {
+        test_item::<Operation>(
+            Action::Chunk(Chunk {
                 step: ChunkStep::End,
-            },
-            &[0b1000_0000],
+            })
+            .into(),
+            &[0b1011_0000],
             (&[], 0),
         )
     }
@@ -1257,6 +1098,21 @@ mod test {
             })
             .into(),
             &hex!("A3 08"),
+            (&[], 0),
+        )
+    }
+
+    #[test]
+    fn test_extension() {
+        test_item::<Operation>(
+            Action::Extension(Extension {
+                header: ActionHeader {
+                    group: true,
+                    response: true,
+                },
+            })
+            .into(),
+            &[0xFF],
             (&[], 0),
         )
     }
