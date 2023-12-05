@@ -1,17 +1,19 @@
 use deku::prelude::*;
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default,Debug, Clone, PartialEq)]
 #[deku(bits = 2, endian = "big", type = "u8")]
 pub enum Bandwidth {
+    #[default]
     KHz200 = 0x00,
     KHz25 = 0x01,
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 #[deku(bits = 3, endian = "big", type = "u8")]
 pub enum ChannelBand {
+    #[default]
     NotImpl = 0x00,
     Band433 = 0x02,
     Band868 = 0x03,
@@ -19,9 +21,10 @@ pub enum ChannelBand {
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 #[deku(bits = 2, endian = "big", type = "u8")]
 pub enum ChannelClass {
+    #[default]
     LoRate = 0,
     Lora = 1, // TODO not part of spec
     NormalRate = 2,
@@ -29,9 +32,10 @@ pub enum ChannelClass {
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 #[deku(bits = 2, endian = "big", type = "u8")]
 pub enum ChannelCoding {
+    #[default]
     Pn9 = 0,
     Rfu = 1,
     FecPn9 = 2,
@@ -39,7 +43,7 @@ pub enum ChannelCoding {
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct ChannelHeader {
     #[deku(pad_bits_before = "1")]
     pub channel_band: ChannelBand,
@@ -48,7 +52,7 @@ pub struct ChannelHeader {
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct ChannelId {
     pub header: ChannelHeader,
     #[deku(bits = 16)]
@@ -56,7 +60,7 @@ pub struct ChannelId {
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct ChannelStatusIdentifier {
     // TODO update to D7AP v1.1
     pub channel_band: ChannelBand,
@@ -67,7 +71,7 @@ pub struct ChannelStatusIdentifier {
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 #[deku(endian = "big")]
 pub struct SubBand {
     #[deku(bits = 16)]

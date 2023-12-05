@@ -12,6 +12,7 @@ categories = ["encoding", "parser-implementations"]
 
 [dependencies]
 deku = { version = "0.16.0", default-features = false }
+bitvec = "1.0.1"
 mutually_exclusive_features = "0.0.3"
 
 [dev-dependencies]

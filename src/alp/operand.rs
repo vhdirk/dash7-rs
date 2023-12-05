@@ -1,75 +1,142 @@
-use deku::prelude::*;
-// use crate::{
-//     codec::{Codec, StdError, WithOffset, WithSize},
-//     dash7, varint,
-// };
-
-// // TODO
-// // Protect varint values
+use deku::{
+    bitvec::{BitSlice, BitVec, Msb0},
+    ctx::{BitSize, Endian},
+    prelude::*,
+};
 
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
-#[deku(bits=3, type="u8")]
+#[deku(bits = 3, type = "u8")]
 pub enum ArithmeticComparisonType {
-    #[deku(id="0")]Inequal,
-    #[deku(id="1")]Equal,
-    #[deku(id="2")]LessThan,
-    #[deku(id="3")]LessThanOrEqual,
-    #[deku(id="4")]GreaterThan,
-    #[deku(id="5")]GreaterThanOrEqual,
+    #[deku(id = "0")]
+    Inequal,
+    #[deku(id = "1")]
+    Equal,
+    #[deku(id = "2")]
+    LessThan,
+    #[deku(id = "3")]
+    LessThanOrEqual,
+    #[deku(id = "4")]
+    GreaterThan,
+    #[deku(id = "5")]
+    GreaterThanOrEqual,
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ArithmeticQueryParams {
-    #[deku(bits=1)]
+    #[deku(bits = 1)]
     pub signed: bool,
     pub comparison_type: ArithmeticComparisonType,
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct LengthOperand {
-    #[deku(bits=2)]
-    pub size: u8,
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub struct Length(
+    #[deku(
+        reader = "Length::read(deku::rest)",
+        writer = "Length::write(deku::output, &self.0)"
+    )]
+    u32,
+);
 
-
-    pub value: u8,// TODO: depends on 'size'
+impl Into<u32> for Length {
+    fn into(self) -> u32 {
+        self.0 as u32
+    }
 }
 
+impl From<u32> for Length {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl Into<usize> for Length {
+    fn into(self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl From<usize> for Length {
+    fn from(value: usize) -> Self {
+        Self(value as u32)
+    }
+}
+
+impl Length {
+    fn required_bits(value: u32) -> u32 {
+        // This may be slow. There are faster ways, but we're not optimising for speed anyway
+        value.checked_ilog2().unwrap_or(0) + 1
+    }
+
+    fn read(rest: &BitSlice<u8, Msb0>) -> Result<(&BitSlice<u8, Msb0>, u32), DekuError> {
+        let (rest, size) = <u8 as DekuRead<'_, _>>::read(rest, (Endian::Big, BitSize(2)))?;
+        let (rest, value) = <u32 as DekuRead<'_, _>>::read(
+            rest,
+            (Endian::Big, BitSize((6 + (size * u8::BITS as u8)) as usize)),
+        )?;
+        Ok((rest, value))
+    }
+
+    fn write(output: &mut BitVec<u8, Msb0>, value: &u32) -> Result<(), DekuError> {
+        let num_extra_bits = Length::required_bits(*value).checked_sub(6).unwrap_or(0);
+
+        let mut num_extra_bytes = num_extra_bits.checked_div(u8::BITS).unwrap_or(0);
+        if (num_extra_bits % u8::BITS) > 0 {
+            num_extra_bytes += 1;
+        }
+
+        DekuWrite::write(&num_extra_bytes, output, (Endian::Big, BitSize(2)))?;
+        DekuWrite::write(
+            value,
+            output,
+            (
+                Endian::Big,
+                BitSize((6 + num_extra_bytes * u8::BITS) as usize),
+            ),
+        )?;
+
+        Ok(())
+    }
+}
 
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
-pub struct FileDataOperand {
-    pub offset: FileOffsetOperand,
-    pub length: LengthOperand,
-    // pub  data: byte[],
-}
+pub struct FileData {
+    pub offset: FileOffset,
 
-// /// Meta data required to send a packet depending on the sending interface type
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-#[deku(bits=8, type="u8")]
-pub enum InterfaceConfiguration {
-    #[deku(id="0")] Host,
-    #[deku(id="0xD7")] D7asp(dash7::InterfaceConfiguration),
-}
+    #[deku(temp, update = "self.data.len()")]
+    length: Length,
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct InterfaceStatusUnknown {
-    pub id: u8,
+    #[deku(count = "length", endian = "big")]
     pub data: Vec<u8>,
 }
+
+// // /// Meta data required to send a packet depending on the sending interface type
+// #[deku_derive(DekuRead, DekuWrite)]
+// #[derive(Debug, Clone, PartialEq)]
+// #[deku(bits=8, type="u8")]
+// pub enum InterfaceConfiguration {
+//     #[deku(id="0")] Host,
+//     #[deku(id="0xD7")] D7asp(dash7::InterfaceConfiguration),
+// }
+
+// #[deku_derive(DekuRead, DekuWrite)]
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct InterfaceStatusUnknown {
+//     pub id: u8,
+//     pub data: Vec<u8>,
+// }
 /// Meta data from a received packet depending on the receiving interface type
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-#[deku(bits=8, type="u8")]
-pub enum InterfaceStatus {
-    #[deku(id="0")] Host,
-    #[deku(id="0xD7")] D7asp(dash7::InterfaceStatus),
-    Unknown(InterfaceStatusUnknown),
-}
+// #[deku_derive(DekuRead, DekuWrite)]
+// #[derive(Debug, Clone, PartialEq)]
+// #[deku(bits=8, type="u8")]
+// pub enum InterfaceStatus {
+//     #[deku(id="0")] Host,
+//     #[deku(id="0xD7")] D7asp(dash7::InterfaceStatus),
+//     Unknown(InterfaceStatusUnknown),
+// }
 // #[derive(Debug, Copy, Clone, Hash, PartialEq)]
 // pub enum InterfaceStatusDecodingError {
 //     MissingBytes(usize),
@@ -214,59 +281,13 @@ pub enum InterfaceStatus {
 // Operands
 // ===============================================================================
 /// Describe the location of some data on the filesystem (file + data offset).
+
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct FileOffset {
-    pub id: u8,
-    pub offset: u32,
+    pub file_id: u8,
+    pub offset: Length,
 }
-
-// #[derive(Debug, Copy, Clone, Hash, PartialEq)]
-// pub enum FileOffsetDecodingError {
-//     MissingBytes(usize),
-//     Offset(StdError),
-// }
-// impl Codec for FileOffset {
-//     type Error = FileOffsetDecodingError;
-//     fn encoded_size(&self) -> usize {
-//         1 + unsafe { varint::size(self.offset) } as usize
-//     }
-//     unsafe fn encode_in(&self, out: &mut [u8]) -> usize {
-//         out[0] = self.id;
-//         1 + varint::encode_in(self.offset, &mut out[1..]) as usize
-//     }
-//     fn decode(out: &[u8]) -> Result<WithSize<Self>, WithOffset<Self::Error>> {
-//         if out.len() < 2 {
-//             return Err(WithOffset::new_head(Self::Error::MissingBytes(
-//                 2 - out.len(),
-//             )));
-//         }
-//         let WithSize {
-//             value: offset,
-//             size,
-//         } = varint::decode(&out[1..]).map_err(|e| {
-//             let WithOffset { offset, value } = e;
-//             WithOffset {
-//                 offset: offset + 1,
-//                 value: FileOffsetDecodingError::Offset(value),
-//             }
-//         })?;
-//         Ok(WithSize {
-//             value: Self { id: out[0], offset },
-//             size: 1 + size,
-//         })
-//     }
-// }
-// #[test]
-// fn test_file_offset_operand() {
-//     test_item(
-//         FileOffset {
-//             id: 2,
-//             offset: 0x3F_FF,
-//         },
-//         &hex!("02 7F FF"),
-//     )
-// }
 
 pub mod status_code {
     //! Status code that can be received as a result of some ALP actions.
@@ -398,74 +419,25 @@ pub struct Status {
 //     // ALP SPEC: Does something else exist?
 // }
 
-// #[derive(Clone, Copy, Debug, PartialEq)]
-// pub enum QueryComparisonType {
-//     Inequal = 0,
-//     Equal = 1,
-//     LessThan = 2,
-//     LessThanOrEqual = 3,
-//     GreaterThan = 4,
-//     GreaterThanOrEqual = 5,
-// }
-// impl QueryComparisonType {
-//     fn from(n: u8) -> Result<Self, u8> {
-//         Ok(match n {
-//             0 => QueryComparisonType::Inequal,
-//             1 => QueryComparisonType::Equal,
-//             2 => QueryComparisonType::LessThan,
-//             3 => QueryComparisonType::LessThanOrEqual,
-//             4 => QueryComparisonType::GreaterThan,
-//             5 => QueryComparisonType::GreaterThanOrEqual,
-//             x => return Err(x),
-//         })
-//     }
-// }
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
+#[deku(bits = 3, type = "u8")]
+pub enum RangeComparisonType {
+    NotInRange = 0,
+    InRange = 1,
+}
 
-// #[derive(Clone, Copy, Debug, PartialEq)]
-// pub enum QueryRangeComparisonType {
-//     NotInRange = 0,
-//     InRange = 1,
-// }
-// impl QueryRangeComparisonType {
-//     fn from(n: u8) -> Result<Self, u8> {
-//         Ok(match n {
-//             0 => QueryRangeComparisonType::NotInRange,
-//             1 => QueryRangeComparisonType::InRange,
-//             x => return Err(x),
-//         })
-//     }
-// }
-// #[derive(Clone, Copy, Debug, PartialEq)]
-// pub enum QueryCode {
-//     NonVoid = 0,
-//     ComparisonWithZero = 1,
-//     ComparisonWithValue = 2,
-//     ComparisonWithOtherFile = 3,
-//     BitmapRangeComparison = 4,
-//     StringTokenSearch = 7,
-// }
-// impl QueryCode {
-//     fn from(n: u8) -> Result<Self, u8> {
-//         Ok(match n {
-//             0 => QueryCode::NonVoid,
-//             1 => QueryCode::ComparisonWithZero,
-//             2 => QueryCode::ComparisonWithValue,
-//             3 => QueryCode::ComparisonWithOtherFile,
-//             4 => QueryCode::BitmapRangeComparison,
-//             7 => QueryCode::StringTokenSearch,
-//             x => return Err(x),
-//         })
-//     }
-// }
-
-// #[derive(Debug, Copy, Clone, Hash, PartialEq)]
-// pub enum QueryOperandDecodingError {
-//     MissingBytes(usize),
-//     Size(StdError),
-//     FileOffset1(FileOffsetDecodingError),
-//     FileOffset2(FileOffsetDecodingError),
-//     UnknownComparisonType(u8),
-// }
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
+#[deku(bits = 3, type = "u8")]
+pub enum QueryCode {
+    NonVoid = 0,
+    ComparisonWithZero = 1,
+    ComparisonWithValue = 2,
+    ComparisonWithOtherFile = 3,
+    BitmapRangeComparison = 4,
+    StringTokenSearch = 7,
+}
 
 // // ALP_SPEC Does this fail if the content overflows the file?
 // /// Checks if the file content exists.
@@ -530,16 +502,6 @@ pub struct Status {
 //         },
 //         &hex!("00 04  05 06"),
 //     )
-// }
-
-// #[derive(Debug, Copy, Clone, Hash, PartialEq)]
-// pub enum QueryValidationError {
-//     /// Query data size can't fit in a varint
-//     SizeTooBig,
-//     /// Given mask size does not match described value size
-//     BadMaskSize,
-//     /// BitmapRangeComparison: "start offset" should always be smaller than "stop offset"
-//     StartGreaterThanStop,
 // }
 
 // /// Compare file content, optionally masked, with 0.
@@ -1186,8 +1148,10 @@ pub struct Status {
 //     )
 // }
 
-// /// The query operand provides a way to do optional actions. It represents a condition.
-// #[derive(Clone, Debug, PartialEq)]
+/// The query operand provides a way to do optional actions. It represents a condition.
+// #[deku_derive(DekuRead, DekuWrite)]
+// #[derive(Debug, Clone, PartialEq)]
+// #[deku(bits = 3, type = "u8")]
 // pub enum Query {
 //     NonVoid(NonVoid),
 //     ComparisonWithZero(ComparisonWithZero),
@@ -1196,17 +1160,7 @@ pub struct Status {
 //     BitmapRangeComparison(BitmapRangeComparison),
 //     StringTokenSearch(StringTokenSearch),
 // }
-// #[derive(Debug, Copy, Clone, Hash, PartialEq)]
-// pub enum QueryDecodingError {
-//     MissingBytes(usize),
-//     UnknownQueryCode(u8),
-//     NonVoid(QueryOperandDecodingError),
-//     ComparisonWithZero(QueryOperandDecodingError),
-//     ComparisonWithValue(QueryOperandDecodingError),
-//     ComparisonWithOtherFile(QueryOperandDecodingError),
-//     BitmapRangeComparison(QueryOperandDecodingError),
-//     StringTokenSearch(QueryOperandDecodingError),
-// }
+
 // impl Codec for Query {
 //     type Error = QueryDecodingError;
 //     fn encoded_size(&self) -> usize {
@@ -1256,15 +1210,16 @@ pub struct Status {
 // }
 
 /// Dash7 interface
-#[derive(Clone, Debug, PartialEq)]
-pub struct OverloadedIndirectInterface {
-    /// File containing the `QoS`, `to` and `te` to use for the transmission (see
-    /// dash7::InterfaceConfiguration
-    pub interface_file_id: u8,
-    pub nls_method: NlsMethod,
-    pub access_class: u8,
-    pub address: Address,
-}
+// #[deku_derive(DekuRead, DekuWrite)]
+// #[derive(Clone, Debug, PartialEq)]
+// pub struct OverloadedIndirectInterface {
+//     /// File containing the `QoS`, `to` and `te` to use for the transmission (see
+//     /// dash7::InterfaceConfiguration
+//     pub interface_file_id: u8,
+//     pub nls_method: NlsMethod,
+//     pub access_class: u8,
+//     pub address: Address,
+// }
 
 // impl Codec for OverloadedIndirectInterface {
 //     type Error = StdError;
@@ -1383,3 +1338,30 @@ pub struct OverloadedIndirectInterface {
 //         })
 //     }
 // }
+
+#[cfg(test)]
+mod test {
+    use hex_literal::hex;
+
+    use super::*;
+    use crate::test_tools::test_item;
+
+    #[test]
+    fn test_length() {
+        test_item(Length(1), &[0x01], (&[], 0));
+        test_item(Length(65), &[0x40, 0x41], (&[], 0));
+        test_item(Length(4263936), &[0xC0, 0x41, 0x10, 0x00], (&[], 0));
+    }
+
+    #[test]
+    fn test_file_offset() {
+        test_item(
+            FileOffset {
+                file_id: 2,
+                offset: 0x3F_FFu32.into(),
+            },
+            &hex!("02 7F FF"),
+            (&[], 0),
+        )
+    }
+}

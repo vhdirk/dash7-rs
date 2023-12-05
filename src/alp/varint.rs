@@ -4,18 +4,16 @@ use deku::{
     prelude::*,
 };
 
-use core::ops::Deref;
-
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct VarInt {
     #[deku(
         reader = "VarInt::read(deku::rest)",
-        writer = "VarInt::write(deku::output, (&self.value, &self.ceil))"
+        writer = "VarInt::write(deku::output, &self.value, &self.ceil)"
     )]
     value: u32,
 
-    #[deku(skip, default="false")]
+    #[deku(skip, default = "false")]
     ceil: bool,
 }
 
@@ -62,17 +60,13 @@ impl VarInt {
         n <= Self::MAX
     }
 
-    fn read(
-        rest: &BitSlice<u8, Msb0>,
-    ) -> Result<(&BitSlice<u8, Msb0>, u32), DekuError> {
-
+    fn read(rest: &BitSlice<u8, Msb0>) -> Result<(&BitSlice<u8, Msb0>, u32), DekuError> {
         let (rest, exponent) = <u8 as DekuRead<'_, _>>::read(rest, (Endian::Big, BitSize(3)))?;
         let (rest, mantissa) = <u8 as DekuRead<'_, _>>::read(rest, (Endian::Big, BitSize(5)))?;
         Ok((rest, Self::decompress(exponent, mantissa)))
     }
 
-    /// Parse from String to u8 and write
-    fn write(output: &mut BitVec<u8, Msb0>, (value, ceil): (&u32, &bool)) -> Result<(), DekuError> {
+    fn write(output: &mut BitVec<u8, Msb0>, value: &u32, ceil: &bool) -> Result<(), DekuError> {
         match Self::compress(*value, *ceil) {
             Ok((exponent, mantissa)) => {
                 DekuWrite::write(&exponent, output, (Endian::Big, BitSize(3)))?;
@@ -84,14 +78,17 @@ impl VarInt {
             )),
         }
     }
-
 }
 
-impl Deref for VarInt {
-    type Target = u32;
+impl Into<u32> for VarInt {
+    fn into(self) -> u32 {
+        self.value as u32
+    }
+}
 
-    fn deref(&self) -> &Self::Target {
-        &self.value
+impl From<u32> for VarInt {
+    fn from(value: u32) -> Self {
+        Self { value, ceil: false }
     }
 }
 
@@ -117,11 +114,9 @@ mod test {
 
     #[test]
     fn test() {
-        test_item(VarInt::default(), &[0x00], &[]);
-        test_item(VarInt::new(1, false), &[0x01u8], &[]);
-        test_item(VarInt::new(32, false), &[0b00101000u8], &[]);
-        test_item(VarInt::new(507904, false), &[0xFFu8], &[]);
+        test_item(VarInt::default(), &[0x00], (&[], 0));
+        test_item(VarInt::new(1, false), &[0x01u8], (&[], 0));
+        test_item(VarInt::new(32, false), &[0b00101000u8], (&[], 0));
+        test_item(VarInt::new(507904, false), &[0xFFu8], (&[], 0));
     }
-
-
 }

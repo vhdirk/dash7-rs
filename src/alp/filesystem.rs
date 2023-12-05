@@ -1,9 +1,10 @@
 use deku::prelude::*;
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 #[deku(bits = 3, endian = "big", type = "u8")]
 pub enum ActionCondition {
+    #[default]
     #[deku(id = "0")]
     List,
     #[deku(id = "1")]
@@ -15,10 +16,11 @@ pub enum ActionCondition {
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 #[deku(bits = 2, type = "u8")]
 pub enum StorageClass {
     /// The content is not kept in memory. It cannot be read back.
+    #[default]
     #[deku(id = "0")]
     Transient,
     /// The content is kept in a volatile memory of the device. It is accessible for
@@ -37,7 +39,7 @@ pub enum StorageClass {
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct UserPermissions {
     #[deku(bits = 1)]
     pub read: bool,
@@ -48,7 +50,7 @@ pub struct UserPermissions {
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct FilePermissions {
     #[deku(bits = 1)]
     pub encrypted: bool,
@@ -60,7 +62,7 @@ pub struct FilePermissions {
 
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct FileProperties {
     /// Enables the D7AActP (ALP action to trigger upon some type of access to this file)
     #[deku(bits=1)]
@@ -75,7 +77,7 @@ pub struct FileProperties {
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct FileHeader {
     pub permissions: FilePermissions,
     pub properties: FileProperties,

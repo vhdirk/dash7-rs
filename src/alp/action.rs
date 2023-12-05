@@ -1,88 +1,208 @@
-use deku::prelude::*;
+use deku::{
+    bitvec::{BitSlice, BitVec, Msb0},
+    ctx::{BitSize, Endian},
+    prelude::*,
+};
 
-use crate::filesystem::FileHeader;
+use crate::alp::filesystem::FileHeader;
+
+use super::operand::{FileOffset, Length};
 
 // ===============================================================================
 // Opcodes
 // ===============================================================================
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 #[deku(bits = 6, type = "u8")]
-pub enum Action {
+pub enum OpCode {
     // Nop
+    #[default]
     #[deku(id = "0")]
-    Nop(Nop),
-
+    Nop,
     // Read
     #[deku(id = "1")]
-    ReadFileData(ReadFileData),
+    ReadFileData,
     #[deku(id = "2")]
-    ReadFileProperties(FileIdAction),
+    ReadFileProperties,
 
     // Write
     #[deku(id = "4")]
-    WriteFileData(FileDataAction),
+    WriteFileData,
     #[deku(id = "5")]
-    WriteFileDataFlush(FileDataAction),
+    WriteFileDataFlush,
     #[deku(id = "6")]
-    WriteFileProperties(FilePropertiesAction),
+    WriteFileProperties,
     #[deku(id = "8")]
-    ActionQuery(QueryAction),
+    ActionQuery,
     #[deku(id = "9")]
-    BreakQuery(QueryAction),
+    BreakQuery,
     #[deku(id = "10")]
-    PermissionRequest(PermissionRequest),
+    PermissionRequest,
     #[deku(id = "11")]
-    VerifyChecksum(QueryAction),
+    VerifyChecksum,
 
     // Management
     #[deku(id = "16")]
-    ExistFile(FileIdAction),
+    ExistFile,
     #[deku(id = "17")]
-    CreateNewFile(FilePropertiesAction),
+    CreateNewFile,
     #[deku(id = "18")]
-    DeleteFile(FileIdAction),
+    DeleteFile,
     #[deku(id = "19")]
-    RestoreFile(FileIdAction),
+    RestoreFile,
     #[deku(id = "20")]
-    FlushFile(FileIdAction),
+    FlushFile,
     #[deku(id = "23")]
-    CopyFile(CopyFile),
+    CopyFile,
     #[deku(id = "31")]
-    ExecuteFile(FileIdAction),
+    ExecuteFile,
 
     // Response
     #[deku(id = "32")]
-    ReturnFileData(FileDataAction),
+    ReturnFileData,
     #[deku(id = "33")]
-    ReturnFileProperties(FilePropertiesAction),
+    ReturnFileProperties,
     #[deku(id = "34")]
-    Status(Status),
+    Status,
     #[deku(id = "35")]
-    ResponseTag(ResponseTag),
+    ResponseTag,
 
     // Special
     #[deku(id = "48")]
-    Chunk(Chunk),
+    Chunk,
     #[deku(id = "49")]
-    Logic(Logic),
+    Logic,
     #[deku(id = "50")]
-    Forward(Forward),
+    Forward,
     #[deku(id = "51")]
-    IndirectForward(IndirectForward),
+    IndirectForward,
     #[deku(id = "52")]
-    RequestTag(RequestTag),
+    RequestTag,
     #[deku(id = "63")]
-    Extension(Extension),
+    Extension,
 }
 
-// /// File access type event that will trigger an ALP action.
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
+pub struct Operation(
+    #[deku(
+        reader = "Operation::read(deku::rest)",
+        writer = "Operation::write(deku::output, &self.0)"
+    )]
+    pub Action,
+);
+
+impl From<Action> for Operation {
+    fn from(value: Action) -> Self {
+        Operation(value)
+    }
+}
+
+impl Into<Action> for Operation {
+    fn into(self) -> Action {
+        self.0
+    }
+}
+
+impl Operation {
+    fn read(input: &BitSlice<u8, Msb0>) -> Result<(&BitSlice<u8, Msb0>, Action), DekuError> {
+        let (rest, _) = <u8 as DekuRead<'_, _>>::read(input, (Endian::Big, BitSize(2)))?;
+        let (_, opcode) = <OpCode as DekuRead<'_, _>>::read(rest, ())?;
+
+        <Action as DekuRead<'_, _>>::read(input, opcode)
+    }
+
+    fn write(output: &mut BitVec<u8, Msb0>, action: &Action) -> Result<(), DekuError> {
+        DekuWrite::write(action, output, action.deku_id().unwrap())?;
+
+        use bitvec::field::BitField;
+        // TODO: proper errors
+        let opcode = action.deku_id().unwrap().deku_id().unwrap() as u8;
+        // now write the opcode with offset 2
+        output[2..8].store_be(opcode);
+        Ok(())
+    }
+}
+
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
+#[deku(ctx = "opcode: OpCode", id = "opcode")]
+pub enum Action {
+    /// Nop
+    #[deku(id = "OpCode::Nop")]
+    Nop(Nop),
+    /// Read
+    #[deku(id = "OpCode::ReadFileData")]
+    ReadFileData(ReadFileData),
+
+    #[deku(id = "OpCode::ReadFileProperties")]
+    ReadFileProperties(ReadFileProperties),
+
+    // Write
+    #[deku(id = "OpCode::WriteFileData")]
+    WriteFileData(WriteFileData),
+    // #[deku(id = "5")]
+    // WriteFileDataFlush(FileDataAction),
+    // #[deku(id = "6")]
+    // WriteFileProperties(FilePropertiesAction),
+    // #[deku(id = "8")]
+    // ActionQuery(QueryAction),
+    // #[deku(id = "9")]
+    // BreakQuery(QueryAction),
+    // #[deku(id = "10")]
+    // PermissionRequest(PermissionRequest),
+    // #[deku(id = "11")]
+    // VerifyChecksum(QueryAction),
+
+    // // Management
+    // #[deku(id = "16")]
+    // ExistFile(FileIdAction),
+    // #[deku(id = "17")]
+    // CreateNewFile(FilePropertiesAction),
+    // #[deku(id = "18")]
+    // DeleteFile(FileIdAction),
+    // #[deku(id = "19")]
+    // RestoreFile(FileIdAction),
+    // #[deku(id = "20")]
+    // FlushFile(FileIdAction),
+    // #[deku(id = "23")]
+    // CopyFile(CopyFile),
+    // #[deku(id = "31")]
+    // ExecuteFile(FileIdAction),
+
+    // // Response
+    // #[deku(id = "32")]
+    // ReturnFileData(FileDataAction),
+    // #[deku(id = "33")]
+    // ReturnFileProperties(FilePropertiesAction),
+    // #[deku(id = "34")]
+    // Status(Status),
+    // #[deku(id = "35")]
+    // ResponseTag(ResponseTag),
+
+    // // Special
+    // #[deku(id = "48")]
+    // Chunk(Chunk),
+    // #[deku(id = "49")]
+    // Logic(Logic),
+    // #[deku(id = "50")]
+    // Forward(Forward),
+    // #[deku(id = "51")]
+    // IndirectForward(IndirectForward),
+    // #[deku(id = "52")]
+    // RequestTag(RequestTag),
+    // #[deku(id = "63")]
+    // Extension(Extension),
+}
+
+/// File access type event that will trigger an ALP action.
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Default, Debug, Clone, PartialEq)]
 #[deku(bits = 3, type = "u8")]
 pub enum ActionCondition {
     /// Check for existence
+    #[default]
     #[deku(id = "0")]
     List,
     /// Trigger upon file read
@@ -104,15 +224,10 @@ pub struct ActionHeader {
     #[deku(bits = 1)]
     pub group: bool,
     /// Ask for a response (status)
-    #[deku(bits = 1)]
-    pub resp: bool,
+    #[deku(bits = 1, pad_bits_after = "6")]
+    pub response: bool,
+    //opcode would be here. 6 bits padding instead
 }
-
-// #[derive(Debug, Copy, Clone, Hash, PartialEq)]
-// pub enum HeaderActionDecodingError {
-//     MissingBytes(usize),
-//     FileHeader(StdError),
-// }
 
 // ===============================================================================
 // Actions
@@ -122,28 +237,8 @@ pub struct ActionHeader {
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Nop {
-    pub header: ActionHeader
+    pub header: ActionHeader,
 }
-
-// #[test]
-// fn test_nop() {
-//     test_item(
-//         Nop {
-//             group: true,
-//             resp: false,
-//         },
-//         &hex!("80"),
-//     )
-// }
-
-// #[derive(Debug, Copy, Clone, Hash, PartialEq)]
-// pub enum OperandValidationError {
-//     /// Offset is too big to be encoded in a varint
-//     OffsetTooBig,
-//     /// Size is too big to be encoded in a varint
-//     SizeTooBig,
-// }
-
 
 /// Checks whether a file exists
 // ALP_SPEC: How is the result of this command different from a read file of size 0?
@@ -154,13 +249,15 @@ pub struct FileIdAction {
     pub file_id: u8,
 }
 
-/// Write data to a file
+// Write data to a file
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
-pub struct FileDataAction {
+pub struct WriteFileData {
     pub header: ActionHeader,
-    pub file_id: u8,
-    pub offset: u32,
+    pub offset: FileOffset,
+    pub length: Length,
+
+    #[deku(count="Into::<u32>::into(*length)")]
     pub data: Vec<u8>,
 }
 
@@ -173,14 +270,13 @@ pub struct FilePropertiesAction {
     pub file_header: FileHeader,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct QueryAction {
-    pub header: ActionHeader,
+// #[deku_derive(DekuRead, DekuWrite)]
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct QueryAction {
+//     pub header: ActionHeader,
 
-    pub query: operand::Query,
-}
-
+//     pub query: operand::Query,
+// }
 
 // Read
 /// Read data from a file
@@ -189,35 +285,9 @@ pub struct QueryAction {
 pub struct ReadFileData {
     pub header: ActionHeader,
 
-    pub file_id: u8,
-    pub offset: u32,
-    pub size: u32,
+    pub offset: FileOffset,
+    pub length: Length,
 }
-// impl ReadFileData {
-//     pub fn validate(self) -> Result<(), OperandValidationError> {
-//         if self.offset > varint::MAX {
-//             return Err(OperandValidationError::OffsetTooBig);
-//         }
-//         if self.size > varint::MAX {
-//             return Err(OperandValidationError::SizeTooBig);
-//         }
-//         Ok(())
-//     }
-// }
-
-// #[test]
-// fn test_read_file_data() {
-//     test_item(
-//         ReadFileData {
-//             group: false,
-//             resp: true,
-//             file_id: 1,
-//             offset: 2,
-//             size: 3,
-//         },
-//         &hex!("41 01 02 03"),
-//     )
-// }
 
 /// Read properties of a file
 #[deku_derive(DekuRead, DekuWrite)]
@@ -227,48 +297,6 @@ pub struct ReadFileProperties {
 
     pub file_id: u8,
 }
-// impl_simple_op!(ReadFileProperties, group, resp, file_id);
-// #[test]
-// fn test_read_file_properties() {
-//     test_item(
-//         ReadFileProperties {
-//             group: false,
-//             resp: false,
-//             file_id: 9,
-//         },
-//         &hex!("02 09"),
-//     )
-// }
-
-
-
-// Write
-/// Write data to a file
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct WriteFileData {
-    pub header: ActionHeader,
-
-    pub file_id: u8,
-
-    // TODO: how are offset and length serialized
-    pub offset: u32,
-    pub data: Vec<u8>,
-}
-
-// #[test]
-// fn test_write_file_data() {
-//     test_item(
-//         WriteFileData {
-//             group: true,
-//             resp: false,
-//             file_id: 9,
-//             offset: 5,
-//             data: Box::new(hex!("01 02 03")),
-//         },
-//         &hex!("84   09 05 03  010203"),
-//     )
-// }
 
 /// Write the properties of a file
 #[deku_derive(DekuRead, DekuWrite)]
@@ -320,12 +348,12 @@ pub struct WriteFileProperties {
 /// Add a condition on the execution of the next group of action.
 ///
 /// If the condition is not met, the next group of action should be skipped.
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct ActionQuery {
-    pub header: ActionHeader,
-    pub query: operand::Query,
-}
+// #[deku_derive(DekuRead, DekuWrite)]
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct ActionQuery {
+//     pub header: ActionHeader,
+//     pub query: operand::Query,
+// }
 // impl_op_serialized!(
 //     ActionQuery,
 //     group,
@@ -352,13 +380,13 @@ pub struct ActionQuery {
 /// Add a condition to continue the processing of this ALP command.
 ///
 /// If the condition is not met the all the next ALP action of this command should be ignored.
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct BreakQuery {
-    /// Group with next action
-    pub header: ActionHeader,
-    pub query: Query,
-}
+// #[deku_derive(DekuRead, DekuWrite)]
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct BreakQuery {
+//     /// Group with next action
+//     pub header: ActionHeader,
+//     pub query: Query,
+// }
 // impl_op_serialized!(
 //     BreakQuery,
 //     group,
@@ -383,14 +411,14 @@ pub struct BreakQuery {
 // }
 
 /// Request a level of permission using some permission type
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct PermissionRequest {
-    pub header: ActionHeader,
-    /// See operand::permission_level
-    pub level: u8,
-    pub permission: Permission,
-}
+// #[deku_derive(DekuRead, DekuWrite)]
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct PermissionRequest {
+//     pub header: ActionHeader,
+//     /// See operand::permission_level
+//     pub level: u8,
+//     pub permission: Permission,
+// }
 // #[derive(Debug, Copy, Clone, Hash, PartialEq)]
 // pub enum PermissionRequestDecodingError {
 //     MissingBytes(usize),
@@ -446,12 +474,12 @@ pub struct PermissionRequest {
 
 /// Calculate checksum of file and compare with checksum in query
 // ALP_SPEC: Is the checksum calculated on the targeted data (offset, size) or the whole file?
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct VerifyChecksum {
-    pub header: ActionHeader,
-    pub query: Query,
-}
+// #[deku_derive(DekuRead, DekuWrite)]
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct VerifyChecksum {
+//     pub header: ActionHeader,
+//     pub query: Query,
+// }
 // impl_op_serialized!(
 //     VerifyChecksum,
 //     group,
@@ -591,6 +619,7 @@ pub struct RestoreFile {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FlushFile {
     pub header: ActionHeader,
+
     pub file_id: u8,
 }
 // impl_simple_op!(FlushFile, group, resp, file_id);
@@ -658,16 +687,16 @@ pub struct ExecuteFile {
 /// Responds to a ReadFileData request.
 ///
 /// This can also be used to report unsollicited data.
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct ReturnFileData {
-    /// Group with next action
-    pub header: ActionHeader,
-    pub file_id: u8,
+// #[deku_derive(DekuRead, DekuWrite)]
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct ReturnFileData {
+//     /// Group with next action
+//     pub header: ActionHeader,
+//     pub file_id: u8,
 
-    pub offset: u32,
-    pub data: Vec<u8>,
-}
+//     pub offset: u32,
+//     pub data: Vec<u8>,
+// }
 // impl ReturnFileData {
 //     pub fn validate(&self) -> Result<(), OperandValidationError> {
 //         if self.offset > varint::MAX {
@@ -811,16 +840,16 @@ pub struct ReturnFileProperties {
 // }
 
 /// Statuses regarding actions sent in a request
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-#[deku(bits = 1, type = "u8")]
-pub enum Status {
-    // ALP SPEC: This is named status, but it should be named action status compared to the '2'
-    // other statuses.
-    #[deku(id="0")]Action(operand::ActionStatus),
-    #[deku(id="1")]Interface(operand::InterfaceStatus),
-    // ALP SPEC: Where are the stack errors?
-}
+// #[deku_derive(DekuRead, DekuWrite)]
+// #[derive(Debug, Clone, PartialEq)]
+// #[deku(bits = 1, type = "u8")]
+// pub enum Status {
+//     // ALP SPEC: This is named status, but it should be named action status compared to the '2'
+//     // other statuses.
+//     #[deku(id="0")]Action(operand::ActionStatus),
+//     #[deku(id="1")]Interface(operand::InterfaceStatus),
+//     // ALP SPEC: Where are the stack errors?
+// }
 // #[derive(Debug, Copy, Clone, Hash, PartialEq)]
 // pub enum StatusDecodingError {
 //     MissingBytes(usize),
@@ -898,10 +927,10 @@ pub struct ResponseTag {
     /// End of packet
     ///
     /// Signal the last response packet for the request `id`
-    #[deku(bits=1)]
+    #[deku(bits = 1)]
     pub eop: bool,
     /// An error occured
-    #[deku(bits=1)]
+    #[deku(bits = 1)]
     pub err: bool,
     pub id: u8,
 }
@@ -923,122 +952,59 @@ pub struct ResponseTag {
 #[derive(Debug, Clone, PartialEq)]
 #[deku(bits = 2, type = "u8")]
 pub enum ChunkStep {
-    #[deku(id = "0")]Continue,
-    #[deku(id = "1")]Start,
-    #[deku(id = "2")]End,
-    #[deku(id = "3")]StartEnd,
+    #[deku(id = "0")]
+    Continue,
+    #[deku(id = "1")]
+    Start,
+    #[deku(id = "2")]
+    End,
+    #[deku(id = "3")]
+    StartEnd,
 }
 
-// /// Provide chunk information and therefore allows to send an ALP command by chunks.
-// ///
-// /// Specification:
-// /// An ALP Command may be chunked into multiple Chunks. A special Chunk Action is inserted at the beginning of each
-// /// ALP Command Chunk to define its chunk state – START, CONTINUE or END (see 6.2.2.1). If the Chunk Action is not
-// /// present, the ALP Command is not chunked (implicit START/END). The Group (11.5.3) and Break Query conditions are
-// /// extended over all chunks of the ALP Command.
+/// Provide chunk information and therefore allows to send an ALP command by chunks.
+///
+/// Specification:
+/// An ALP Command may be chunked into multiple Chunks. A special Chunk Action is inserted at the beginning of each
+/// ALP Command Chunk to define its chunk state – START, CONTINUE or END (see 6.2.2.1). If the Chunk Action is not
+/// present, the ALP Command is not chunked (implicit START/END). The Group (11.5.3) and Break Query conditions are
+/// extended over all chunks of the ALP Command.
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Chunk {
     pub step: ChunkStep,
 }
-// impl Codec for Chunk {
-//     type Error = StdError;
-//     fn encoded_size(&self) -> usize {
-//         1
-//     }
-//     unsafe fn encode_in(&self, out: &mut [u8]) -> usize {
-//         out[0] = OpCode::Chunk as u8 + ((self.step as u8) << 6);
-//         1
-//     }
-//     fn decode(out: &[u8]) -> Result<WithSize<Self>, WithOffset<Self::Error>> {
-//         if out.is_empty() {
-//             return Err(WithOffset::new_head(Self::Error::MissingBytes(1)));
-//         }
-//         Ok(WithSize {
-//             value: Self {
-//                 step: ChunkStep::from(out[0] >> 6),
-//             },
-//             size: 1,
-//         })
-//     }
-// }
-// #[test]
-// fn test_chunk() {
-//     test_item(
-//         Chunk {
-//             step: ChunkStep::End,
-//         },
-//         &hex!("B0"),
-//     )
-// }
 
 /// Provide logical link of a group of queries
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
 #[deku(bits = 2, type = "u8")]
 pub enum LogicOp {
-    #[deku(id="0")] Or,
-    #[deku(id="1")] Xor,
-    #[deku(id="2")] Nor,
-    #[deku(id="3")] Nand,
+    #[deku(id = "0")]
+    Or,
+    #[deku(id = "1")]
+    Xor,
+    #[deku(id = "2")]
+    Nor,
+    #[deku(id = "3")]
+    Nand,
 }
-// impl LogicOp {
-//     // TODO Optimize, that can never be wrong
-//     fn from(n: u8) -> Self {
-//         match n {
-//             0 => LogicOp::Or,
-//             1 => LogicOp::Xor,
-//             2 => LogicOp::Nor,
-//             3 => LogicOp::Nand,
-//             x => panic!("Impossible logic op {}", x),
-//         }
-//     }
-// }
+
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Logic {
     pub logic: LogicOp,
 }
-// impl Codec for Logic {
-//     type Error = StdError;
-//     fn encoded_size(&self) -> usize {
-//         1
-//     }
-//     unsafe fn encode_in(&self, out: &mut [u8]) -> usize {
-//         out[0] = OpCode::Logic as u8 + ((self.logic as u8) << 6);
-//         1
-//     }
-//     fn decode(out: &[u8]) -> Result<WithSize<Self>, WithOffset<Self::Error>> {
-//         if out.is_empty() {
-//             return Err(WithOffset::new_head(Self::Error::MissingBytes(1)));
-//         }
-//         Ok(WithSize {
-//             value: Self {
-//                 logic: LogicOp::from(out[0] >> 6),
-//             },
-//             size: 1,
-//         })
-//     }
-// }
-// #[test]
-// fn test_logic() {
-//     test_item(
-//         Logic {
-//             logic: LogicOp::Nand,
-//         },
-//         &hex!("F1"),
-//     )
-// }
 
 /// Forward rest of the command over the interface
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct Forward {
-    // ALP_SPEC Ask for response ?
-    #[deku(bits=1)]
-    pub resp: bool,
-    pub conf: operand::InterfaceConfiguration,
-}
+// #[deku_derive(DekuRead, DekuWrite)]
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct Forward {
+//     // ALP_SPEC Ask for response ?
+//     #[deku(bits=1)]
+//     pub response: bool,
+//     pub configuration: operand::InterfaceConfiguration,
+// }
 // impl Codec for Forward {
 //     type Error = operand::InterfaceConfigurationDecodingError;
 //     fn encoded_size(&self) -> usize {
@@ -1081,14 +1047,14 @@ pub struct Forward {
 // }
 
 /// Forward rest of the command over the interface
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct IndirectForward {
-    // ALP_SPEC Ask for response ?
-    #[deku(bits=1)]
-    pub resp: bool,
-    pub interface: operand::IndirectInterface,
-}
+// #[deku_derive(DekuRead, DekuWrite)]
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct IndirectForward {
+//     // ALP_SPEC Ask for response ?
+//     #[deku(bits=1)]
+//     pub response: bool,
+//     pub interface: operand::IndirectInterface,
+// }
 // impl Codec for IndirectForward {
 //     type Error = StdError;
 //     fn encoded_size(&self) -> usize {
@@ -1147,6 +1113,7 @@ pub struct RequestTag {
     /// Ask for end of packet
     ///
     /// Signal the last response packet for the request `id`
+    #[deku(bits = 1)]
     pub eop: bool,
     pub id: u8,
 }
@@ -1182,23 +1149,114 @@ pub struct RequestTag {
 //     test_item(RequestTag { eop: true, id: 8 }, &hex!("B4 08"))
 // }
 
-/// TODO Panics
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Extension {
     pub header: ActionHeader,
 }
-// impl Codec for Extension {
-//     type Error = ();
-//     fn encoded_size(&self) -> usize {
-//         todo!()
-//     }
-//     unsafe fn encode_in(&self, _out: &mut [u8]) -> usize {
-//         todo!()
-//     }
-//     fn decode(_out: &[u8]) -> Result<WithSize<Self>, WithOffset<Self::Error>> {
-//         todo!()
-//     }
-// }
+
+#[cfg(test)]
+mod test {
+    use hex_literal::hex;
+
+    use super::*;
+    use crate::test_tools::test_item;
+
+    #[test]
+    fn test_header() {
+        test_item(
+            ActionHeader {
+                group: true,
+                response: false,
+            },
+            &[0b1000_0000],
+            (&[], 0),
+        )
+    }
+
+    #[test]
+    fn test_nop() {
+        test_item(
+            Operation(Action::Nop(Nop {
+                header: ActionHeader {
+                    group: false,
+                    response: true,
+                },
+            })),
+            &[0b0100_0000],
+            (&[], 0),
+        )
+    }
+
+    #[test]
+    fn test_read_file_data() {
+        test_item(
+            Operation(Action::ReadFileData(ReadFileData {
+                header: ActionHeader {
+                    group: false,
+                    response: true,
+                },
+                offset: FileOffset {
+                    file_id: 1,
+                    offset: 2u32.into(),
+                },
+                length: 3u32.into(),
+            })),
+            &hex!("41 01 02 03"),
+            (&[], 0),
+        )
+    }
+
+    #[test]
+    fn test_read_file_properties() {
+        test_item(
+            Operation(Action::ReadFileProperties(ReadFileProperties {
+                header: ActionHeader {
+                    group: false,
+                    response: false,
+                },
+                file_id: 9,
+            })),
+            &hex!("02 09"),
+            (&[], 0),
+        )
+    }
+
+        #[test]
+    fn test_write_file_data() {
+        let data = hex!("01 02 03").to_vec();
+        test_item(
+            Operation(Action::WriteFileData(WriteFileData {
+                header: ActionHeader { group: true, response: false },
+                offset: FileOffset { file_id: 9, offset: 5u32.into() },
+                length: data.len().into(),
+                data,
+            })),
+            &hex!("84 09 05 03 010203"),
+            (&[], 0)
+        )
+    }
 
 
+    #[test]
+    fn test_logic() {
+        test_item(
+            Logic {
+                logic: LogicOp::Nand,
+            },
+            &[0b1100_0000],
+            (&[0b1100_0000], 2),
+        )
+    }
+
+    #[test]
+    fn test_chunk() {
+        test_item(
+            Chunk {
+                step: ChunkStep::End,
+            },
+            &[0b1000_0000],
+            (&[0b1000_0000], 2),
+        )
+    }
+}

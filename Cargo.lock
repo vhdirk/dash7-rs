@@ -53,6 +53,7 @@ dependencies = [
 name = "dash7"
 version = "0.1.0"
 dependencies = [
+ "bitvec",
  "deku",
  "hex-literal",
  "mutually_exclusive_features",

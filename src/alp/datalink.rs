@@ -6,24 +6,25 @@ use crate::alp::{
 };
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 #[deku(bits=6, type="u8")]
 pub enum CsmaCaMode {
-    Unc = 0,
-    Aind = 1,
-    Raind = 2,
-    Rigd = 3,
+    #[default]
+    #[deku(id="0")] Unc,
+    #[deku(id="1")] Aind,
+    #[deku(id="2")] Raind,
+    #[deku(id="3")] Rigd,
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct SubProfile {
     pub subband_bitmap: u8,
     pub scan_automation_period: VarInt,
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct AccessProfile {
     pub channel_header: ChannelHeader,
     #[deku(count = "4")]
