@@ -109,14 +109,13 @@ impl Operation {
     fn read(input: &BitSlice<u8, Msb0>) -> Result<(&BitSlice<u8, Msb0>, Action), DekuError> {
         let (rest, _) = <u8 as DekuRead<'_, _>>::read(input, (Endian::Big, BitSize(2)))?;
         let (_, opcode) = <OpCode as DekuRead<'_, _>>::read(rest, ())?;
-
         <Action as DekuRead<'_, _>>::read(input, opcode)
     }
 
     fn write(output: &mut BitVec<u8, Msb0>, action: &Action) -> Result<(), DekuError> {
+        use bitvec::field::BitField;
         DekuWrite::write(action, output, action.deku_id().unwrap())?;
 
-        use bitvec::field::BitField;
         // TODO: proper errors
         let opcode = action.deku_id().unwrap().deku_id().unwrap() as u8;
         // now write the opcode with offset 2
@@ -137,15 +136,15 @@ pub enum Action {
     ReadFileData(ReadFileData),
 
     #[deku(id = "OpCode::ReadFileProperties")]
-    ReadFileProperties(ReadFileProperties),
+    ReadFileProperties(FileId),
 
     // Write
     #[deku(id = "OpCode::WriteFileData")]
-    WriteFileData(WriteFileData),
-    // #[deku(id = "5")]
-    // WriteFileDataFlush(FileDataAction),
-    // #[deku(id = "6")]
-    // WriteFileProperties(FilePropertiesAction),
+    WriteFileData(FileData),
+    #[deku(id = "OpCode::WriteFileDataFlush")]
+    WriteFileDataFlush(FileData),
+    #[deku(id = "OpCode::WriteFileProperties")]
+    WriteFileProperties(FileProperties),
     // #[deku(id = "8")]
     // ActionQuery(QueryAction),
     // #[deku(id = "9")]
@@ -155,37 +154,37 @@ pub enum Action {
     // #[deku(id = "11")]
     // VerifyChecksum(QueryAction),
 
-    // // Management
-    // #[deku(id = "16")]
-    // ExistFile(FileIdAction),
-    // #[deku(id = "17")]
-    // CreateNewFile(FilePropertiesAction),
-    // #[deku(id = "18")]
-    // DeleteFile(FileIdAction),
-    // #[deku(id = "19")]
-    // RestoreFile(FileIdAction),
-    // #[deku(id = "20")]
-    // FlushFile(FileIdAction),
+    // Management
+    #[deku(id = "OpCode::ExistFile")]
+    ExistFile(FileId),
+    #[deku(id = "OpCode::CreateNewFile")]
+    CreateNewFile(FileProperties),
+    #[deku(id = "OpCode::DeleteFile")]
+    DeleteFile(FileId),
+    #[deku(id = "OpCode::RestoreFile")]
+    RestoreFile(FileId),
+    #[deku(id = "OpCode::FlushFile")]
+    FlushFile(FileId),
     // #[deku(id = "23")]
     // CopyFile(CopyFile),
-    // #[deku(id = "31")]
-    // ExecuteFile(FileIdAction),
+    #[deku(id = "OpCode::ExecuteFile")]
+    ExecuteFile(FileId),
 
-    // // Response
-    // #[deku(id = "32")]
-    // ReturnFileData(FileDataAction),
-    // #[deku(id = "33")]
-    // ReturnFileProperties(FilePropertiesAction),
+    // Response
+    #[deku(id = "OpCode::ReturnFileData")]
+    ReturnFileData(FileData),
+    #[deku(id = "OpCode::ReturnFileProperties")]
+    ReturnFileProperties(FileProperties),
     // #[deku(id = "34")]
     // Status(Status),
-    // #[deku(id = "35")]
-    // ResponseTag(ResponseTag),
+    #[deku(id = "OpCode::ResponseTag")]
+    ResponseTag(ResponseTag),
 
-    // // Special
-    // #[deku(id = "48")]
-    // Chunk(Chunk),
-    // #[deku(id = "49")]
-    // Logic(Logic),
+    // Special
+    #[deku(id = "OpCode::Chunk")]
+    Chunk(Chunk),
+    #[deku(id = "OpCode::Logic")]
+    Logic(Logic),
     // #[deku(id = "50")]
     // Forward(Forward),
     // #[deku(id = "51")]
@@ -244,7 +243,7 @@ pub struct Nop {
 // ALP_SPEC: How is the result of this command different from a read file of size 0?
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
-pub struct FileIdAction {
+pub struct FileId {
     pub header: ActionHeader,
     pub file_id: u8,
 }
@@ -252,18 +251,18 @@ pub struct FileIdAction {
 // Write data to a file
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
-pub struct WriteFileData {
+pub struct FileData {
     pub header: ActionHeader,
     pub offset: FileOffset,
     pub length: Length,
 
-    #[deku(count="Into::<u32>::into(*length)")]
+    #[deku(count = "Into::<u32>::into(*length)")]
     pub data: Vec<u8>,
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
-pub struct FilePropertiesAction {
+pub struct FileProperties {
     pub header: ActionHeader,
 
     pub file_id: u8,
@@ -288,62 +287,6 @@ pub struct ReadFileData {
     pub offset: FileOffset,
     pub length: Length,
 }
-
-/// Read properties of a file
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct ReadFileProperties {
-    pub header: ActionHeader,
-
-    pub file_id: u8,
-}
-
-/// Write the properties of a file
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct WriteFileProperties {
-    pub header: ActionHeader,
-
-    pub file_id: u8,
-    pub file_header: FileHeader,
-}
-// impl_header_op!(WriteFileProperties, group, resp, file_id, header);
-// #[test]
-// fn test_write_file_properties() {
-//     test_item(
-//         WriteFileProperties {
-//             group: true,
-//             resp: false,
-//             file_id: 9,
-//             header: data::FileHeader {
-//                 permissions: data::Permissions {
-//                     encrypted: true,
-//                     executable: false,
-//                     user: data::UserPermissions {
-//                         read: true,
-//                         write: true,
-//                         run: true,
-//                     },
-//                     guest: data::UserPermissions {
-//                         read: false,
-//                         write: false,
-//                         run: false,
-//                     },
-//                 },
-//                 properties: data::FileProperties {
-//                     act_en: false,
-//                     act_cond: data::ActionCondition::Read,
-//                     storage_class: data::StorageClass::Permanent,
-//                 },
-//                 alp_cmd_fid: 1,
-//                 interface_file_id: 2,
-//                 file_size: 0xDEAD_BEEF,
-//                 allocated_size: 0xBAAD_FACE,
-//             },
-//         },
-//         &hex!("86   09   B8 13 01 02 DEADBEEF BAADFACE"),
-//     )
-// }
 
 /// Add a condition on the execution of the next group of action.
 ///
@@ -930,22 +873,11 @@ pub struct ResponseTag {
     #[deku(bits = 1)]
     pub eop: bool,
     /// An error occured
-    #[deku(bits = 1)]
-    pub err: bool,
+    #[deku(bits = 1, pad_bits_after = "6")]
+    pub error: bool,
+
     pub id: u8,
 }
-// impl_simple_op!(ResponseTag, eop, err, id);
-// #[test]
-// fn test_response_tag() {
-//     test_item(
-//         ResponseTag {
-//             eop: true,
-//             err: false,
-//             id: 8,
-//         },
-//         &hex!("A3 08"),
-//     )
-// }
 
 // Special
 #[deku_derive(DekuRead, DekuWrite)]
@@ -966,12 +898,13 @@ pub enum ChunkStep {
 ///
 /// Specification:
 /// An ALP Command may be chunked into multiple Chunks. A special Chunk Action is inserted at the beginning of each
-/// ALP Command Chunk to define its chunk state – START, CONTINUE or END (see 6.2.2.1). If the Chunk Action is not
+/// ALP Command Chunk to define its chunk state: START, CONTINUE or END (see 6.2.2.1). If the Chunk Action is not
 /// present, the ALP Command is not chunked (implicit START/END). The Group (11.5.3) and Break Query conditions are
 /// extended over all chunks of the ALP Command.
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Chunk {
+    #[deku(pad_bits_after = "6")]
     pub step: ChunkStep,
 }
 
@@ -993,6 +926,7 @@ pub enum LogicOp {
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Logic {
+    #[deku(pad_bits_after = "6")]
     pub logic: LogicOp,
 }
 
@@ -1160,7 +1094,10 @@ mod test {
     use hex_literal::hex;
 
     use super::*;
-    use crate::test_tools::test_item;
+    use crate::{
+        alp::filesystem::{self, FilePermissions, UserPermissions},
+        test_tools::test_item,
+    };
 
     #[test]
     fn test_header() {
@@ -1176,13 +1113,14 @@ mod test {
 
     #[test]
     fn test_nop() {
-        test_item(
-            Operation(Action::Nop(Nop {
+        test_item::<Operation>(
+            Action::Nop(Nop {
                 header: ActionHeader {
                     group: false,
                     response: true,
                 },
-            })),
+            })
+            .into(),
             &[0b0100_0000],
             (&[], 0),
         )
@@ -1190,8 +1128,8 @@ mod test {
 
     #[test]
     fn test_read_file_data() {
-        test_item(
-            Operation(Action::ReadFileData(ReadFileData {
+        test_item::<Operation>(
+            Action::ReadFileData(ReadFileData {
                 header: ActionHeader {
                     group: false,
                     response: true,
@@ -1201,7 +1139,8 @@ mod test {
                     offset: 2u32.into(),
                 },
                 length: 3u32.into(),
-            })),
+            })
+            .into(),
             &hex!("41 01 02 03"),
             (&[], 0),
         )
@@ -1209,34 +1148,82 @@ mod test {
 
     #[test]
     fn test_read_file_properties() {
-        test_item(
-            Operation(Action::ReadFileProperties(ReadFileProperties {
+        test_item::<Operation>(
+            Action::ReadFileProperties(FileId {
                 header: ActionHeader {
                     group: false,
                     response: false,
                 },
                 file_id: 9,
-            })),
+            })
+            .into(),
             &hex!("02 09"),
             (&[], 0),
         )
     }
 
-        #[test]
+    #[test]
     fn test_write_file_data() {
         let data = hex!("01 02 03").to_vec();
-        test_item(
-            Operation(Action::WriteFileData(WriteFileData {
-                header: ActionHeader { group: true, response: false },
-                offset: FileOffset { file_id: 9, offset: 5u32.into() },
+        test_item::<Operation>(
+            Action::WriteFileData(FileData {
+                header: ActionHeader {
+                    group: true,
+                    response: false,
+                },
+                offset: FileOffset {
+                    file_id: 9,
+                    offset: 5u32.into(),
+                },
                 length: data.len().into(),
                 data,
-            })),
+            })
+            .into(),
             &hex!("84 09 05 03 010203"),
-            (&[], 0)
+            (&[], 0),
         )
     }
 
+    #[test]
+    fn test_write_file_properties() {
+        test_item::<Operation>(
+            Action::WriteFileProperties(FileProperties {
+                header: ActionHeader {
+                    group: true,
+                    response: false,
+                },
+                file_id: 9,
+                file_header: FileHeader {
+                    permissions: FilePermissions {
+                        encrypted: true,
+                        executable: false,
+                        user: UserPermissions {
+                            read: true,
+                            write: true,
+                            executable: true,
+                        },
+                        guest: UserPermissions {
+                            read: false,
+                            write: false,
+                            executable: false,
+                        },
+                    },
+                    properties: filesystem::FileProperties {
+                        enabled: false,
+                        condition: filesystem::ActionCondition::Read,
+                        storage_class: filesystem::StorageClass::Permanent,
+                    },
+                    alp_command_file_id: 1,
+                    interface_file_id: 2,
+                    file_size: 0xDEAD_BEEF,
+                    allocated_size: 0xBAAD_FACE,
+                },
+            })
+            .into(),
+            &hex!("86 09 B8 13 01 02 DEADBEEF BAADFACE"),
+            (&[], 0),
+        )
+    }
 
     #[test]
     fn test_logic() {
@@ -1245,7 +1232,7 @@ mod test {
                 logic: LogicOp::Nand,
             },
             &[0b1100_0000],
-            (&[0b1100_0000], 2),
+            (&[], 0),
         )
     }
 
@@ -1256,7 +1243,21 @@ mod test {
                 step: ChunkStep::End,
             },
             &[0b1000_0000],
-            (&[0b1000_0000], 2),
+            (&[], 0),
+        )
+    }
+
+    #[test]
+    fn test_response_tag() {
+        test_item::<Operation>(
+            Action::ResponseTag(ResponseTag {
+                eop: true,
+                error: false,
+                id: 8,
+            })
+            .into(),
+            &hex!("A3 08"),
+            (&[], 0),
         )
     }
 }
