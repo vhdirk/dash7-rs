@@ -32,17 +32,11 @@
 use mutually_exclusive_features::exactly_one_of;
 exactly_one_of!("spec_v1_2", "subiot_v0", "wizzilab_v5_3");
 
-
-
 /// ALP
 pub mod alp;
 
-
-
-
 #[cfg(test)]
 mod test_tools;
-
 
 // // TODO Verify each item's name against the SPEC
 

@@ -114,9 +114,9 @@ mod test {
 
     #[test]
     fn test() {
-        test_item(VarInt::default(), &[0x00], (&[], 0));
-        test_item(VarInt::new(1, false), &[0x01u8], (&[], 0));
-        test_item(VarInt::new(32, false), &[0b00101000u8], (&[], 0));
-        test_item(VarInt::new(507904, false), &[0xFFu8], (&[], 0));
+        test_item(VarInt::default(), &[0x00]);
+        test_item(VarInt::new(1, false), &[0x01u8]);
+        test_item(VarInt::new(32, false), &[0b00101000u8]);
+        test_item(VarInt::new(507904, false), &[0xFFu8]);
     }
 }

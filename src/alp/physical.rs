@@ -1,7 +1,7 @@
 use deku::prelude::*;
 
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default,Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 #[deku(bits = 2, endian = "big", type = "u8")]
 pub enum Bandwidth {
     #[default]
@@ -53,7 +53,7 @@ pub struct ChannelHeader {
 
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Default, Debug, Clone, PartialEq)]
-pub struct ChannelId {
+pub struct Channel {
     pub header: ChannelHeader,
     #[deku(bits = 16)]
     pub index: u16,

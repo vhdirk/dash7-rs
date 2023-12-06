@@ -1,6 +1,6 @@
 use deku::prelude::*;
 
-use crate::alp::{network::Addressee, physical::ChannelId, varint::VarInt};
+use crate::alp::{network::Addressee, physical::Channel, varint::VarInt};
 
 /// The Response Modes define the condition for termination on success of a Request
 #[deku_derive(DekuRead, DekuWrite)]
@@ -69,7 +69,8 @@ pub enum ResponseMode {
 #[deku(bits = 3, type = "u8")]
 pub enum RetryMode {
     #[default]
-    #[deku(id = "0")] No,
+    #[deku(id = "0")]
+    No,
 }
 
 #[cfg(feature = "wizzilab_v5_3")]
@@ -78,16 +79,23 @@ pub enum RetryMode {
 #[deku(bits = 3, type = "u8")]
 pub enum RetryMode {
     #[default]
-    #[deku(id = "0")] No,
-    #[deku(id = "1")] OneshotRetry,
-    #[deku(id = "2")] FifoFast ,
-    #[deku(id = "3")] FifoSlow ,
-    #[deku(id = "4")] SingleFast ,
-    #[deku(id = "5")] SingleSlow ,
-    #[deku(id = "6")] OneshotSticky ,
-    #[deku(id = "7")] Rfu7 ,
+    #[deku(id = "0")]
+    No,
+    #[deku(id = "1")]
+    OneshotRetry,
+    #[deku(id = "2")]
+    FifoFast,
+    #[deku(id = "3")]
+    FifoSlow,
+    #[deku(id = "4")]
+    SingleFast,
+    #[deku(id = "5")]
+    SingleSlow,
+    #[deku(id = "6")]
+    OneshotSticky,
+    #[deku(id = "7")]
+    Rfu7,
 }
-
 
 /// QoS of the request
 #[deku_derive(DekuRead, DekuWrite)]
@@ -101,7 +109,6 @@ pub struct QoS {
     pub response_mode: ResponseMode,
 }
 
-
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct Dash7InterfaceConfiguration {
@@ -113,30 +120,29 @@ pub struct Dash7InterfaceConfiguration {
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct LoRaWANInterfaceConfiguration {
-    #[deku(pad_bits_before="5", bits=1)]
+    #[deku(pad_bits_before = "5", bits = 1)]
     pub adr_enabled: bool,
-    #[deku(bits=1)]
+    #[deku(bits = 1)]
     pub request_ack: bool,
 
-    #[deku(pad_bits_before="1")]
+    #[deku(pad_bits_before = "1")]
     pub application_port: u8,
     pub data_rate: u8,
 }
-
 
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct LoRaWANOTAAInterfaceConfiguration {
     pub base: LoRaWANInterfaceConfiguration,
 
-    #[deku(count="8")]
+    #[deku(count = "8")]
     pub device_eui: Vec<u8>,
 
-    #[deku(count="8")]
+    #[deku(count = "8")]
     pub app_eui: Vec<u8>,
 
-    #[deku(count="16")]
-    pub app_key: Vec<u8>
+    #[deku(count = "16")]
+    pub app_key: Vec<u8>,
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
@@ -144,10 +150,10 @@ pub struct LoRaWANOTAAInterfaceConfiguration {
 pub struct LoRaWANABPInterfaceConfiguration {
     pub base: LoRaWANInterfaceConfiguration,
 
-    #[deku(count="16")]
+    #[deku(count = "16")]
     pub network_session_key: Vec<u8>,
 
-    #[deku(count="16")]
+    #[deku(count = "16")]
     pub app_session_key: Vec<u8>,
 
     pub device_address: u32,
@@ -155,13 +161,16 @@ pub struct LoRaWANABPInterfaceConfiguration {
     pub network_id: u32,
 }
 
-
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
-pub struct Status {
-    pub channel_id: ChannelId,
+pub struct InterfaceStatus {
+    /// PHY layer channel
+    pub channel: Channel,
+    /// PHY layer RX level in -dBm
     pub rx_level: u8,
+    /// PHY layer link budget in dB
     pub link_budget: u8,
+
     pub target_rx_level: u8,
     #[deku(bits = 1)]
     pub nls: bool,
@@ -172,11 +181,17 @@ pub struct Status {
     #[deku(bits = 1)]
     pub unicast: bool,
 
+    /// Value of the D7ATP Dialog ID
     #[deku(pad_bits_before = "4")]
     pub fifo_token: u8,
+
+    /// Value of the D7ATP Transaction ID
     pub sequence_number: u8,
+
+    /// Response delay (request to response time) in TiT
     pub response_timeout: VarInt,
 
+    /// Address of source
     pub addressee: Addressee,
 }
 
@@ -188,7 +203,7 @@ mod test {
 
     #[test]
     fn test_qos() {
-        test_item(QoS::default(), &[0], (&[], 0));
+        test_item(QoS::default(), &[0]);
 
         test_item(
             QoS {
@@ -198,7 +213,6 @@ mod test {
                 stop_on_error: true,
             },
             &[0b11000010],
-            (&[], 0),
         );
 
         test_item(
@@ -209,7 +223,6 @@ mod test {
                 stop_on_error: false,
             },
             &hex!("04"),
-            (&[], 0),
         )
     }
 }

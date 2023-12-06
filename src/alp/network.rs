@@ -2,6 +2,7 @@ use deku::prelude::*;
 
 use crate::alp::varint::VarInt;
 
+/// Network Layer Security
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Default, Debug, Copy, Clone, PartialEq)]
 #[deku(bits = 4, type = "u8")]
@@ -95,7 +96,7 @@ impl Default for Address {
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct Addressee {
-    #[deku(pad_bits_before = "2", update = "self.address.deku_id().unwrap()")]
+    #[deku(update = "self.address.deku_id().unwrap()", pad_bits_before = "2")]
     address_type: AddressType,
 
     #[deku(update = "self.nls_state.deku_id().unwrap()")]
@@ -130,7 +131,7 @@ mod tests {
     use crate::test_tools::test_item;
 
     #[test]
-    fn test_adressee() {
+    fn test_vid_aesccm32() {
         test_item(
             Addressee::new(
                 Address::Vid(0xABCD),
@@ -138,30 +139,35 @@ mod tests {
                 0xFF,
             ),
             &hex!("37 FF ABCD 0011223344"),
-            (&[], 0),
         )
     }
 
     #[test]
-    fn test() {
+    fn test_noid_none() {
         test_item(
             Addressee::new(Address::NoId, NlsState::None, 0),
-            &[0b00010000, 0],
-            (&[], 0),
+            &[0b0010000, 0],
         );
+    }
 
+    #[test]
+    fn test_nbid_none() {
         test_item(
             Addressee::new(Address::NbId(VarInt::new(0, false)), NlsState::None, 0),
             &[0, 0, 0],
-            (&[], 0),
         );
+    }
 
+    #[test]
+    fn test_uid_none() {
         test_item(
             Addressee::new(Address::Uid(0), NlsState::None, 0),
             &[0b00100000, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            (&[], 0),
         );
+    }
 
+    #[test]
+    fn test_nbid_aesctr() {
         test_item(
             Addressee::new(
                 Address::NbId(VarInt::new(1, false)),
@@ -169,24 +175,30 @@ mod tests {
                 0,
             ),
             &[0b00000001, 0, 1, 0, 1, 2, 3, 4],
-            (&[], 0),
         );
+    }
 
+    #[test]
+    fn test_vid_none() {
         test_item(
             Addressee::new(Address::Vid(0x1234), NlsState::None, 5),
             &[0b00110000, 5, 0b00010010, 0b00110100],
-            (&[], 0),
         );
+    }
 
+    #[test]
+    fn test_uid_none2() {
         test_item(
             Addressee::new(Address::Uid(0x1234567890123456), NlsState::None, 105),
             &[
                 0b00100000, 105, 0b00010010, 0b00110100, 0b01010110, 0b01111000, 0b10010000,
                 0b00010010, 0b00110100, 0b01010110,
             ],
-            (&[], 0),
         );
+    }
 
+    #[test]
+    fn test_noid_aescbcmac128() {
         test_item(
             Addressee::new(
                 Address::NoId,
@@ -194,13 +206,14 @@ mod tests {
                 0xBE,
             ),
             &[0b00010010, 0xBE, 10, 20, 30, 40, 50],
-            (&[], 0),
         );
+    }
 
+    #[test]
+    fn test_nbid_none2() {
         test_item(
             Addressee::new(Address::NbId(VarInt::new(100, false)), NlsState::None, 0),
             &[0, 0, 0x39],
-            (&[], 0),
         );
     }
 }

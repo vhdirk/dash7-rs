@@ -60,12 +60,11 @@ pub struct FilePermissions {
     pub guest: UserPermissions,
 }
 
-
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct FileProperties {
     /// Enables the D7AActP (ALP action to trigger upon some type of access to this file)
-    #[deku(bits=1)]
+    #[deku(bits = 1)]
     pub enabled: bool,
 
     /// Type of access needed to trigger the D7AActP
@@ -83,9 +82,9 @@ pub struct FileHeader {
     pub properties: FileProperties,
     pub alp_command_file_id: u8,
     pub interface_file_id: u8,
-    #[deku(endian="big")]
+    #[deku(endian = "big")]
     pub file_size: u32,
-    #[deku(endian="big")]
+    #[deku(endian = "big")]
     pub allocated_size: u32,
 }
 
@@ -96,31 +95,52 @@ mod test {
 
     #[test]
     fn test_file_permissions() {
-
         let permissions = FilePermissions {
-                encrypted: true,
+            encrypted: true,
+            executable: false,
+            user: UserPermissions {
+                read: true,
+                write: true,
+                executable: true,
+            },
+            guest: UserPermissions {
+                read: false,
+                write: false,
                 executable: false,
-                user: UserPermissions { read: true, write: true, executable: true },
-                guest: UserPermissions { read: false, write: false, executable: false },
+            },
         };
 
         let expected = hex!("B8");
 
-
         assert_eq!(permissions.to_bytes().unwrap(), expected);
-        assert_eq!(FilePermissions::from_bytes((&expected, 0)).unwrap().1, permissions);
+        assert_eq!(
+            FilePermissions::from_bytes((&expected, 0)).unwrap().1,
+            permissions
+        );
     }
 
     #[test]
     fn test_file_header() {
-        let header = FileHeader{
+        let header = FileHeader {
             permissions: FilePermissions {
                 encrypted: true,
                 executable: false,
-                user: UserPermissions { read: true, write: true, executable: true },
-                guest: UserPermissions { read: false, write: false, executable: false },
+                user: UserPermissions {
+                    read: true,
+                    write: true,
+                    executable: true,
+                },
+                guest: UserPermissions {
+                    read: false,
+                    write: false,
+                    executable: false,
+                },
             },
-            properties: FileProperties { enabled: false, condition: ActionCondition::Read, storage_class: StorageClass::Permanent },
+            properties: FileProperties {
+                enabled: false,
+                condition: ActionCondition::Read,
+                storage_class: StorageClass::Permanent,
+            },
             alp_command_file_id: 1,
             interface_file_id: 2,
             file_size: 0xDEAD_BEEF,

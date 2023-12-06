@@ -7,13 +7,17 @@ use crate::alp::{
 
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Default, Debug, Clone, PartialEq)]
-#[deku(bits=6, type="u8")]
+#[deku(bits = 6, type = "u8")]
 pub enum CsmaCaMode {
     #[default]
-    #[deku(id="0")] Unc,
-    #[deku(id="1")] Aind,
-    #[deku(id="2")] Raind,
-    #[deku(id="3")] Rigd,
+    #[deku(id = "0")]
+    Unc,
+    #[deku(id = "1")]
+    Aind,
+    #[deku(id = "2")]
+    Raind,
+    #[deku(id = "3")]
+    Rigd,
 }
 
 #[deku_derive(DekuRead, DekuWrite)]

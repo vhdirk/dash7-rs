@@ -1,6 +1,9 @@
 use deku::prelude::*;
 
-use super::{session::QoS, network::{Address, NlsMethod, AddressType}, operand::Length};
+use super::{
+    network::{Address, AddressType, NlsMethod, Addressee},
+    session::{QoS, Dash7InterfaceConfiguration, LoRaWANABPInterfaceConfiguration, LoRaWANOTAAInterfaceConfiguration},
+};
 
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -48,11 +51,11 @@ pub struct InterfaceConfiguration {
     /// Group condition
     pub group_condition: GroupCondition,
 
-    #[deku(update="self.address.deku_id().unwrap()")]
+    #[deku(update = "self.address.deku_id().unwrap()")]
     address_type: AddressType,
 
     /// Use VID instead of UID when possible
-    #[deku(bits=1)]
+    #[deku(bits = 1)]
     pub use_vid: bool,
 
     /// Security method
@@ -64,85 +67,114 @@ pub struct InterfaceConfiguration {
     /// Address of the target.
     #[deku(ctx = "*address_type")]
     pub address: Address,
-
 }
 
-
-/// Dash7 interface
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Clone, Debug, PartialEq)]
-pub struct OverloadedIndirectInterface {
-    /// File containing the `QoS`, `to` and `te` to use for the transmission (see
-    /// dash7::InterfaceConfiguration
-    pub interface_file_id: u8,
-
-    #[deku(update="self.address.deku_id().unwrap()", pad_bits_before="2")]
-    address_type: AddressType,
-
-    pub nls_method: NlsMethod,
-    pub access_class: u8,
-
-    #[deku(ctx = "*address_type")]
-    pub address: Address,
-}
-
-impl OverloadedIndirectInterface {
-    pub fn new(interface_file_id: u8, nls_method: NlsMethod, access_class: u8, address: Address) -> Self {
+impl InterfaceConfiguration {
+    pub fn new(
+        qos: QoS,
+        to: u8,
+        te: u8,
+        group_condition: GroupCondition,
+        use_vid: bool,
+        nls_method: NlsMethod,
+        access_class: u8,
+        address: Address,
+    ) -> Self {
         Self {
-            interface_file_id,
+            qos,
+            to,
+            te,
+            group_condition,
             address_type: address.deku_id().unwrap(),
+            use_vid,
             nls_method,
             access_class,
-            address
+            address,
         }
     }
 }
 
 
-/// Non Dash7 interface
 #[deku_derive(DekuRead, DekuWrite)]
-#[derive(Clone, Debug, PartialEq)]
-// ALP SPEC: This seems undoable if we do not know the interface (per protocol specific support)
-//  which is still a pretty legitimate policy on a low power protocol.
-pub struct NonOverloadedIndirectInterface {
-    pub interface_file_id: u8,
-    // ALP SPEC: Where is this defined? Is this ID specific?
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[deku(bits = 8, type = "u8")]
+pub enum InterfaceType {
 
-    #[deku(update = "self.data.len()")]
-    length: Length,
+    #[deku(id = "0x00")]
+    Host,
 
-    #[deku(count = "length", endian = "big")]
-    pub data: Vec<u8>,
+    #[deku(id = "0x01")]
+    Serial,
+
+    #[deku(id = "0x02")]
+    LoRaWanABP,
+
+    #[deku(id = "0x03")]
+    LoRaWanOTAA,
+
+    #[deku(id = "0xD7")]
+    Dash7,
+
+    #[deku(id_pat = "_")]
+    Other
 }
 
-// #[deku_derive(DekuRead, DekuWrite)]
-// #[derive(Clone, Debug, PartialEq)]
-// pub enum IndirectInterface {
-//     Overloaded(OverloadedIndirectInterface),
-//     NonOverloaded(NonOverloadedIndirectInterface),
-// }
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
+#[deku(type = "InterfaceType")]
+pub enum InterfaceConfigurationOverload {
+
+    #[deku(id = "InterfaceType::Host")]
+    Host,
+
+    #[deku(id = "InterfaceType::Serial")]
+    Serial,
+
+    #[deku(id = "InterfaceType::LoRaWanABP")]
+    LoRaWanABP(LoRaWANABPInterfaceConfiguration),
+
+    #[deku(id = "InterfaceType::LoRaWanOTAA")]
+    LoRaWanOTAA(LoRaWANOTAAInterfaceConfiguration),
+
+    #[deku(id = "InterfaceType::Dash7")]
+    Dash7(Dash7InterfaceConfiguration),
+
+    #[deku(id_pat = "_")]
+    Other,
+}
+
+
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
+#[deku(ctx = "overloaded: bool", id = "overloaded")]
+pub enum IndirectInterface {
+    #[deku(id = "true")]
+    Overloaded(InterfaceConfigurationOverload),
+    #[deku(id = "false")]
+    NonOverloaded(InterfaceType),
+}
+
+
+
 
 
 #[cfg(test)]
 mod test {
     use hex_literal::hex;
 
-    use crate::test_tools::test_item;
     use super::*;
+    use crate::test_tools::test_item;
 
-    #[test]
-    fn test_overloaded_indirect_interface() {
-        test_item(
-            OverloadedIndirectInterface::new(
-                4,
-                NlsMethod::AesCcm32,
-                0xFF,
-                Address::Vid(0xABCD),
-            ),
-            &hex!("04 37 FF ABCD"),
-            (&[], 0)
-        )
-    }
-
+    // #[test]
+    // fn test_overloaded_indirect_interface() {
+    //     test_item(
+    //         OverloadedIndirectInterface::new(
+    //             4,
+    //             NlsMethod::AesCcm32,
+    //             0xFF,
+    //             Address::Vid(0xABCD),
+    //         ),
+    //         &hex!("04 37 FF ABCD"),
+    //     )
+    // }
 }
-

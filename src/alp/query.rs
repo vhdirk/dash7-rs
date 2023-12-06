@@ -221,7 +221,7 @@ impl BitmapRangeComparison {
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct StringTokenSearch {
-    #[deku(bits = 1, update = "self.mask.len() > 0", pad_bits_after= "1")]
+    #[deku(bits = 1, update = "self.mask.len() > 0", pad_bits_after = "1")]
     mask_present: bool,
 
     // TODO: is this bitsize correct?
@@ -272,7 +272,6 @@ mod test {
                 },
             }),
             &hex!("00 04  05 06"),
-            (&[], 0),
         )
     }
 
@@ -291,26 +290,11 @@ mod test {
                 },
             )),
             &hex!("38 03 000102 04 05"),
-            (&[], 0),
         )
     }
 
     #[test]
     fn test_query_comparison_with_value() {
-        let q = Query::ComparisonWithValue(ComparisonWithValue::new(
-            ArithmeticQueryParams {
-                signed: false,
-                comparison_type: ArithmeticComparisonType::Equal,
-            },
-            vec![],
-            vec![9, 9, 9],
-            FileOffset {
-                file_id: 4,
-                offset: 5u32.into(),
-            },
-        ));
-
-        println!("{:?} {:?}", q, q.to_bytes());
         test_item(
             Query::ComparisonWithValue(ComparisonWithValue::new(
                 ArithmeticQueryParams {
@@ -325,7 +309,6 @@ mod test {
                 },
             )),
             &hex!("41 03 090909 04 05"),
-            (&[], 0),
         )
     }
 
@@ -348,7 +331,6 @@ mod test {
                 },
             )),
             &hex!("74 02 FFFF 04 05 08 09"),
-            (&[], 0),
         )
     }
 
@@ -369,7 +351,6 @@ mod test {
                 },
             )),
             &hex!("91 04 03  20  01020304  00 04"),
-            (&[], 0),
         )
     }
 
@@ -386,7 +367,6 @@ mod test {
                 },
             )),
             &hex!("F2 04 FF00FF00  01020304  00 04"),
-            (&[], 0),
         )
     }
 }

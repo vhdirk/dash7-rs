@@ -4,9 +4,6 @@ use deku::{
     prelude::*,
 };
 
-use super::network::{NlsMethod, Address, AddressType};
-
-
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Length(
@@ -95,7 +92,7 @@ impl FileData {
         Self {
             offset,
             length: data.len().into(),
-            data
+            data,
         }
     }
 
@@ -103,7 +100,7 @@ impl FileData {
         &self.data
     }
 
-    pub fn set_data(&mut self, data: Vec<u8>)  {
+    pub fn set_data(&mut self, data: Vec<u8>) {
         self.length = data.len().into();
         self.data = data;
     }
@@ -285,28 +282,42 @@ pub struct FileOffset {
     pub offset: Length,
 }
 
-
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
-#[deku(type="u8")]
+#[deku(type = "u8")]
 pub enum StatusCode {
     /// Status code that can be received as a result of some ALP actions.
     /// Action received and partially completed at response. To be completed after response
-    #[deku(id = "0x00")] Ok,
-    #[deku(id = "0x01")] Received,
-    #[deku(id = "0xFF")] FileIdMissing,
-    #[deku(id = "0xFE")] CreateFileIdAlreadyExist,
-    #[deku(id = "0xFD")] FileIsNotRestorable,
-    #[deku(id = "0xFC")] InsufficientPermission,
-    #[deku(id = "0xFB")] CreateFileLengthOverflow,
-    #[deku(id = "0xFA")] CreateFileAllocationOverflow, // ALP_SPEC: ??? Difference with the previous one?;
-    #[deku(id = "0xF9")] WriteOffsetOverflow,
-    #[deku(id = "0xF8")] WriteDataOverflow,
-    #[deku(id = "0xF7")] WriteStorageUnavailable,
-    #[deku(id = "0xF6")] UnknownOperation,
-    #[deku(id = "0xF5")] OperandIncomplete,
-    #[deku(id = "0xF4")] OperandWrongFormat,
-    #[deku(id = "0x80")] UnknownError,
+    #[deku(id = "0x00")]
+    Ok,
+    #[deku(id = "0x01")]
+    Received,
+    #[deku(id = "0xFF")]
+    FileIdMissing,
+    #[deku(id = "0xFE")]
+    CreateFileIdAlreadyExist,
+    #[deku(id = "0xFD")]
+    FileIsNotRestorable,
+    #[deku(id = "0xFC")]
+    InsufficientPermission,
+    #[deku(id = "0xFB")]
+    CreateFileLengthOverflow,
+    #[deku(id = "0xFA")]
+    CreateFileAllocationOverflow, // ALP_SPEC: ??? Difference with the previous one?;
+    #[deku(id = "0xF9")]
+    WriteOffsetOverflow,
+    #[deku(id = "0xF8")]
+    WriteDataOverflow,
+    #[deku(id = "0xF7")]
+    WriteStorageUnavailable,
+    #[deku(id = "0xF6")]
+    UnknownOperation,
+    #[deku(id = "0xF5")]
+    OperandIncomplete,
+    #[deku(id = "0xF4")]
+    OperandWrongFormat,
+    #[deku(id = "0x80")]
+    UnknownError,
 }
 
 impl StatusCode {
@@ -332,23 +343,22 @@ pub struct ActionStatus {
 // ALP SPEC: where is this defined? Link? Not found in either specs !
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
-#[deku(type="u8")]
+#[deku(type = "u8")]
 pub enum Permission {
-    #[deku(id="0x42")] // ALP_SPEC Undefined
+    #[deku(id = "0x42")] // ALP_SPEC Undefined
     Dash7([u8; 8]),
 }
 
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
-#[deku(type="u8")]
+#[deku(type = "u8")]
 pub enum PermissionLevel {
-    #[deku(id="0")] User,
-    #[deku(id="1")] Root,
+    #[deku(id = "0")]
+    User,
+    #[deku(id = "1")]
+    Root,
     // ALP SPEC: Does something else exist?
 }
-
-
-
 
 // /// Non Dash7 interface
 // #[derive(Clone, Debug, PartialEq)]
@@ -428,9 +438,9 @@ mod test {
 
     #[test]
     fn test_length() {
-        test_item(Length(1), &[0x01], (&[], 0));
-        test_item(Length(65), &[0x40, 0x41], (&[], 0));
-        test_item(Length(4263936), &[0xC0, 0x41, 0x10, 0x00], (&[], 0));
+        test_item(Length(1), &[0x01]);
+        test_item(Length(65), &[0x40, 0x41]);
+        test_item(Length(4263936), &[0xC0, 0x41, 0x10, 0x00]);
     }
 
     #[test]
@@ -441,7 +451,6 @@ mod test {
                 offset: 0x3F_FFu32.into(),
             },
             &hex!("02 7F FF"),
-            (&[], 0),
         )
     }
 
@@ -453,9 +462,6 @@ mod test {
                 status: StatusCode::UnknownOperation,
             },
             &hex!("02 F6"),
-            (&[], 0)
         )
     }
-
-
 }
