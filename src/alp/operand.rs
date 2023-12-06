@@ -347,37 +347,8 @@ pub enum PermissionLevel {
     // ALP SPEC: Does something else exist?
 }
 
-/// Dash7 interface
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Clone, Debug, PartialEq)]
-pub struct OverloadedIndirectInterface {
-    /// File containing the `QoS`, `to` and `te` to use for the transmission (see
-    /// dash7::InterfaceConfiguration
-    pub interface_file_id: u8,
-
-    #[deku(update="self.address.deku_id().unwrap()")]
-    address_type: AddressType,
-
-    pub nls_method: NlsMethod,
-    pub access_class: u8,
-
-    #[deku(ctx = "*address_type")]
-    pub address: Address,
-}
 
 
-// #[test]
-// fn test_overloaded_indirect_interface() {
-//     test_item(
-//         OverloadedIndirectInterface {
-//             interface_file_id: 4,
-//             nls_method: dash7::NlsMethod::AesCcm32,
-//             access_class: 0xFF,
-//             address: dash7::Address::Vid([0xAB, 0xCD]),
-//         },
-//         &hex!("04   37 FF ABCD"),
-//     )
-// }
 
 // /// Non Dash7 interface
 // #[derive(Clone, Debug, PartialEq)]

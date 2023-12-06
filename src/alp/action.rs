@@ -4,9 +4,11 @@ use deku::{
     prelude::*,
 };
 
-use crate::alp::filesystem::FileHeader;
-
-use super::operand::{self, FileOffset, Length, Permission, PermissionLevel};
+use super::{
+    filesystem::FileHeader,
+    operand::{self, FileOffset, Length, Permission, PermissionLevel},
+    query,
+};
 
 // ===============================================================================
 // Opcodes
@@ -145,14 +147,25 @@ pub enum Action {
     WriteFileDataFlush(FileData),
     #[deku(id = "OpCode::WriteFileProperties")]
     WriteFileProperties(FileProperties),
-    // #[deku(id = "8")]
-    // ActionQuery(QueryAction),
-    // #[deku(id = "9")]
-    // BreakQuery(QueryAction),
+
+    /// Add a condition on the execution of the next group of action.
+    ///
+    /// If the condition is not met, the next group of actions should be skipped.
+    #[deku(id = "OpCode::ActionQuery")]
+    ActionQuery(ActionQuery),
+
+    /// Add a condition to continue the processing of this ALP command.
+    ///
+    /// If the condition is not met the all the next ALP action of this command should be ignored.
+    #[deku(id = "OpCode::BreakQuery")]
+    BreakQuery(ActionQuery),
     #[deku(id = "OpCode::PermissionRequest")]
     PermissionRequest(PermissionRequest),
-    // #[deku(id = "11")]
-    // VerifyChecksum(QueryAction),
+
+    /// Calculate checksum of file and compare with checksum in query
+    // ALP_SPEC: Is the checksum calculated on the targeted data (offset, size) or the whole file?
+    #[deku(id = "OpCode::VerifyChecksum")]
+    VerifyChecksum(ActionQuery),
 
     // Management
     #[deku(id = "OpCode::ExistFile")]
@@ -265,14 +278,6 @@ pub struct FileProperties {
     pub file_header: FileHeader,
 }
 
-// #[deku_derive(DekuRead, DekuWrite)]
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct QueryAction {
-//     pub header: ActionHeader,
-
-//     pub query: operand::Query,
-// }
-
 // Read
 /// Read data from a file
 #[deku_derive(DekuRead, DekuWrite)]
@@ -284,70 +289,13 @@ pub struct ReadFileData {
     pub length: Length,
 }
 
-/// Add a condition on the execution of the next group of action.
-///
-/// If the condition is not met, the next group of action should be skipped.
-// #[deku_derive(DekuRead, DekuWrite)]
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct ActionQuery {
-//     pub header: ActionHeader,
-//     pub query: operand::Query,
-// }
-// impl_op_serialized!(
-//     ActionQuery,
-//     group,
-//     resp,
-//     query,
-//     Query,
-//     operand::QueryDecodingError
-// );
-// #[test]
-// fn test_action_query() {
-//     test_item(
-//         ActionQuery {
-//             group: true,
-//             resp: true,
-//             query: operand::Query::NonVoid(operand::NonVoid {
-//                 size: 4,
-//                 file: operand::FileOffset { id: 5, offset: 6 },
-//             }),
-//         },
-//         &hex!("C8   00 04  05 06"),
-//     )
-// }
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ActionQuery {
+    pub header: ActionHeader,
 
-/// Add a condition to continue the processing of this ALP command.
-///
-/// If the condition is not met the all the next ALP action of this command should be ignored.
-// #[deku_derive(DekuRead, DekuWrite)]
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct BreakQuery {
-//     /// Group with next action
-//     pub header: ActionHeader,
-//     pub query: Query,
-// }
-// impl_op_serialized!(
-//     BreakQuery,
-//     group,
-//     resp,
-//     query,
-//     Query,
-//     operand::QueryDecodingError
-// );
-// #[test]
-// fn test_break_query() {
-//     test_item(
-//         BreakQuery {
-//             group: true,
-//             resp: true,
-//             query: operand::Query::NonVoid(operand::NonVoid {
-//                 size: 4,
-//                 file: operand::FileOffset { id: 5, offset: 6 },
-//             }),
-//         },
-//         &hex!("C9   00 04  05 06"),
-//     )
-// }
+    pub query: query::Query,
+}
 
 /// Request a level of permission using some permission type
 #[deku_derive(DekuRead, DekuWrite)]
@@ -358,37 +306,6 @@ pub struct PermissionRequest {
     pub level: PermissionLevel,
     pub permission: Permission,
 }
-
-/// Calculate checksum of file and compare with checksum in query
-// ALP_SPEC: Is the checksum calculated on the targeted data (offset, size) or the whole file?
-// #[deku_derive(DekuRead, DekuWrite)]
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct VerifyChecksum {
-//     pub header: ActionHeader,
-//     pub query: Query,
-// }
-// impl_op_serialized!(
-//     VerifyChecksum,
-//     group,
-//     resp,
-//     query,
-//     Query,
-//     operand::QueryDecodingError
-// );
-// #[test]
-// fn test_verify_checksum() {
-//     test_item(
-//         VerifyChecksum {
-//             group: false,
-//             resp: false,
-//             query: operand::Query::NonVoid(operand::NonVoid {
-//                 size: 4,
-//                 file: operand::FileOffset { id: 5, offset: 6 },
-//             }),
-//         },
-//         &hex!("0B   00 04  05 06"),
-//     )
-// }
 
 /// Copy a file to another file
 // ALP_SPEC: What does that mean? Is it a complete file copy including the file properties or just
@@ -704,6 +621,7 @@ mod test {
         alp::{
             filesystem::{self, FilePermissions, UserPermissions},
             operand::PermissionLevel,
+            query::NonVoid,
         },
         test_tools::test_item,
     };
@@ -1051,6 +969,72 @@ mod test {
             })
             .into(),
             &hex!("20 09 05 03 010203"),
+            (&[], 0),
+        )
+    }
+
+    #[test]
+    fn test_action_query() {
+        test_item::<Operation>(
+            Action::ActionQuery(ActionQuery {
+                header: ActionHeader {
+                    group: true,
+                    response: true,
+                },
+                query: query::Query::NonVoid(NonVoid {
+                    length: 4u32.into(),
+                    file: FileOffset {
+                        file_id: 5,
+                        offset: 6u32.into(),
+                    },
+                }),
+            })
+            .into(),
+            &hex!("C8   00 04  05 06"),
+            (&[], 0),
+        )
+    }
+
+    #[test]
+    fn test_break_query() {
+        test_item::<Operation>(
+            Action::BreakQuery(ActionQuery {
+                header: ActionHeader {
+                    group: true,
+                    response: true,
+                },
+                query: query::Query::NonVoid(NonVoid {
+                    length: 4u32.into(),
+                    file: FileOffset {
+                        file_id: 5,
+                        offset: 6u32.into(),
+                    },
+                }),
+            })
+            .into(),
+            &hex!("C9   00 04  05 06"),
+            (&[], 0),
+        )
+    }
+
+    #[test]
+    fn test_verify_checksum() {
+        test_item::<Operation>(
+            Action::VerifyChecksum(ActionQuery {
+                header: ActionHeader {
+                    group: false,
+                    response: false,
+                },
+                query: query::Query::NonVoid(NonVoid {
+                    length: 4u32.into(),
+                    file: FileOffset {
+                        file_id: 5,
+                        offset: 6u32.into(),
+                    },
+                }),
+            })
+            .into(),
+            &hex!("0B   00 04  05 06"),
             (&[], 0),
         )
     }
