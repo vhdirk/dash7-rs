@@ -3,8 +3,7 @@ use deku::prelude::*;
 use crate::alp::varint::VarInt;
 
 /// Network Layer Security
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Copy, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq)]
 #[deku(bits = 4, type = "u8")]
 pub enum NlsMethod {
     #[default]
@@ -27,8 +26,7 @@ pub enum NlsMethod {
 }
 
 /// Encryption algorithm for over-the-air packets
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(ctx = "nls_method: NlsMethod", id = "nls_method")]
 pub enum NlsState {
     #[default]
@@ -50,8 +48,7 @@ pub enum NlsState {
     AesCcm32([u8; 5]),
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Copy, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq)]
 #[deku(bits = 2, type = "u8")]
 pub enum AddressType {
     /// Broadcast to an estimated number of receivers, encoded in compressed format on a byte.
@@ -69,8 +66,7 @@ pub enum AddressType {
     Vid,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 #[deku(ctx = "address_type: AddressType", id = "address_type")]
 pub enum Address {
     /// Broadcast to an estimated number of receivers, encoded in compressed format on a byte.
@@ -93,8 +89,7 @@ impl Default for Address {
     }
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct Addressee {
     #[deku(update = "self.address.deku_id().unwrap()", pad_bits_before = "2")]
     address_type: AddressType,

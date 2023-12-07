@@ -2,8 +2,7 @@ use deku::prelude::*;
 
 use super::operand::{FileOffset, Length};
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 #[deku(bits = 3, type = "u8")]
 pub enum ArithmeticComparisonType {
     #[deku(id = "0")]
@@ -20,16 +19,14 @@ pub enum ArithmeticComparisonType {
     GreaterThanOrEqual,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct ArithmeticQueryParams {
     #[deku(bits = 1)]
     pub signed: bool,
     pub comparison_type: ArithmeticComparisonType,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 #[deku(bits = 3, type = "u8")]
 pub enum RangeComparisonType {
     #[deku(id = "0")]
@@ -38,16 +35,14 @@ pub enum RangeComparisonType {
     InRange,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct RangeQueryParams {
     #[deku(bits = 1)]
     pub signed: bool,
     pub comparison_type: RangeComparisonType,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 #[deku(bits = 3, type = "u8")]
 pub enum Query {
     #[deku(id = "0x00")]
@@ -66,16 +61,14 @@ pub enum Query {
 
 // ALP_SPEC Does this fail if the content overflows the file?
 /// Checks if the file content exists.
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct NonVoid {
     #[deku(pad_bits_before = "5")]
     pub length: Length,
     pub file: FileOffset,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct ComparisonWithZero {
     #[deku(bits = 1, update = "self.mask.len() > 0")]
     mask_present: bool,
@@ -103,8 +96,7 @@ impl ComparisonWithZero {
 }
 
 /// Compare some file content optionally masked, with a value
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct ComparisonWithValue {
     #[deku(bits = 1, update = "self.mask.len() > 0")]
     mask_present: bool,
@@ -142,8 +134,7 @@ impl ComparisonWithValue {
 }
 
 /// Compare content of 2 files optionally masked
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct ComparisonWithOtherFile {
     #[deku(bits = 1, update = "self.mask.len() > 0")]
     mask_present: bool,
@@ -176,8 +167,7 @@ impl ComparisonWithOtherFile {
 }
 
 /// Check if the content of a file is (not) contained in the sent bitmap values
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct BitmapRangeComparison {
     #[deku(bits = 1, update = "self.mask.len() > 0")]
     mask_present: bool,
@@ -218,8 +208,7 @@ impl BitmapRangeComparison {
 
 /// Compare some file content, optional masked, with an array of bytes and up to a certain number
 /// of errors.
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct StringTokenSearch {
     #[deku(bits = 1, update = "self.mask.len() > 0", pad_bits_after = "1")]
     mask_present: bool,

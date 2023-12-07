@@ -1,7 +1,6 @@
 use deku::prelude::*;
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(bits = 2, endian = "big", type = "u8")]
 pub enum Bandwidth {
     #[default]
@@ -9,8 +8,7 @@ pub enum Bandwidth {
     KHz25 = 0x01,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(bits = 3, endian = "big", type = "u8")]
 pub enum ChannelBand {
     #[default]
@@ -20,8 +18,7 @@ pub enum ChannelBand {
     Band915 = 0x04,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(bits = 2, endian = "big", type = "u8")]
 pub enum ChannelClass {
     #[default]
@@ -31,8 +28,7 @@ pub enum ChannelClass {
     HiRate = 3,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(bits = 2, endian = "big", type = "u8")]
 pub enum ChannelCoding {
     #[default]
@@ -42,8 +38,7 @@ pub enum ChannelCoding {
     Cw = 3,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct ChannelHeader {
     #[deku(pad_bits_before = "1")]
     pub channel_band: ChannelBand,
@@ -51,16 +46,14 @@ pub struct ChannelHeader {
     pub channel_coding: ChannelCoding,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct Channel {
     pub header: ChannelHeader,
-    #[deku(bits = 16)]
+    #[deku(endian="big")]
     pub index: u16,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct ChannelStatusIdentifier {
     // TODO update to D7AP v1.1
     pub channel_band: ChannelBand,
@@ -70,18 +63,12 @@ pub struct ChannelStatusIdentifier {
     pub index: u16,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(endian = "big")]
 pub struct SubBand {
-    #[deku(bits = 16)]
     pub channel_index_start: u16,
-    #[deku(bits = 16)]
     pub channel_index_end: u16,
-    #[deku(bits = 8)]
     pub eirp: u8,
-    #[deku(bits = 8)]
     pub clear_channel_assessment: u8,
-    #[deku(bits = 8)]
     pub duty: u8,
 }

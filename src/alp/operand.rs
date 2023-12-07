@@ -4,8 +4,7 @@ use deku::{
     prelude::*,
 };
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq, Copy)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, Copy)]
 pub struct Length(
     #[deku(
         reader = "Length::read(deku::rest)",
@@ -75,8 +74,7 @@ impl Length {
     }
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct FileData {
     pub offset: FileOffset,
 

@@ -9,7 +9,7 @@ use deku::{
 
 use super::{
     data::FileHeader,
-    interface::{IndirectInterface, InterfaceConfigurationOverload, InterfaceType},
+    interface::InterfaceConfigurationOverload,
     operand::{self, FileOffset, Length, Permission, PermissionLevel},
     query,
 };
@@ -18,8 +18,7 @@ use super::{
 // OpCodes
 // ===============================================================================
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(bits = 6, type = "u8")]
 pub enum OpCode {
     // Nop
@@ -89,9 +88,7 @@ pub enum OpCode {
     Extension,
 }
 
-// #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Debug, Clone, PartialEq)]
-// #[deku(ctx = "code: OpCode", id = "code")]
 pub enum Operation {
     /// Nop
     Nop(Nop),
@@ -434,8 +431,7 @@ impl DekuContainerWrite for Operation {
 }
 
 /// File access type event that will trigger an ALP action.
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(bits = 3, type = "u8")]
 pub enum ActionCondition {
     /// Check for existence
@@ -454,8 +450,7 @@ pub enum ActionCondition {
     WriteFlush,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct ActionHeader {
     /// Group with next action
     #[deku(bits = 1)]
@@ -471,31 +466,27 @@ pub struct ActionHeader {
 // ===============================================================================
 // Nop
 /// Does nothing
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct Nop {
     pub header: ActionHeader,
 }
 
 /// Checks whether a file exists
 // ALP_SPEC: How is the result of this command different from a read file of size 0?
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct FileId {
     pub header: ActionHeader,
     pub file_id: u8,
 }
 
 // Write data to a file
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct FileData {
     pub header: ActionHeader,
     pub operand: operand::FileData,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct FileProperties {
     pub header: ActionHeader,
 
@@ -505,8 +496,7 @@ pub struct FileProperties {
 
 // Read
 /// Read data from a file
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct ReadFileData {
     pub header: ActionHeader,
 
@@ -514,8 +504,7 @@ pub struct ReadFileData {
     pub length: Length,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct ActionQuery {
     pub header: ActionHeader,
 
@@ -523,8 +512,7 @@ pub struct ActionQuery {
 }
 
 /// Request a level of permission using some permission type
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct PermissionRequest {
     pub header: ActionHeader,
     /// See operand::permission_level
@@ -538,8 +526,7 @@ pub struct PermissionRequest {
 // overwrite the first part of the destination file?
 //
 // Wouldn't it be more appropriate to have 1 size and 2 file offsets?
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct CopyFile {
     pub header: ActionHeader,
     pub src_file_id: u8,
@@ -643,8 +630,7 @@ pub struct CopyFile {
 /// Action received before any responses to a request that contained a RequestTag
 ///
 /// This allows matching responses to requests when doing multiple requests in parallel.
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct ResponseTag {
     /// End of packet
     ///
@@ -659,8 +645,7 @@ pub struct ResponseTag {
 }
 
 // Special
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 #[deku(bits = 2, type = "u8")]
 pub enum ChunkStep {
     #[deku(id = "0")]
@@ -680,16 +665,14 @@ pub enum ChunkStep {
 /// ALP Command Chunk to define its chunk state: START, CONTINUE or END (see 6.2.2.1). If the Chunk Action is not
 /// present, the ALP Command is not chunked (implicit START/END). The Group (11.5.3) and Break Query conditions are
 /// extended over all chunks of the ALP Command.
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct Chunk {
     #[deku(pad_bits_after = "6")]
     pub step: ChunkStep,
 }
 
 /// Provide logical link of a group of queries
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 #[deku(bits = 2, type = "u8")]
 pub enum LogicOp {
     #[deku(id = "0")]
@@ -702,8 +685,7 @@ pub enum LogicOp {
     Nand,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct Logic {
     #[deku(pad_bits_after = "6")]
     pub logic: LogicOp,
@@ -760,44 +742,78 @@ pub struct Logic {
 // }
 
 /// Forward rest of the command over the interface
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct IndirectForward {
-    // ALP_SPEC Ask for response ?
-    #[deku(bits = 1, update = "self.interface.deku_id().unwrap()")]
+    #[deku(bits = 1, update = "self.configuration.is_some()")]
     overloaded: bool,
 
     #[deku(bits = 1, pad_bits_after = "6")]
     pub response: bool,
 
-    #[deku(ctx = "*overloaded")]
-    pub interface: IndirectInterface,
+    pub interface_file_id: u8,
+
+    #[deku(
+        reader = "IndirectForward::read(deku::rest, *overloaded)",
+        writer = "IndirectForward::write(deku::output, &self.configuration)"
+    )]
+    pub configuration: Option<InterfaceConfigurationOverload>,
 }
 
 impl IndirectForward {
-    pub fn new(response: bool, interface: IndirectInterface) -> Self {
+    pub fn new(
+        response: bool,
+        interface_file_id: u8,
+        configuration: Option<InterfaceConfigurationOverload>,
+    ) -> Self {
         Self {
-            overloaded: interface.deku_id().unwrap(),
+            overloaded: configuration.is_some(),
             response,
-            interface,
+            interface_file_id,
+            configuration,
         }
+    }
+
+    fn read(
+        rest: &BitSlice<u8, Msb0>,
+        overloaded: bool,
+    ) -> Result<(&BitSlice<u8, Msb0>, Option<InterfaceConfigurationOverload>), DekuError> {
+        // ALP_SPEC: The first byte in the interface_file defines how to parse the
+        // configuration overload, or even its byte size.
+        // We can not continue parsing here!
+
+        let config = if !overloaded {
+            None
+        } else {
+            Some(InterfaceConfigurationOverload::Unknown)
+        };
+
+        Ok((rest, config))
+    }
+
+    fn write(
+        output: &mut BitVec<u8, Msb0>,
+        configuration: &Option<InterfaceConfigurationOverload>,
+    ) -> Result<(), DekuError> {
+        if let Some(config) = configuration.as_ref() {
+            DekuWrite::write(config, output, config.deku_id().unwrap())?;
+        }
+        Ok(())
     }
 }
 
 /// Provide command payload identifier
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct RequestTag {
     /// Ask for end of packet
     ///
     /// Signal the last response packet for the request `id`
     #[deku(bits = 1, pad_bits_after = "7")]
     pub eop: bool,
+
     pub id: u8,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct Extension {
     pub header: ActionHeader,
 }
@@ -810,11 +826,11 @@ mod test {
     use crate::{
         alp::{
             data::{self, FilePermissions, UserPermissions},
-            network::{Address, Addressee, NlsMethod, NlsState},
+            network::{Address, Addressee, NlsState},
             operand::PermissionLevel,
             query::NonVoid,
-            session::{Dash7InterfaceConfiguration, QoS},
-            varint::VarInt,
+            session::QoS,
+            varint::VarInt, interface::Dash7InterfaceConfiguration,
         },
         test_tools::test_item,
     };
@@ -1196,24 +1212,65 @@ mod test {
     }
 
     #[test]
-    fn test_indirect_forward_dash7() {
-        test_item(
-            Operation::IndirectForward(IndirectForward::new(
-                true,
-                IndirectInterface::Overloaded(InterfaceConfigurationOverload::Dash7(
-                    Dash7InterfaceConfiguration {
-                        qos: QoS::default(),
-                        dormant_session_timeout: VarInt::default(),
-                        addressee: Addressee::new(
-                            Address::Vid(0xABCD),
-                            NlsState::AesCcm32([1, 2, 3, 4, 5]),
-                            0xFF,
-                        ),
-                    },
-                )),
+    fn test_indirect_forward_dash7_serialization() {
+        let item = Operation::IndirectForward(IndirectForward::new(
+            true,
+            9,
+            Some(InterfaceConfigurationOverload::Dash7(
+                Dash7InterfaceConfiguration {
+                    qos: QoS::default(),
+                    dormant_session_timeout: VarInt::default(),
+                    addressee: Addressee::new(
+                        Address::Vid(0xABCD),
+                        NlsState::AesCcm32([1, 2, 3, 4, 5]),
+                        0xFF,
+                    ),
+                },
             )),
-            &hex!("F3 D7 00 00 37 FF ABCD 01 02 03 04 05"),
-        )
+        ));
+
+        let data = &hex!("F3 09 00 00 37 FF ABCD 01 02 03 04 05");
+        let result = item.to_bytes().unwrap();
+
+        assert_eq!(result.as_slice(), data, "{:?} == {:?}", &item, data);
+    }
+
+    #[test]
+    fn test_indirect_forward_dash7_deserialization() {
+        let input = &hex!("F3 09 00 00 37 FF ABCD 01 02 03 04 05");
+
+        let expected = Operation::IndirectForward(IndirectForward::new(
+            true,
+            9,
+            Some(InterfaceConfigurationOverload::Unknown),
+        ));
+
+        let ((rest, offset), result) =
+            Operation::from_bytes((input, 0)).expect("should be parsed without error");
+
+        assert_eq!(result, expected.clone(), "{:?} == {:?}", result, &expected);
+
+        let expected_config = Dash7InterfaceConfiguration {
+            qos: QoS::default(),
+            dormant_session_timeout: VarInt::default(),
+            addressee: Addressee::new(
+                Address::Vid(0xABCD),
+                NlsState::AesCcm32([1, 2, 3, 4, 5]),
+                0xFF,
+            ),
+        };
+
+        // now continue parsing the config itself
+        let (_, config_result) = Dash7InterfaceConfiguration::from_bytes((rest, offset))
+            .expect("should be parsed without error");
+
+        assert_eq!(
+            config_result,
+            expected_config.clone(),
+            "{:?} == {:?}",
+            config_result,
+            &expected_config
+        );
     }
 
     #[test]

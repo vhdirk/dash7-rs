@@ -4,8 +4,7 @@ use deku::{
     prelude::*,
 };
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct VarInt {
     #[deku(
         reader = "VarInt::read(deku::rest)",
@@ -54,7 +53,7 @@ impl VarInt {
         Err(())
     }
 
-    /// Returns whether the value is encodable into a varint or not.
+    /// Returns whether the value is encodable into a VarInt or not.
     /// Makes no guarantees about precision
     pub fn is_valid(n: u32) -> bool {
         n <= Self::MAX

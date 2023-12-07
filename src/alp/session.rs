@@ -3,8 +3,7 @@ use deku::prelude::*;
 use crate::alp::{network::Addressee, physical::Channel, varint::VarInt};
 
 /// The Response Modes define the condition for termination on success of a Request
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(bits = 3, type = "u8")]
 pub enum ResponseMode {
     /// A Request is acknowledged if the DLL CSMA-CA routine succeeds. No
@@ -63,43 +62,38 @@ pub enum ResponseMode {
 /// The Retry Modes define the pattern for re-flushing a FIFO that terminates on error.
 ///
 /// In other words, what is the retry policy when sending your payload.
-#[cfg(feature = "spec_v1_2")]
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(bits = 3, type = "u8")]
 pub enum RetryMode {
     #[default]
     #[deku(id = "0")]
     No,
-}
 
-#[cfg(feature = "wizzilab_v5_3")]
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
-#[deku(bits = 3, type = "u8")]
-pub enum RetryMode {
-    #[default]
-    #[deku(id = "0")]
-    No,
+    #[cfg(feature = "wizzilab_v5_3")]
     #[deku(id = "1")]
     OneshotRetry,
+    #[cfg(feature = "wizzilab_v5_3")]
     #[deku(id = "2")]
     FifoFast,
+    #[cfg(feature = "wizzilab_v5_3")]
     #[deku(id = "3")]
     FifoSlow,
+    #[cfg(feature = "wizzilab_v5_3")]
     #[deku(id = "4")]
     SingleFast,
+    #[cfg(feature = "wizzilab_v5_3")]
     #[deku(id = "5")]
     SingleSlow,
+    #[cfg(feature = "wizzilab_v5_3")]
     #[deku(id = "6")]
     OneshotSticky,
+    #[cfg(feature = "wizzilab_v5_3")]
     #[deku(id = "7")]
-    Rfu7,
+    Rfu,
 }
 
 /// QoS of the request
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct QoS {
     #[deku(bits = 1)]
     pub stop_on_error: bool,
@@ -109,60 +103,7 @@ pub struct QoS {
     pub response_mode: ResponseMode,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
-pub struct Dash7InterfaceConfiguration {
-    pub qos: QoS,
-    pub dormant_session_timeout: VarInt,
-    pub addressee: Addressee,
-}
-
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
-pub struct LoRaWANInterfaceConfiguration {
-    #[deku(pad_bits_before = "5", bits = 1)]
-    pub adr_enabled: bool,
-    #[deku(bits = 1)]
-    pub request_ack: bool,
-
-    #[deku(pad_bits_before = "1")]
-    pub application_port: u8,
-    pub data_rate: u8,
-}
-
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
-pub struct LoRaWANOTAAInterfaceConfiguration {
-    pub base: LoRaWANInterfaceConfiguration,
-
-    #[deku(count = "8")]
-    pub device_eui: Vec<u8>,
-
-    #[deku(count = "8")]
-    pub app_eui: Vec<u8>,
-
-    #[deku(count = "16")]
-    pub app_key: Vec<u8>,
-}
-
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
-pub struct LoRaWANABPInterfaceConfiguration {
-    pub base: LoRaWANInterfaceConfiguration,
-
-    #[deku(count = "16")]
-    pub network_session_key: Vec<u8>,
-
-    #[deku(count = "16")]
-    pub app_session_key: Vec<u8>,
-
-    pub device_address: u32,
-
-    pub network_id: u32,
-}
-
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct InterfaceStatus {
     /// PHY layer channel
     pub channel: Channel,

@@ -1,12 +1,12 @@
 use deku::prelude::*;
 
 use super::{
-    network::{Address, AddressType, NlsMethod, Addressee},
-    session::{QoS, Dash7InterfaceConfiguration, LoRaWANABPInterfaceConfiguration, LoRaWANOTAAInterfaceConfiguration},
+    network::{Address, AddressType, Addressee, NlsMethod},
+    session::QoS,
+    varint::VarInt,
 };
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(bits = 2, type = "u8")]
 pub enum GroupCondition {
     /// <, =, > (always true)
@@ -28,8 +28,7 @@ pub enum GroupCondition {
 ///
 /// Parameters to handle the sending of a request.
 // ALP SPEC: Add link to D7a section
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct InterfaceConfiguration {
     pub qos: QoS,
     /// Flush Start Timeout in Compressed Format, unit is in seconds
@@ -42,11 +41,11 @@ pub struct InterfaceConfiguration {
     /// then we can aggregate the requests, to avoid advertising twice. Another example would be if
     /// the target sends us a packet, the modem can aggregate our request to the response of the
     /// request of the target.
-    pub to: u8,
+    pub to: VarInt,
     /// Response Execution Delay in Compressed Format, unit is in milliseconds.
     ///
     /// Time given to the target to process the request.
-    pub te: u8,
+    pub te: VarInt,
 
     /// Group condition
     pub group_condition: GroupCondition,
@@ -72,8 +71,8 @@ pub struct InterfaceConfiguration {
 impl InterfaceConfiguration {
     pub fn new(
         qos: QoS,
-        to: u8,
-        te: u8,
+        to: VarInt,
+        te: VarInt,
         group_condition: GroupCondition,
         use_vid: bool,
         nls_method: NlsMethod,
@@ -94,12 +93,57 @@ impl InterfaceConfiguration {
     }
 }
 
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+pub struct Dash7InterfaceConfiguration {
+    pub qos: QoS,
+    pub dormant_session_timeout: VarInt,
+    pub addressee: Addressee,
+}
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+pub struct LoRaWANInterfaceConfiguration {
+    #[deku(pad_bits_before = "5", bits = 1)]
+    pub adr_enabled: bool,
+    #[deku(bits = 1)]
+    pub request_ack: bool,
+
+    #[deku(pad_bits_before = "1")]
+    pub application_port: u8,
+    pub data_rate: u8,
+}
+
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+pub struct LoRaWANOTAAInterfaceConfiguration {
+    pub base: LoRaWANInterfaceConfiguration,
+
+    #[deku(count = "8")]
+    pub device_eui: Vec<u8>,
+
+    #[deku(count = "8")]
+    pub app_eui: Vec<u8>,
+
+    #[deku(count = "16")]
+    pub app_key: Vec<u8>,
+}
+
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+pub struct LoRaWANABPInterfaceConfiguration {
+    pub base: LoRaWANInterfaceConfiguration,
+
+    #[deku(count = "16")]
+    pub network_session_key: Vec<u8>,
+
+    #[deku(count = "16")]
+    pub app_session_key: Vec<u8>,
+
+    pub device_address: u32,
+
+    pub network_id: u32,
+}
+
+#[derive(DekuRead, DekuWrite, Debug, Clone, Copy, PartialEq)]
 #[deku(bits = 8, type = "u8")]
 pub enum InterfaceType {
-
     #[deku(id = "0x00")]
     Host,
 
@@ -116,14 +160,12 @@ pub enum InterfaceType {
     Dash7,
 
     #[deku(id_pat = "_")]
-    Other
+    Unknown,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-#[deku(type = "InterfaceType")]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[deku(ctx = "interface_type: InterfaceType", id = "interface_type")]
 pub enum InterfaceConfigurationOverload {
-
     #[deku(id = "InterfaceType::Host")]
     Host,
 
@@ -140,41 +182,5 @@ pub enum InterfaceConfigurationOverload {
     Dash7(Dash7InterfaceConfiguration),
 
     #[deku(id_pat = "_")]
-    Other,
-}
-
-
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-#[deku(ctx = "overloaded: bool", id = "overloaded")]
-pub enum IndirectInterface {
-    #[deku(id = "true")]
-    Overloaded(InterfaceConfigurationOverload),
-    #[deku(id = "false")]
-    NonOverloaded(InterfaceType),
-}
-
-
-
-
-
-#[cfg(test)]
-mod test {
-    use hex_literal::hex;
-
-    use super::*;
-    use crate::test_tools::test_item;
-
-    // #[test]
-    // fn test_overloaded_indirect_interface() {
-    //     test_item(
-    //         OverloadedIndirectInterface::new(
-    //             4,
-    //             NlsMethod::AesCcm32,
-    //             0xFF,
-    //             Address::Vid(0xABCD),
-    //         ),
-    //         &hex!("04 37 FF ABCD"),
-    //     )
-    // }
+    Unknown,
 }
