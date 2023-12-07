@@ -4,6 +4,25 @@ use deku::{
     prelude::*,
 };
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum VarIntError{
+    ValueTooLarge(u32),
+    ExponentTooLarge(u8),
+    MantissaTooLarge(u8),
+    Unknown
+}
+
+impl Into<DekuError> for VarIntError {
+    fn into(self) -> DekuError {
+        match self {
+            VarIntError::ValueTooLarge(value) => DekuError::InvalidParam(format!("VarInt: Value too large: {:?}. Max: {:?}", value, VarInt::MAX)),
+            VarIntError::ExponentTooLarge(exponent) => DekuError::InvalidParam(format!("VarInt: Exponent too large {:?}. Max: {:?}", exponent, 0b00000111)),
+            VarIntError::MantissaTooLarge(mantissa) => DekuError::InvalidParam(format!("VarInt: Mantissa too large {:?}. Max: {:?}", mantissa, 0b00011111)),
+            VarIntError::Unknown => DekuError::Unexpected("VarInt: Unknown error".to_string())
+        }
+    }
+}
+
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct VarInt {
     #[deku(
@@ -19,20 +38,34 @@ pub struct VarInt {
 impl VarInt {
     pub const MAX: u32 = 507904;
 
-    pub fn new(value: u32, ceil: bool) -> Self {
-        // TODO: check bounds
+    pub fn new(value: u32, ceil: bool) -> Result<Self, VarIntError> {
+        if !Self::is_valid(value) {
+            Err(VarIntError::ValueTooLarge(value))
+        } else{
+            Ok(Self { value, ceil })
+        }
+    }
+
+    pub fn new_unchecked(value: u32, ceil: bool) -> Self {
         Self { value, ceil }
     }
 
-    pub fn decompress(exponent: u8, mantissa: u8) -> u32 {
-        // TODO: bounds checks on exp and mantissa
-        4u32.pow(exponent as u32) * mantissa as u32
+    pub fn decompress(exponent: u8, mantissa: u8) -> Result<u32, VarIntError> {
+
+        if exponent & 0b11111000 > 0 {
+            return Err(VarIntError::ExponentTooLarge(exponent));
+        }
+
+        if mantissa & 0b11100000 > 0 {
+            return Err(VarIntError::ExponentTooLarge(mantissa));
+        }
+
+        Ok(4u32.pow(exponent as u32) * mantissa as u32)
     }
 
-    pub fn compress(value: u32, ceil: bool) -> Result<(/*exponent: */ u8, /*mantissa: */ u8), ()> {
+    pub fn compress(value: u32, ceil: bool) -> Result<(/*exponent: */ u8, /*mantissa: */ u8), VarIntError> {
         if !Self::is_valid(value) {
-            // TODO proper error
-            return Err(());
+            return Err(VarIntError::ValueTooLarge(value));
         }
 
         for i in 0..8 {
@@ -49,8 +82,8 @@ impl VarInt {
             }
         }
 
-        // TODO proper error
-        Err(())
+        // TODO when does this happen?
+        Err(VarIntError::Unknown)
     }
 
     /// Returns whether the value is encodable into a VarInt or not.
@@ -62,7 +95,8 @@ impl VarInt {
     fn read(rest: &BitSlice<u8, Msb0>) -> Result<(&BitSlice<u8, Msb0>, u32), DekuError> {
         let (rest, exponent) = <u8 as DekuRead<'_, _>>::read(rest, (Endian::Big, BitSize(3)))?;
         let (rest, mantissa) = <u8 as DekuRead<'_, _>>::read(rest, (Endian::Big, BitSize(5)))?;
-        Ok((rest, Self::decompress(exponent, mantissa)))
+
+        Self::decompress(exponent, mantissa).map_err(Into::into).map(|value| (rest, value))
     }
 
     fn write(output: &mut BitVec<u8, Msb0>, value: &u32, ceil: &bool) -> Result<(), DekuError> {
@@ -72,9 +106,7 @@ impl VarInt {
                 DekuWrite::write(&mantissa, output, (Endian::Big, BitSize(5)))?;
                 Ok(())
             }
-            Err(()) => Err(DekuError::Unexpected(
-                "Could not compress value".to_string(),
-            )),
+            Err(err) => Err(err.into()),
         }
     }
 }
@@ -104,18 +136,18 @@ mod test {
 
     #[test]
     fn test_decompress() {
-        assert_eq!(0, VarInt::decompress(0, 0));
-        assert_eq!(4, VarInt::decompress(1, 1));
-        assert_eq!(32, VarInt::decompress(2, 2));
-        assert_eq!(192, VarInt::decompress(3, 3));
-        assert_eq!(507904, VarInt::decompress(7, 31));
+        assert_eq!(0, VarInt::decompress(0, 0).unwrap());
+        assert_eq!(4, VarInt::decompress(1, 1).unwrap());
+        assert_eq!(32, VarInt::decompress(2, 2).unwrap());
+        assert_eq!(192, VarInt::decompress(3, 3).unwrap());
+        assert_eq!(507904, VarInt::decompress(7, 31).unwrap());
     }
 
     #[test]
     fn test() {
         test_item(VarInt::default(), &[0x00]);
-        test_item(VarInt::new(1, false), &[0x01u8]);
-        test_item(VarInt::new(32, false), &[0b00101000u8]);
-        test_item(VarInt::new(507904, false), &[0xFFu8]);
+        test_item(VarInt::new_unchecked(1, false), &[0x01u8]);
+        test_item(VarInt::new_unchecked(32, false), &[0b00101000u8]);
+        test_item(VarInt::new_unchecked(507904, false), &[0xFFu8]);
     }
 }

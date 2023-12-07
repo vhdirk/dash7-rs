@@ -3,6 +3,7 @@ use deku::prelude::*;
 use crate::alp::{
     physical::{ChannelHeader, SubBand},
     varint::VarInt,
+    utils::{read_array, write_array}
 };
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
@@ -28,8 +29,16 @@ pub struct SubProfile {
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct AccessProfile {
     pub channel_header: ChannelHeader,
-    #[deku(count = "4")]
-    pub sub_profiles: Vec<SubProfile>,
-    #[deku(count = "8")]
-    pub sub_bands: Vec<SubBand>,
+
+    #[deku(
+        reader = "read_array::<SubProfile, 4>(deku::rest)",
+        writer = "write_array::<SubProfile, 4>(deku::output, &self.sub_profiles)"
+    )]
+    pub sub_profiles: [SubProfile; 4],
+
+    #[deku(
+        reader = "read_array::<SubBand, 8>(deku::rest)",
+        writer = "write_array::<SubBand, 8>(deku::output, &self.sub_bands)"
+    )]
+    pub sub_bands: [SubBand; 8],
 }

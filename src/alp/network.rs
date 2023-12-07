@@ -148,7 +148,7 @@ mod tests {
     #[test]
     fn test_nbid_none() {
         test_item(
-            Addressee::new(Address::NbId(VarInt::new(0, false)), NlsState::None, 0),
+            Addressee::new(Address::NbId(VarInt::new(0, false).unwrap()), NlsState::None, 0),
             &[0, 0, 0],
         );
     }
@@ -165,7 +165,7 @@ mod tests {
     fn test_nbid_aesctr() {
         test_item(
             Addressee::new(
-                Address::NbId(VarInt::new(1, false)),
+                Address::NbId(VarInt::new(1, false).unwrap()),
                 NlsState::AesCtr([0, 1, 2, 3, 4]),
                 0,
             ),
@@ -207,7 +207,7 @@ mod tests {
     #[test]
     fn test_nbid_none2() {
         test_item(
-            Addressee::new(Address::NbId(VarInt::new(100, false)), NlsState::None, 0),
+            Addressee::new(Address::NbId(VarInt::new(100, false).unwrap()), NlsState::None, 0),
             &[0, 0, 0x39],
         );
     }

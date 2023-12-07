@@ -18,3 +18,5 @@ pub mod session;
 pub mod operation;
 
 pub mod query;
+
+pub mod utils;
