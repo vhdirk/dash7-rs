@@ -15,7 +15,7 @@ pub mod physical;
 pub mod session;
 
 /// ALP basic Actions used to build Commands
-pub mod operation;
+pub mod action;
 
 pub mod query;
 

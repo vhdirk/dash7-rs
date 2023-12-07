@@ -29,7 +29,7 @@ pub fn read_array<'a, T, const N: usize>(
 where
     T: DekuRead<'a>,
 {
-    // lots of potentially unsafe operations here, but deemed safe anyway.
+    // Potentially unsafe operations here, but deemed safe anyway.
     // We create an array of MaybeUninit. If deserializing an element would
     // error, all previously elements would leak.
     // Therefore, we add a transient dropper: it will keep track of everything

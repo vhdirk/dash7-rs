@@ -2,9 +2,11 @@ use deku::prelude::*;
 
 use crate::alp::varint::VarInt;
 
+use super::interface::GroupCondition;
+
 /// Network Layer Security
 #[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq)]
-#[deku(bits = 4, type = "u8")]
+#[deku(bits = 3, type = "u8")]
 pub enum NlsMethod {
     #[default]
     #[deku(id = "0x00")]
@@ -91,8 +93,17 @@ impl Default for Address {
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct Addressee {
-    #[deku(update = "self.address.deku_id().unwrap()", pad_bits_before = "2")]
+    /// Group condition
+    /// Not used in sub-iot
+    pub group_condition: GroupCondition,
+
+    #[deku(update = "self.address.deku_id().unwrap()")]
     address_type: AddressType,
+
+    /// Use VID instead of UID when possible
+    /// Not used in sub-iot
+    #[deku(bits = 1)]
+    pub use_vid: bool,
 
     #[deku(update = "self.nls_state.deku_id().unwrap()")]
     nls_method: NlsMethod,
@@ -107,8 +118,16 @@ pub struct Addressee {
 }
 
 impl Addressee {
-    pub fn new(address: Address, nls_state: NlsState, access_class: u8) -> Self {
+    pub fn new(
+        use_vid: bool,
+        group_condition: GroupCondition,
+        address: Address,
+        nls_state: NlsState,
+        access_class: u8,
+    ) -> Self {
         Self {
+            use_vid,
+            group_condition,
             address_type: address.deku_id().unwrap(),
             nls_method: nls_state.deku_id().unwrap(),
             access_class,
@@ -129,6 +148,8 @@ mod tests {
     fn test_vid_aesccm32() {
         test_item(
             Addressee::new(
+                false,
+                GroupCondition::Any,
                 Address::Vid(0xABCD),
                 NlsState::AesCcm32(hex!("00 11 22 33 44")),
                 0xFF,
@@ -140,7 +161,7 @@ mod tests {
     #[test]
     fn test_noid_none() {
         test_item(
-            Addressee::new(Address::NoId, NlsState::None, 0),
+            Addressee::new(false, GroupCondition::Any, Address::NoId, NlsState::None, 0),
             &[0b0010000, 0],
         );
     }
@@ -148,7 +169,13 @@ mod tests {
     #[test]
     fn test_nbid_none() {
         test_item(
-            Addressee::new(Address::NbId(VarInt::new(0, false).unwrap()), NlsState::None, 0),
+            Addressee::new(
+                false,
+                GroupCondition::Any,
+                Address::NbId(VarInt::new(0, false).unwrap()),
+                NlsState::None,
+                0,
+            ),
             &[0, 0, 0],
         );
     }
@@ -156,7 +183,13 @@ mod tests {
     #[test]
     fn test_uid_none() {
         test_item(
-            Addressee::new(Address::Uid(0), NlsState::None, 0),
+            Addressee::new(
+                false,
+                GroupCondition::Any,
+                Address::Uid(0),
+                NlsState::None,
+                0,
+            ),
             &[0b00100000, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         );
     }
@@ -165,6 +198,8 @@ mod tests {
     fn test_nbid_aesctr() {
         test_item(
             Addressee::new(
+                false,
+                GroupCondition::Any,
                 Address::NbId(VarInt::new(1, false).unwrap()),
                 NlsState::AesCtr([0, 1, 2, 3, 4]),
                 0,
@@ -176,7 +211,13 @@ mod tests {
     #[test]
     fn test_vid_none() {
         test_item(
-            Addressee::new(Address::Vid(0x1234), NlsState::None, 5),
+            Addressee::new(
+                false,
+                GroupCondition::Any,
+                Address::Vid(0x1234),
+                NlsState::None,
+                5,
+            ),
             &[0b00110000, 5, 0b00010010, 0b00110100],
         );
     }
@@ -184,7 +225,13 @@ mod tests {
     #[test]
     fn test_uid_none2() {
         test_item(
-            Addressee::new(Address::Uid(0x1234567890123456), NlsState::None, 105),
+            Addressee::new(
+                false,
+                GroupCondition::Any,
+                Address::Uid(0x1234567890123456),
+                NlsState::None,
+                105,
+            ),
             &[
                 0b00100000, 105, 0b00010010, 0b00110100, 0b01010110, 0b01111000, 0b10010000,
                 0b00010010, 0b00110100, 0b01010110,
@@ -196,6 +243,8 @@ mod tests {
     fn test_noid_aescbcmac128() {
         test_item(
             Addressee::new(
+                false,
+                GroupCondition::Any,
                 Address::NoId,
                 NlsState::AesCbcMac128([10, 20, 30, 40, 50]),
                 0xBE,
@@ -207,7 +256,13 @@ mod tests {
     #[test]
     fn test_nbid_none2() {
         test_item(
-            Addressee::new(Address::NbId(VarInt::new(100, false).unwrap()), NlsState::None, 0),
+            Addressee::new(
+                false,
+                GroupCondition::Any,
+                Address::NbId(VarInt::new(100, false).unwrap()),
+                NlsState::None,
+                0,
+            ),
             &[0, 0, 0x39],
         );
     }

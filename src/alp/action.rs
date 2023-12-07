@@ -9,9 +9,10 @@ use deku::{
 
 use super::{
     data::FileHeader,
-    interface::InterfaceConfigurationOverload,
-    operand::{self, FileOffset, Length, Permission, PermissionLevel},
+    interface::{InterfaceConfiguration, InterfaceType},
+    operand::{ActionStatus, FileOffset, Length, Permission, PermissionLevel},
     query,
+    session::InterfaceStatus,
 };
 
 // ===============================================================================
@@ -89,7 +90,7 @@ pub enum OpCode {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Operation {
+pub enum Action {
     /// Nop
     Nop(Nop),
     /// Read
@@ -129,21 +130,26 @@ pub enum Operation {
     // Response
     ReturnFileData(FileData),
     ReturnFileProperties(FileProperties),
-    // #[deku(id = "34")]
-    // Status(Status),
+    Status(StatusOperand),
     ResponseTag(ResponseTag),
 
     // Special
     Chunk(Chunk),
     Logic(Logic),
-    // #[deku(id = "50")]
-    // Forward(Forward),
+    Forward(Forward),
     IndirectForward(IndirectForward),
     RequestTag(RequestTag),
     Extension(Extension),
 }
 
-impl DekuRead<'_, ()> for Operation {
+macro_rules! read_action {
+    ($action: ident, $operand: ty, $input: ident) => {{
+        let (rest, action) = <$operand as DekuRead<'_, _>>::read($input, ())?;
+        (rest, Self::$action(action))
+    }};
+}
+
+impl DekuRead<'_, ()> for Action {
     fn read(
         input: &'_ BitSlice<u8, Msb0>,
         _: (),
@@ -152,114 +158,41 @@ impl DekuRead<'_, ()> for Operation {
         let (_, code) = <OpCode as DekuRead<'_, _>>::read(rest, ())?;
 
         let (rest, value) = match code {
-            OpCode::Nop => {
-                let (rest, action) = <Nop as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::Nop(action))
-            }
-            OpCode::ReadFileData => {
-                let (rest, action) = <ReadFileData as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::ReadFileData(action))
-            }
-            OpCode::ReadFileProperties => {
-                let (rest, action) = <FileId as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::ReadFileProperties(action))
-            }
-            OpCode::WriteFileData => {
-                let (rest, action) = <FileData as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::WriteFileData(action))
-            }
-            OpCode::WriteFileDataFlush => {
-                let (rest, action) = <FileData as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::WriteFileDataFlush(action))
-            }
-            OpCode::WriteFileProperties => {
-                let (rest, action) = <FileProperties as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::WriteFileProperties(action))
-            }
-            OpCode::ActionQuery => {
-                let (rest, action) = <ActionQuery as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::ActionQuery(action))
-            }
-            OpCode::BreakQuery => {
-                let (rest, action) = <ActionQuery as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::BreakQuery(action))
-            }
-            OpCode::PermissionRequest => {
-                let (rest, action) = <PermissionRequest as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::PermissionRequest(action))
-            }
-            OpCode::VerifyChecksum => {
-                let (rest, action) = <ActionQuery as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::VerifyChecksum(action))
-            }
-            OpCode::ExistFile => {
-                let (rest, action) = <FileId as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::ExistFile(action))
-            }
-            OpCode::CreateNewFile => {
-                let (rest, action) = <FileProperties as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::CreateNewFile(action))
-            }
-            OpCode::DeleteFile => {
-                let (rest, action) = <FileId as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::DeleteFile(action))
-            }
-            OpCode::RestoreFile => {
-                let (rest, action) = <FileId as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::RestoreFile(action))
-            }
-            OpCode::FlushFile => {
-                let (rest, action) = <FileId as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::FlushFile(action))
-            }
-            OpCode::CopyFile => {
-                let (rest, action) = <CopyFile as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::CopyFile(action))
-            }
-            OpCode::ExecuteFile => {
-                let (rest, action) = <FileId as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::ExecuteFile(action))
-            }
-            OpCode::ReturnFileData => {
-                let (rest, action) = <FileData as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::ReturnFileData(action))
-            }
+            OpCode::Nop => read_action!(Nop, Nop, input),
+            OpCode::ReadFileData => read_action!(ReadFileData, ReadFileData, input),
+            OpCode::ReadFileProperties => read_action!(ReadFileProperties, FileId, input),
+            OpCode::WriteFileData => read_action!(WriteFileData, FileData, input),
+            OpCode::WriteFileDataFlush => read_action!(WriteFileDataFlush, FileData, input),
+            OpCode::WriteFileProperties => read_action!(WriteFileProperties, FileProperties, input),
+            OpCode::ActionQuery => read_action!(ActionQuery, ActionQuery, input),
+            OpCode::BreakQuery => read_action!(BreakQuery, ActionQuery, input),
+            OpCode::PermissionRequest => read_action!(PermissionRequest, PermissionRequest, input),
+            OpCode::VerifyChecksum => read_action!(VerifyChecksum, ActionQuery, input),
+            OpCode::ExistFile => read_action!(ExistFile, FileId, input),
+            OpCode::CreateNewFile => read_action!(CreateNewFile, FileProperties, input),
+            OpCode::DeleteFile => read_action!(DeleteFile, FileId, input),
+            OpCode::RestoreFile => read_action!(RestoreFile, FileId, input),
+            OpCode::FlushFile => read_action!(FlushFile, FileId, input),
+            OpCode::CopyFile => read_action!(CopyFile, CopyFile, input),
+            OpCode::ExecuteFile => read_action!(ExecuteFile, FileId, input),
+            OpCode::ReturnFileData => read_action!(ReturnFileData, FileData, input),
             OpCode::ReturnFileProperties => {
-                let (rest, action) = <FileProperties as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::ReturnFileProperties(action))
+                read_action!(ReturnFileProperties, FileProperties, input)
             }
-            OpCode::ResponseTag => {
-                let (rest, action) = <ResponseTag as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::ResponseTag(action))
-            }
-            OpCode::Chunk => {
-                let (rest, action) = <Chunk as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::Chunk(action))
-            }
-            OpCode::Logic => {
-                let (rest, action) = <Logic as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::Logic(action))
-            }
-            OpCode::RequestTag => {
-                let (rest, action) = <RequestTag as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::RequestTag(action))
-            }
-            OpCode::Extension => {
-                let (rest, action) = <Extension as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::Extension(action))
-            }
-            OpCode::Status => todo!(),
-            OpCode::Forward => todo!(),
-            OpCode::IndirectForward => {
-                let (rest, action) = <IndirectForward as DekuRead<'_, _>>::read(input, ())?;
-                (rest, Self::IndirectForward(action))
-            }
+            OpCode::ResponseTag => read_action!(ResponseTag, ResponseTag, input),
+            OpCode::Chunk => read_action!(Chunk, Chunk, input),
+            OpCode::Logic => read_action!(Logic, Logic, input),
+            OpCode::RequestTag => read_action!(RequestTag, RequestTag, input),
+            OpCode::Status => read_action!(Status, StatusOperand, input),
+            OpCode::Forward => read_action!(Forward, Forward, input),
+            OpCode::IndirectForward => read_action!(IndirectForward, IndirectForward, input),
+            OpCode::Extension => read_action!(Extension, Extension, input),
         };
         Ok((rest, value))
     }
 }
 
-impl TryFrom<&'_ [u8]> for Operation {
+impl TryFrom<&'_ [u8]> for Action {
     type Error = DekuError;
     fn try_from(input: &'_ [u8]) -> Result<Self, Self::Error> {
         let (rest, res) = <Self as DekuContainerRead>::from_bytes((input, 0))?;
@@ -272,7 +205,7 @@ impl TryFrom<&'_ [u8]> for Operation {
         Ok(res)
     }
 }
-impl DekuContainerRead<'_> for Operation {
+impl DekuContainerRead<'_> for Action {
     fn from_bytes(input: (&'_ [u8], usize)) -> Result<((&'_ [u8], usize), Self), DekuError> {
         let input_bits = input.0.view_bits::<Msb0>();
         let (rest, value) = <Self as DekuRead>::read(&input_bits[input.1..], ())?;
@@ -286,122 +219,82 @@ impl DekuContainerRead<'_> for Operation {
     }
 }
 
-impl DekuEnumExt<'_, OpCode> for Operation {
+impl DekuEnumExt<'_, OpCode> for Action {
     fn deku_id(&self) -> Result<OpCode, DekuError> {
         match self {
-            Operation::Nop(_) => Ok(OpCode::Nop),
-            Operation::ReadFileData(_) => Ok(OpCode::ReadFileData),
-            Operation::ReadFileProperties(_) => Ok(OpCode::ReadFileProperties),
-            Operation::WriteFileData(_) => Ok(OpCode::WriteFileData),
-            Operation::WriteFileDataFlush(_) => Ok(OpCode::WriteFileDataFlush),
-            Operation::WriteFileProperties(_) => Ok(OpCode::WriteFileProperties),
-            Operation::ActionQuery(_) => Ok(OpCode::ActionQuery),
-            Operation::BreakQuery(_) => Ok(OpCode::BreakQuery),
-            Operation::PermissionRequest(_) => Ok(OpCode::PermissionRequest),
-            Operation::VerifyChecksum(_) => Ok(OpCode::VerifyChecksum),
-            Operation::ExistFile(_) => Ok(OpCode::ExistFile),
-            Operation::CreateNewFile(_) => Ok(OpCode::CreateNewFile),
-            Operation::DeleteFile(_) => Ok(OpCode::DeleteFile),
-            Operation::RestoreFile(_) => Ok(OpCode::RestoreFile),
-            Operation::FlushFile(_) => Ok(OpCode::FlushFile),
-            Operation::CopyFile(_) => Ok(OpCode::CopyFile),
-            Operation::ExecuteFile(_) => Ok(OpCode::ExecuteFile),
-            Operation::ReturnFileData(_) => Ok(OpCode::ReturnFileData),
-            Operation::ReturnFileProperties(_) => Ok(OpCode::ReturnFileProperties),
-            Operation::ResponseTag(_) => Ok(OpCode::ResponseTag),
-            Operation::Chunk(_) => Ok(OpCode::Chunk),
-            Operation::Logic(_) => Ok(OpCode::Logic),
-            Operation::IndirectForward(_) => Ok(OpCode::IndirectForward),
-            Operation::RequestTag(_) => Ok(OpCode::RequestTag),
-            Operation::Extension(_) => Ok(OpCode::Extension),
+            Action::Nop(_) => Ok(OpCode::Nop),
+            Action::ReadFileData(_) => Ok(OpCode::ReadFileData),
+            Action::ReadFileProperties(_) => Ok(OpCode::ReadFileProperties),
+            Action::WriteFileData(_) => Ok(OpCode::WriteFileData),
+            Action::WriteFileDataFlush(_) => Ok(OpCode::WriteFileDataFlush),
+            Action::WriteFileProperties(_) => Ok(OpCode::WriteFileProperties),
+            Action::ActionQuery(_) => Ok(OpCode::ActionQuery),
+            Action::BreakQuery(_) => Ok(OpCode::BreakQuery),
+            Action::PermissionRequest(_) => Ok(OpCode::PermissionRequest),
+            Action::VerifyChecksum(_) => Ok(OpCode::VerifyChecksum),
+            Action::ExistFile(_) => Ok(OpCode::ExistFile),
+            Action::CreateNewFile(_) => Ok(OpCode::CreateNewFile),
+            Action::DeleteFile(_) => Ok(OpCode::DeleteFile),
+            Action::RestoreFile(_) => Ok(OpCode::RestoreFile),
+            Action::FlushFile(_) => Ok(OpCode::FlushFile),
+            Action::CopyFile(_) => Ok(OpCode::CopyFile),
+            Action::ExecuteFile(_) => Ok(OpCode::ExecuteFile),
+            Action::ReturnFileData(_) => Ok(OpCode::ReturnFileData),
+            Action::ReturnFileProperties(_) => Ok(OpCode::ReturnFileProperties),
+            Action::ResponseTag(_) => Ok(OpCode::ResponseTag),
+            Action::Chunk(_) => Ok(OpCode::Chunk),
+            Action::Logic(_) => Ok(OpCode::Logic),
+            Action::Status(_) => Ok(OpCode::Status),
+            Action::Forward(_) => Ok(OpCode::Forward),
+            Action::IndirectForward(_) => Ok(OpCode::IndirectForward),
+            Action::RequestTag(_) => Ok(OpCode::RequestTag),
+            Action::Extension(_) => Ok(OpCode::Extension),
         }
     }
 }
 
-impl DekuUpdate for Operation {
+impl DekuUpdate for Action {
     fn update(&mut self) -> Result<(), DekuError> {
         Ok(())
     }
 }
 
-impl DekuWrite<()> for Operation {
+macro_rules! write_action {
+    ($action: ident, $output: ident) => {{
+        DekuWrite::write($action, $output, ())?;
+    }};
+}
+
+impl DekuWrite<()> for Action {
     fn write(&self, output: &mut BitVec<u8, Msb0>, _: ()) -> Result<(), DekuError> {
         match self {
-            Operation::Nop(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::ReadFileData(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::ReadFileProperties(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::WriteFileData(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::WriteFileDataFlush(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::WriteFileProperties(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::ActionQuery(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::BreakQuery(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::PermissionRequest(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::VerifyChecksum(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::ExistFile(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::CreateNewFile(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::DeleteFile(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::RestoreFile(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::FlushFile(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::CopyFile(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::ExecuteFile(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::ReturnFileData(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::ReturnFileProperties(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::ResponseTag(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::Chunk(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::Logic(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::IndirectForward(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::RequestTag(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
-            Operation::Extension(action) => {
-                DekuWrite::write(action, output, ())?;
-            }
+            Action::Nop(action) => write_action!(action, output),
+            Action::ReadFileData(action) => write_action!(action, output),
+            Action::ReadFileProperties(action) => write_action!(action, output),
+            Action::WriteFileData(action) => write_action!(action, output),
+            Action::WriteFileDataFlush(action) => write_action!(action, output),
+            Action::WriteFileProperties(action) => write_action!(action, output),
+            Action::ActionQuery(action) => write_action!(action, output),
+            Action::BreakQuery(action) => write_action!(action, output),
+            Action::PermissionRequest(action) => write_action!(action, output),
+            Action::VerifyChecksum(action) => write_action!(action, output),
+            Action::ExistFile(action) => write_action!(action, output),
+            Action::CreateNewFile(action) => write_action!(action, output),
+            Action::DeleteFile(action) => write_action!(action, output),
+            Action::RestoreFile(action) => write_action!(action, output),
+            Action::FlushFile(action) => write_action!(action, output),
+            Action::CopyFile(action) => write_action!(action, output),
+            Action::ExecuteFile(action) => write_action!(action, output),
+            Action::ReturnFileData(action) => write_action!(action, output),
+            Action::ReturnFileProperties(action) => write_action!(action, output),
+            Action::ResponseTag(action) => write_action!(action, output),
+            Action::Chunk(action) => write_action!(action, output),
+            Action::Logic(action) => write_action!(action, output),
+            Action::Status(action) => write_action!(action, output),
+            Action::Forward(action) => write_action!(action, output),
+            Action::IndirectForward(action) => write_action!(action, output),
+            Action::RequestTag(action) => write_action!(action, output),
+            Action::Extension(action) => write_action!(action, output),
         }
 
         // now write the opcode with offset 2
@@ -411,13 +304,13 @@ impl DekuWrite<()> for Operation {
     }
 }
 
-impl TryFrom<Operation> for Vec<u8> {
+impl TryFrom<Action> for Vec<u8> {
     type Error = DekuError;
-    fn try_from(input: Operation) -> Result<Self, Self::Error> {
+    fn try_from(input: Action) -> Result<Self, Self::Error> {
         DekuContainerWrite::to_bytes(&input)
     }
 }
-impl DekuContainerWrite for Operation {
+impl DekuContainerWrite for Action {
     fn to_bytes(&self) -> Result<Vec<u8>, DekuError> {
         let output = self.to_bits()?;
         Ok(output.into_vec())
@@ -483,7 +376,34 @@ pub struct FileId {
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct FileData {
     pub header: ActionHeader,
-    pub operand: operand::FileData,
+
+    pub offset: FileOffset,
+
+    #[deku(update = "self.data.len()")]
+    length: Length,
+
+    #[deku(count = "length", endian = "big")]
+    data: Vec<u8>,
+}
+
+impl FileData {
+    pub fn new(header: ActionHeader, offset: FileOffset, data: Vec<u8>) -> Self {
+        Self {
+            header,
+            offset,
+            length: data.len().into(),
+            data,
+        }
+    }
+
+    pub fn data(&self) -> &Vec<u8> {
+        &self.data
+    }
+
+    pub fn set_data(&mut self, data: Vec<u8>) {
+        self.length = data.len().into();
+        self.data = data;
+    }
 }
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
@@ -533,99 +453,49 @@ pub struct CopyFile {
     pub dst_file_id: u8,
 }
 
-// #[derive(Clone, Copy, Debug, PartialEq)]
-// pub enum StatusType {
-//     Action = 0,
-//     Interface = 1,
-// }
-// impl StatusType {
-//     fn from(n: u8) -> Result<Self, u8> {
-//         Ok(match n {
-//             0 => StatusType::Action,
-//             1 => StatusType::Interface,
-//             x => return Err(x),
-//         })
-//     }
-// }
+#[derive(DekuRead, DekuWrite, Clone, Copy, Debug, PartialEq)]
+#[deku(bits = 2, type = "u8")]
+
+pub enum StatusType {
+    #[deku(id = "0")] Action,
+    #[deku(id = "1")] Interface,
+}
+
+/// Forward rest of the command over the interface
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+pub struct StatusOperand {
+    #[deku(update = "self.status.deku_id().unwrap()", pad_bits_after = "6")]
+    status_type: StatusType,
+
+    #[deku(ctx = "*status_type")]
+    pub status: Status,
+}
+
+impl Into<StatusOperand> for Status {
+    fn into(self) -> StatusOperand {
+        StatusOperand { status_type: self.deku_id().unwrap(), status: self }
+    }
+}
+
+impl Into<Status> for StatusOperand {
+    fn into(self) -> Status {
+        self.status
+    }
+}
 
 /// Statuses regarding actions sent in a request
-// #[deku_derive(DekuRead, DekuWrite)]
-// #[derive(Debug, Clone, PartialEq)]
-// #[deku(bits = 1, type = "u8")]
-// pub enum Status {
-//     // ALP SPEC: This is named status, but it should be named action status compared to the '2'
-//     // other statuses.
-//     #[deku(id="0")]Action(operand::ActionStatus),
-//     #[deku(id="1")]Interface(operand::InterfaceStatus),
-//     // ALP SPEC: Where are the stack errors?
-// }
-// #[derive(Debug, Copy, Clone, Hash, PartialEq)]
-// pub enum StatusDecodingError {
-//     MissingBytes(usize),
-//     UnknownType(u8),
-//     Action(StdError),
-//     Interface(operand::InterfaceStatusDecodingError),
-// }
-// impl Codec for Status {
-//     type Error = StatusDecodingError;
-//     fn encoded_size(&self) -> usize {
-//         1 + match self {
-//             Status::Action(op) => op.encoded_size(),
-//             Status::Interface(op) => op.encoded_size(),
-//         }
-//     }
-//     unsafe fn encode_in(&self, out: &mut [u8]) -> usize {
-//         out[0] = OpCode::Status as u8
-//             + ((match self {
-//                 Status::Action(_) => StatusType::Action,
-//                 Status::Interface(_) => StatusType::Interface,
-//             } as u8)
-//                 << 6);
-//         let out = &mut out[1..];
-//         1 + match self {
-//             Status::Action(op) => op.encode_in(out),
-//             Status::Interface(op) => op.encode_in(out),
-//         }
-//     }
-//     fn decode(out: &[u8]) -> Result<WithSize<Self>, WithOffset<Self::Error>> {
-//         if out.is_empty() {
-//             return Err(WithOffset::new_head(Self::Error::MissingBytes(1)));
-//         }
-//         let status_type = out[0] >> 6;
-//         Ok(
-//             match StatusType::from(status_type)
-//                 .map_err(|e| WithOffset::new_head(Self::Error::UnknownType(e)))?
-//             {
-//                 StatusType::Action => {
-//                     let WithSize { size, value } = operand::Status::decode(&out[1..])
-//                         .map_err(|e| e.shift(1).map_value(Self::Error::Action))?;
-//                     WithSize {
-//                         size: size + 1,
-//                         value: Self::Action(value),
-//                     }
-//                 }
-//                 StatusType::Interface => {
-//                     let WithSize { size, value } = operand::InterfaceStatus::decode(&out[1..])
-//                         .map_err(|e| e.shift(1).map_value(Self::Error::Interface))?;
-//                     WithSize {
-//                         size: size + 1,
-//                         value: Self::Interface(value),
-//                     }
-//                 }
-//             },
-//         )
-//     }
-// }
-// #[test]
-// fn test_status() {
-//     test_item(
-//         Status::Action(operand::Status {
-//             action_id: 2,
-//             status: operand::status_code::UNKNOWN_OPERATION,
-//         }),
-//         &hex!("22 02 F6"),
-//     )
-// }
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq)]
+#[deku(ctx="status_type: StatusType", id = "status_type")]
+pub enum Status {
+    // ALP SPEC: This is named status, but it should be named action status compared to the '2'
+    // other statuses.
+    #[deku(id = "StatusType::Action")]
+    Action(ActionStatus),
+    #[deku(id = "StatusType::Interface")]
+    Interface(InterfaceStatus),
+    // ALP SPEC: Where are the stack errors?
+}
 
 /// Action received before any responses to a request that contained a RequestTag
 ///
@@ -692,54 +562,28 @@ pub struct Logic {
 }
 
 /// Forward rest of the command over the interface
-// #[deku_derive(DekuRead, DekuWrite)]
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct Forward {
-//     // ALP_SPEC Ask for response ?
-//     #[deku(bits=1)]
-//     pub response: bool,
-//     pub configuration: operand::InterfaceConfiguration,
-// }
-// impl Codec for Forward {
-//     type Error = operand::InterfaceConfigurationDecodingError;
-//     fn encoded_size(&self) -> usize {
-//         1 + self.conf.encoded_size()
-//     }
-//     unsafe fn encode_in(&self, out: &mut [u8]) -> usize {
-//         out[0] = control_byte!(false, self.resp, OpCode::Forward);
-//         1 + self.conf.encode_in(&mut out[1..])
-//     }
-//     fn decode(out: &[u8]) -> Result<WithSize<Self>, WithOffset<Self::Error>> {
-//         let min_size = 1 + 1;
-//         if out.len() < min_size {
-//             return Err(WithOffset::new(
-//                 0,
-//                 Self::Error::MissingBytes(min_size - out.len()),
-//             ));
-//         }
-//         let WithSize {
-//             value: conf,
-//             size: conf_size,
-//         } = operand::InterfaceConfiguration::decode(&out[1..]).map_err(|e| e.shift(1))?;
-//         Ok(WithSize {
-//             value: Self {
-//                 resp: out[0] & 0x40 != 0,
-//                 conf,
-//             },
-//             size: 1 + conf_size,
-//         })
-//     }
-// }
-// #[test]
-// fn test_forward() {
-//     test_item(
-//         Forward {
-//             resp: true,
-//             conf: operand::InterfaceConfiguration::Host,
-//         },
-//         &hex!("72 00"),
-//     )
-// }
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+pub struct Forward {
+    // ALP_SPEC Ask for response ?
+    #[deku(bits = 1, pad_bits_before = "1", pad_bits_after = "6")]
+    pub response: bool,
+
+    #[deku(update = "self.configuration.deku_id().unwrap()")]
+    interface_type: InterfaceType,
+
+    #[deku(ctx = "*interface_type")]
+    pub configuration: InterfaceConfiguration,
+}
+
+impl Forward {
+    pub fn new(response: bool, configuration: InterfaceConfiguration) -> Self {
+        Self {
+            response,
+            interface_type: configuration.deku_id().unwrap(),
+            configuration,
+        }
+    }
+}
 
 /// Forward rest of the command over the interface
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
@@ -756,14 +600,14 @@ pub struct IndirectForward {
         reader = "IndirectForward::read(deku::rest, *overloaded)",
         writer = "IndirectForward::write(deku::output, &self.configuration)"
     )]
-    pub configuration: Option<InterfaceConfigurationOverload>,
+    pub configuration: Option<InterfaceConfiguration>,
 }
 
 impl IndirectForward {
     pub fn new(
         response: bool,
         interface_file_id: u8,
-        configuration: Option<InterfaceConfigurationOverload>,
+        configuration: Option<InterfaceConfiguration>,
     ) -> Self {
         Self {
             overloaded: configuration.is_some(),
@@ -776,7 +620,7 @@ impl IndirectForward {
     fn read(
         rest: &BitSlice<u8, Msb0>,
         overloaded: bool,
-    ) -> Result<(&BitSlice<u8, Msb0>, Option<InterfaceConfigurationOverload>), DekuError> {
+    ) -> Result<(&BitSlice<u8, Msb0>, Option<InterfaceConfiguration>), DekuError> {
         // ALP_SPEC: The first byte in the interface_file defines how to parse the
         // configuration overload, or even its byte size.
         // We can not continue parsing here!
@@ -784,7 +628,7 @@ impl IndirectForward {
         let config = if !overloaded {
             None
         } else {
-            Some(InterfaceConfigurationOverload::Unknown)
+            Some(InterfaceConfiguration::Unknown)
         };
 
         Ok((rest, config))
@@ -792,7 +636,7 @@ impl IndirectForward {
 
     fn write(
         output: &mut BitVec<u8, Msb0>,
-        configuration: &Option<InterfaceConfigurationOverload>,
+        configuration: &Option<InterfaceConfiguration>,
     ) -> Result<(), DekuError> {
         if let Some(config) = configuration.as_ref() {
             DekuWrite::write(config, output, config.deku_id().unwrap())?;
@@ -826,11 +670,12 @@ mod test {
     use crate::{
         alp::{
             data::{self, FilePermissions, UserPermissions},
+            interface::{Dash7InterfaceConfiguration, GroupCondition},
             network::{Address, Addressee, NlsState},
-            operand::PermissionLevel,
+            operand::{PermissionLevel, StatusCode},
             query::NonVoid,
             session::QoS,
-            varint::VarInt, interface::Dash7InterfaceConfiguration,
+            varint::VarInt,
         },
         test_tools::test_item,
     };
@@ -849,7 +694,7 @@ mod test {
     #[test]
     fn test_nop() {
         test_item(
-            Operation::Nop(Nop {
+            Action::Nop(Nop {
                 header: ActionHeader {
                     group: false,
                     response: true,
@@ -862,7 +707,7 @@ mod test {
     #[test]
     fn test_read_file_data() {
         test_item(
-            Operation::ReadFileData(ReadFileData {
+            Action::ReadFileData(ReadFileData {
                 header: ActionHeader {
                     group: false,
                     response: true,
@@ -880,7 +725,7 @@ mod test {
     #[test]
     fn test_read_file_properties() {
         test_item(
-            Operation::ReadFileProperties(FileId {
+            Action::ReadFileProperties(FileId {
                 header: ActionHeader {
                     group: false,
                     response: false,
@@ -895,19 +740,17 @@ mod test {
     fn test_write_file_data() {
         let data = hex!("01 02 03").to_vec();
         test_item(
-            Operation::WriteFileData(FileData {
-                header: ActionHeader {
+            Action::WriteFileData(FileData::new(
+                ActionHeader {
                     group: true,
                     response: false,
                 },
-                operand: operand::FileData::new(
-                    FileOffset {
-                        file_id: 9,
-                        offset: 5u32.into(),
-                    },
-                    data,
-                ),
-            }),
+                FileOffset {
+                    file_id: 9,
+                    offset: 5u32.into(),
+                },
+                data,
+            )),
             &hex!("84 09 05 03 010203"),
         )
     }
@@ -915,7 +758,7 @@ mod test {
     #[test]
     fn test_return_file_properties() {
         test_item(
-            Operation::ReturnFileProperties(FileProperties {
+            Action::ReturnFileProperties(FileProperties {
                 header: ActionHeader {
                     group: false,
                     response: false,
@@ -954,7 +797,7 @@ mod test {
     #[test]
     fn test_write_file_properties() {
         test_item(
-            Operation::WriteFileProperties(FileProperties {
+            Action::WriteFileProperties(FileProperties {
                 header: ActionHeader {
                     group: true,
                     response: false,
@@ -993,7 +836,7 @@ mod test {
     #[test]
     fn test_permission_request() {
         test_item(
-            Operation::PermissionRequest(PermissionRequest {
+            Action::PermissionRequest(PermissionRequest {
                 header: ActionHeader {
                     group: false,
                     response: false,
@@ -1008,7 +851,7 @@ mod test {
     #[test]
     fn test_exist_file() {
         test_item(
-            Operation::ExistFile(FileId {
+            Action::ExistFile(FileId {
                 header: ActionHeader {
                     group: false,
                     response: false,
@@ -1022,7 +865,7 @@ mod test {
     #[test]
     fn test_create_new_file() {
         test_item(
-            Operation::CreateNewFile(FileProperties {
+            Action::CreateNewFile(FileProperties {
                 header: ActionHeader {
                     group: true,
                     response: false,
@@ -1061,7 +904,7 @@ mod test {
     #[test]
     fn test_delete_file() {
         test_item(
-            Operation::DeleteFile(FileId {
+            Action::DeleteFile(FileId {
                 header: ActionHeader {
                     group: false,
                     response: true,
@@ -1075,7 +918,7 @@ mod test {
     #[test]
     fn test_restore_file() {
         test_item(
-            Operation::RestoreFile(FileId {
+            Action::RestoreFile(FileId {
                 header: ActionHeader {
                     group: true,
                     response: true,
@@ -1089,7 +932,7 @@ mod test {
     #[test]
     fn test_flush_file() {
         test_item(
-            Operation::FlushFile(FileId {
+            Action::FlushFile(FileId {
                 header: ActionHeader {
                     group: false,
                     response: false,
@@ -1103,7 +946,7 @@ mod test {
     #[test]
     fn test_copy_file() {
         test_item(
-            Operation::CopyFile(CopyFile {
+            Action::CopyFile(CopyFile {
                 header: ActionHeader {
                     group: false,
                     response: false,
@@ -1118,7 +961,7 @@ mod test {
     #[test]
     fn test_execute_file() {
         test_item(
-            Operation::ExecuteFile(FileId {
+            Action::ExecuteFile(FileId {
                 header: ActionHeader {
                     group: false,
                     response: false,
@@ -1134,19 +977,17 @@ mod test {
         let data = hex!("01 02 03").to_vec();
 
         test_item(
-            Operation::ReturnFileData(FileData {
-                header: ActionHeader {
+            Action::ReturnFileData(FileData::new(
+                ActionHeader {
                     group: false,
                     response: false,
                 },
-                operand: operand::FileData::new(
-                    FileOffset {
-                        file_id: 9,
-                        offset: 5u32.into(),
-                    },
-                    data,
-                ),
-            }),
+                FileOffset {
+                    file_id: 9,
+                    offset: 5u32.into(),
+                },
+                data,
+            )),
             &hex!("20 09 05 03 010203"),
         )
     }
@@ -1154,7 +995,7 @@ mod test {
     #[test]
     fn test_action_query() {
         test_item(
-            Operation::ActionQuery(ActionQuery {
+            Action::ActionQuery(ActionQuery {
                 header: ActionHeader {
                     group: true,
                     response: true,
@@ -1174,7 +1015,7 @@ mod test {
     #[test]
     fn test_break_query() {
         test_item(
-            Operation::BreakQuery(ActionQuery {
+            Action::BreakQuery(ActionQuery {
                 header: ActionHeader {
                     group: true,
                     response: true,
@@ -1194,7 +1035,7 @@ mod test {
     #[test]
     fn test_verify_checksum() {
         test_item(
-            Operation::VerifyChecksum(ActionQuery {
+            Action::VerifyChecksum(ActionQuery {
                 header: ActionHeader {
                     group: false,
                     response: false,
@@ -1212,48 +1053,61 @@ mod test {
     }
 
     #[test]
+    fn test_forward() {
+        test_item(
+            Action::Forward(Forward::new(true, InterfaceConfiguration::Host)),
+            &hex!("72 00"),
+        )
+    }
+
+    #[cfg(not(feature = "subiot_v0"))]
+    #[test]
     fn test_indirect_forward_dash7_serialization() {
-        let item = Operation::IndirectForward(IndirectForward::new(
+        let item = Action::IndirectForward(IndirectForward::new(
             true,
             9,
-            Some(InterfaceConfigurationOverload::Dash7(
-                Dash7InterfaceConfiguration {
-                    qos: QoS::default(),
-                    dormant_session_timeout: VarInt::default(),
-                    addressee: Addressee::new(
-                        Address::Vid(0xABCD),
-                        NlsState::AesCcm32([1, 2, 3, 4, 5]),
-                        0xFF,
-                    ),
-                },
-            )),
+            Some(InterfaceConfiguration::Dash7(Dash7InterfaceConfiguration {
+                qos: QoS::default(),
+                dormant_session_timeout: VarInt::default(),
+                te: VarInt::default(),
+                addressee: Addressee::new(
+                    false,GroupCondition::Any,
+                    Address::Vid(0xABCD),
+                    NlsState::AesCcm32([1, 2, 3, 4, 5]),
+                    0xFF,
+                ),
+            })),
         ));
 
-        let data = &hex!("F3 09 00 00 37 FF ABCD 01 02 03 04 05");
+        let data = &hex!("F3 09 00 00 00 37 FF ABCD 01 02 03 04 05");
         let result = item.to_bytes().unwrap();
 
         assert_eq!(result.as_slice(), data, "{:?} == {:?}", &item, data);
     }
 
+    #[cfg(not(feature = "subiot_v0"))]
     #[test]
     fn test_indirect_forward_dash7_deserialization() {
-        let input = &hex!("F3 09 00 00 37 FF ABCD 01 02 03 04 05");
+        let input = &hex!("F3 09 00 00 00 37 FF ABCD 01 02 03 04 05");
 
-        let expected = Operation::IndirectForward(IndirectForward::new(
+        let expected = Action::IndirectForward(IndirectForward::new(
             true,
             9,
-            Some(InterfaceConfigurationOverload::Unknown),
+            Some(InterfaceConfiguration::Unknown),
         ));
 
         let ((rest, offset), result) =
-            Operation::from_bytes((input, 0)).expect("should be parsed without error");
+            Action::from_bytes((input, 0)).expect("should be parsed without error");
 
         assert_eq!(result, expected.clone(), "{:?} == {:?}", result, &expected);
 
         let expected_config = Dash7InterfaceConfiguration {
             qos: QoS::default(),
             dormant_session_timeout: VarInt::default(),
+            te: VarInt::default(),
             addressee: Addressee::new(
+                false,
+                GroupCondition::Any,
                 Address::Vid(0xABCD),
                 NlsState::AesCcm32([1, 2, 3, 4, 5]),
                 0xFF,
@@ -1273,10 +1127,79 @@ mod test {
         );
     }
 
+
+    #[cfg(feature = "subiot_v0")]
+    #[test]
+    fn test_indirect_forward_dash7_serialization_subiot() {
+        let item = Action::IndirectForward(IndirectForward::new(
+            true,
+            9,
+            Some(InterfaceConfiguration::Dash7(Dash7InterfaceConfiguration {
+                qos: QoS::default(),
+                dormant_session_timeout: VarInt::default(),
+                te: VarInt::default(),
+                addressee: Addressee::new(
+                    false,GroupCondition::Any,
+                    Address::Vid(0xABCD),
+                    NlsState::AesCcm32([1, 2, 3, 4, 5]),
+                    0xFF,
+                ),
+            })),
+        ));
+
+        let data = &hex!("F3 09 00 00 37 FF ABCD 01 02 03 04 05");
+        let result = item.to_bytes().unwrap();
+
+        assert_eq!(result.as_slice(), data, "{:?} == {:?}", &item, data);
+    }
+
+    #[cfg(feature = "subiot_v0")]
+    #[test]
+    fn test_indirect_forward_dash7_deserialization_subiot() {
+        let input = &hex!("F3 09 00 00 37 FF ABCD 01 02 03 04 05");
+
+        let expected = Action::IndirectForward(IndirectForward::new(
+            true,
+            9,
+            Some(InterfaceConfiguration::Unknown),
+        ));
+
+        let ((rest, offset), result) =
+            Action::from_bytes((input, 0)).expect("should be parsed without error");
+
+        assert_eq!(result, expected.clone(), "{:?} == {:?}", result, &expected);
+
+        let expected_config = Dash7InterfaceConfiguration {
+            qos: QoS::default(),
+            dormant_session_timeout: VarInt::default(),
+            te: VarInt::default(),
+            addressee: Addressee::new(
+                false,
+                GroupCondition::Any,
+                Address::Vid(0xABCD),
+                NlsState::AesCcm32([1, 2, 3, 4, 5]),
+                0xFF,
+            ),
+        };
+
+        // now continue parsing the config itself
+        let (_, config_result) = Dash7InterfaceConfiguration::from_bytes((rest, offset))
+            .expect("should be parsed without error");
+
+        assert_eq!(
+            config_result,
+            expected_config.clone(),
+            "{:?} == {:?}",
+            config_result,
+            &expected_config
+        );
+    }
+
+
     #[test]
     fn test_request_tag() {
         test_item(
-            Operation::RequestTag(RequestTag { eop: true, id: 8 }),
+            Action::RequestTag(RequestTag { eop: true, id: 8 }),
             &hex!("B4 08"),
         )
     }
@@ -1284,7 +1207,7 @@ mod test {
     #[test]
     fn test_logic() {
         test_item(
-            Operation::Logic(Logic {
+            Action::Logic(Logic {
                 logic: LogicOp::Nand,
             }),
             &[0b1111_0001],
@@ -1294,7 +1217,7 @@ mod test {
     #[test]
     fn test_chunk() {
         test_item(
-            Operation::Chunk(Chunk {
+            Action::Chunk(Chunk {
                 step: ChunkStep::End,
             }),
             &[0b1011_0000],
@@ -1304,7 +1227,7 @@ mod test {
     #[test]
     fn test_response_tag() {
         test_item(
-            Operation::ResponseTag(ResponseTag {
+            Action::ResponseTag(ResponseTag {
                 eop: true,
                 error: false,
                 id: 8,
@@ -1314,9 +1237,20 @@ mod test {
     }
 
     #[test]
+    fn test_status() {
+        test_item(
+            Action::Status(Status::Action(ActionStatus {
+                action_id: 2,
+                status: StatusCode::UnknownOperation,
+            }).into()),
+            &hex!("22 02 F6"),
+        )
+    }
+
+    #[test]
     fn test_extension() {
         test_item(
-            Operation::Extension(Extension {
+            Action::Extension(Extension {
                 header: ActionHeader {
                     group: true,
                     response: true,
