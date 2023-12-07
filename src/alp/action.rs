@@ -11,7 +11,7 @@ use super::{
     data::FileHeader,
     interface::{InterfaceConfiguration, InterfaceType},
     operand::{ActionStatus, FileOffset, Length, Permission, PermissionLevel},
-    query,
+    query::{self, Query},
     session::InterfaceStatus,
 };
 
@@ -428,7 +428,7 @@ pub struct ReadFileData {
 pub struct ActionQuery {
     pub header: ActionHeader,
 
-    pub query: query::Query,
+    pub query: Query,
 }
 
 /// Request a level of permission using some permission type
@@ -1000,7 +1000,7 @@ mod test {
                     group: true,
                     response: true,
                 },
-                query: query::Query::NonVoid(NonVoid {
+                query: Query::NonVoid(NonVoid {
                     length: 4u32.into(),
                     file: FileOffset {
                         file_id: 5,
@@ -1020,7 +1020,7 @@ mod test {
                     group: true,
                     response: true,
                 },
-                query: query::Query::NonVoid(NonVoid {
+                query: Query::NonVoid(NonVoid {
                     length: 4u32.into(),
                     file: FileOffset {
                         file_id: 5,
@@ -1040,7 +1040,7 @@ mod test {
                     group: false,
                     response: false,
                 },
-                query: query::Query::NonVoid(NonVoid {
+                query: Query::NonVoid(NonVoid {
                     length: 4u32.into(),
                     file: FileOffset {
                         file_id: 5,
