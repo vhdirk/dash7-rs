@@ -22,6 +22,8 @@ path = "src/bin.rs"
 deku = { version = "0.16.0", default-features = false }
 bitvec = "1.0.1"
 mutually_exclusive_features = "0.0.3"
+clap = { version = "4.4.11", features = ["derive", "debug", "string", "cargo"] }
+hex = "0.4.3"
 
 [dev-dependencies]
 hex-literal = "0.4.1"
