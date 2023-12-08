@@ -1,8 +1,12 @@
+#[cfg(feature="std")]
 use std::fmt;
 
-use bitvec::{field::BitField, view::BitView};
+#[cfg(not(feature="std"))]
+use alloc::fmt;
+
+use bitvec::field::BitField;
 use deku::{
-    bitvec::{BitSlice, BitVec, Msb0},
+    bitvec::{BitSlice, BitVec, BitView, Msb0},
     ctx::{BitSize, Endian},
     prelude::*,
 };
@@ -11,7 +15,7 @@ use super::{
     data::FileHeader,
     interface::{InterfaceConfiguration, InterfaceType},
     operand::{ActionStatus, FileOffset, Length, Permission, PermissionLevel},
-    query::{self, Query},
+    query::Query,
     session::InterfaceStatus,
 };
 
@@ -144,8 +148,7 @@ pub enum Action {
 
 macro_rules! read_action {
     ($action: ident, $operand: ty, $input: ident) => {{
-        let (rest, action) = <$operand as DekuRead<'_, _>>::read($input, ())?;
-        (rest, Self::$action(action))
+        <$operand as DekuRead<'_, _>>::read($input, ()).map(|(rest, action)| (rest, Self::$action(action)))?
     }};
 }
 
@@ -154,6 +157,8 @@ impl DekuRead<'_, ()> for Action {
         input: &'_ BitSlice<u8, Msb0>,
         _: (),
     ) -> Result<(&'_ BitSlice<u8, Msb0>, Self), DekuError> {
+        println!("bitslice length {:?} {:?}", input, input.len());
+
         let (rest, _) = <u8 as DekuRead<'_, _>>::read(input, (Endian::Big, BitSize(2)))?;
         let (_, code) = <OpCode as DekuRead<'_, _>>::read(rest, ())?;
 
@@ -205,15 +210,20 @@ impl TryFrom<&'_ [u8]> for Action {
         Ok(res)
     }
 }
+
+fn pad_rest<'a>(input_bits: &'a BitSlice<u8,Msb0>, rest: &'a BitSlice<u8,Msb0>)  -> (&'a [u8], usize){
+    let pad = 8 * ((rest.len() + 7) / 8) - rest.len();
+    let read_idx = input_bits.len() - (rest.len() + pad);
+        (input_bits[read_idx..].domain().region().unwrap().1, pad)
+}
+
 impl DekuContainerRead<'_> for Action {
     fn from_bytes(input: (&'_ [u8], usize)) -> Result<((&'_ [u8], usize), Self), DekuError> {
         let input_bits = input.0.view_bits::<Msb0>();
         let (rest, value) = <Self as DekuRead>::read(&input_bits[input.1..], ())?;
 
-        let pad = 8 * ((rest.len() + 7) / 8) - rest.len();
-        let read_idx = input_bits.len() - (rest.len() + pad);
         Ok((
-            (input_bits[read_idx..].domain().region().unwrap().1, pad),
+            pad_rest(input_bits,rest),
             value,
         ))
     }
@@ -267,6 +277,8 @@ macro_rules! write_action {
 
 impl DekuWrite<()> for Action {
     fn write(&self, output: &mut BitVec<u8, Msb0>, _: ()) -> Result<(), DekuError> {
+        println!("output {:?} {:?}", output, output.len());
+        let offset = output.len();
         match self {
             Action::Nop(action) => write_action!(action, output),
             Action::ReadFileData(action) => write_action!(action, output),
@@ -299,7 +311,8 @@ impl DekuWrite<()> for Action {
 
         // now write the opcode with offset 2
         let code = self.deku_id()?.deku_id()? as u8;
-        output[2..8].store_be(code);
+        println!("code {:?}", code);
+        output[offset+2..offset+8].store_be(code);
         Ok(())
     }
 }
@@ -457,8 +470,10 @@ pub struct CopyFile {
 #[deku(bits = 2, type = "u8")]
 
 pub enum StatusType {
-    #[deku(id = "0")] Action,
-    #[deku(id = "1")] Interface,
+    #[deku(id = "0")]
+    Action,
+    #[deku(id = "1")]
+    Interface,
 }
 
 /// Forward rest of the command over the interface
@@ -473,7 +488,10 @@ pub struct StatusOperand {
 
 impl Into<StatusOperand> for Status {
     fn into(self) -> StatusOperand {
-        StatusOperand { status_type: self.deku_id().unwrap(), status: self }
+        StatusOperand {
+            status_type: self.deku_id().unwrap(),
+            status: self,
+        }
     }
 }
 
@@ -484,9 +502,8 @@ impl Into<Status> for StatusOperand {
 }
 
 /// Statuses regarding actions sent in a request
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
-#[deku(ctx="status_type: StatusType", id = "status_type")]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[deku(ctx = "status_type: StatusType", id = "status_type")]
 pub enum Status {
     // ALP SPEC: This is named status, but it should be named action status compared to the '2'
     // other statuses.
@@ -1071,7 +1088,8 @@ mod test {
                 dormant_session_timeout: VarInt::default(),
                 te: VarInt::default(),
                 addressee: Addressee::new(
-                    false,GroupCondition::Any,
+                    false,
+                    GroupCondition::Any,
                     Address::Vid(0xABCD),
                     NlsState::AesCcm32([1, 2, 3, 4, 5]),
                     0xFF,
@@ -1127,7 +1145,6 @@ mod test {
         );
     }
 
-
     #[cfg(feature = "subiot_v0")]
     #[test]
     fn test_indirect_forward_dash7_serialization_subiot() {
@@ -1139,7 +1156,8 @@ mod test {
                 dormant_session_timeout: VarInt::default(),
                 te: VarInt::default(),
                 addressee: Addressee::new(
-                    false,GroupCondition::Any,
+                    false,
+                    GroupCondition::Any,
                     Address::Vid(0xABCD),
                     NlsState::AesCcm32([1, 2, 3, 4, 5]),
                     0xFF,
@@ -1195,7 +1213,6 @@ mod test {
         );
     }
 
-
     #[test]
     fn test_request_tag() {
         test_item(
@@ -1239,10 +1256,13 @@ mod test {
     #[test]
     fn test_status() {
         test_item(
-            Action::Status(Status::Action(ActionStatus {
-                action_id: 2,
-                status: StatusCode::UnknownOperation,
-            }).into()),
+            Action::Status(
+                Status::Action(ActionStatus {
+                    action_id: 2,
+                    status: StatusCode::UnknownOperation,
+                })
+                .into(),
+            ),
             &hex!("22 02 F6"),
         )
     }

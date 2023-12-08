@@ -85,8 +85,7 @@ pub struct FileOffset {
     pub offset: Length,
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 #[deku(type = "u8")]
 pub enum StatusCode {
     /// Status code that can be received as a result of some ALP actions.
@@ -132,8 +131,7 @@ impl StatusCode {
 }
 
 /// Result of an action in a previously sent request
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct ActionStatus {
     /// Index of the ALP action associated with this status, in the original request as seen from
     /// the receiver side.
@@ -146,16 +144,14 @@ pub struct ActionStatus {
 }
 
 // ALP SPEC: where is this defined? Link? Not found in either specs !
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 #[deku(type = "u8")]
 pub enum Permission {
     #[deku(id = "0x42")] // ALP_SPEC Undefined
     Dash7([u8; 8]),
 }
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 #[deku(type = "u8")]
 pub enum PermissionLevel {
     #[deku(id = "0")]

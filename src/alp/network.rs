@@ -1,8 +1,6 @@
 use deku::prelude::*;
 
-use crate::alp::varint::VarInt;
-
-use super::interface::GroupCondition;
+use super::{interface::GroupCondition, varint::VarInt};
 
 /// Network Layer Security
 #[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq)]

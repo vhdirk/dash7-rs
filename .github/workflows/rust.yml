@@ -37,7 +37,7 @@ jobs:
             --ignore='target/*' \
             --ignore='/*' \
             --binary-path ./target/debug/ \
-            --excl-line='#\[(derive|deku_derive)' \
+            --excl-line='#\[derive' \
             -t lcov \
             -o lcov.info
       - name: Upload to codecov.io

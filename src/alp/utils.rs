@@ -1,11 +1,12 @@
-use core::slice;
-use std::{
+use core::{
     mem::{self, MaybeUninit},
-    ptr,
+    ptr, slice,
 };
 
-use bitvec::{order::Msb0, slice::BitSlice, vec::BitVec};
-use deku::{DekuError, DekuRead, DekuWrite};
+use deku::{
+    prelude::*,
+    bitvec::{BitSlice, BitVec, Msb0},
+};
 
 struct TransientDropper<T> {
     base_ptr: *mut T,

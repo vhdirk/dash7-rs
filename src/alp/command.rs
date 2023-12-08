@@ -1,14 +1,12 @@
-use std::fmt;
-
-use bitvec::{order::Msb0, slice::BitSlice, vec::BitVec, view::BitView};
-use deku::{
-    DekuContainerRead, DekuContainerWrite, DekuEnumExt, DekuError, DekuRead, DekuUpdate, DekuWrite,
-};
-
+use deku::prelude::*;
 use super::action::{Action, OpCode, RequestTag, ResponseTag};
 
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
 pub struct Command {
+    // we cannot process an indirect forward without knowing the interface type, which is stored in the interface file
+    // as identified by the indirectforward itself
+    // As such, we HAVE to bail here
+    #[deku(until = "|action: &Action| { action.deku_id().unwrap() == OpCode::IndirectForward }")]
     pub actions: Vec<Action>,
 }
 
@@ -43,98 +41,6 @@ impl Command {
             }
         }
         false
-    }
-}
-
-impl DekuRead<'_, ()> for Command {
-    fn read(
-        input: &'_ BitSlice<u8, Msb0>,
-        _: (),
-    ) -> Result<(&'_ BitSlice<u8, Msb0>, Self), DekuError>
-    where
-        Self: Sized,
-    {
-        let mut rest = input;
-        let mut actions = vec![];
-
-        while !rest.is_empty() {
-            let (new_rest, action) = <Action as DekuRead<'_, _>>::read(rest, ())?;
-
-            let opcode = action.deku_id()?;
-            actions.push(action);
-            rest = new_rest;
-
-            if opcode == OpCode::IndirectForward {
-                // we cannot process an indirect forward without knowing the interface type, which is stored in the interface file
-                // as identified by the indirectforward itself
-                // As such, we HAVE to bail here
-                return Ok((rest, Self { actions }));
-            }
-        }
-
-        Ok((rest, Self { actions }))
-    }
-}
-
-impl TryFrom<&'_ [u8]> for Command {
-    type Error = DekuError;
-    fn try_from(input: &'_ [u8]) -> Result<Self, Self::Error> {
-        let (rest, res) = <Self as DekuContainerRead>::from_bytes((input, 0))?;
-        if !rest.0.is_empty() {
-            return Err(DekuError::Parse({
-                let res = fmt::format(format_args!("Too much data"));
-                res
-            }));
-        }
-        Ok(res)
-    }
-}
-impl DekuContainerRead<'_> for Command {
-    fn from_bytes(input: (&'_ [u8], usize)) -> Result<((&'_ [u8], usize), Self), DekuError> {
-        let input_bits = input.0.view_bits::<Msb0>();
-        let (rest, value) = <Self as DekuRead>::read(&input_bits[input.1..], ())?;
-
-        let pad = 8 * ((rest.len() + 7) / 8) - rest.len();
-        let read_idx = input_bits.len() - (rest.len() + pad);
-        Ok((
-            (input_bits[read_idx..].domain().region().unwrap().1, pad),
-            value,
-        ))
-    }
-}
-
-impl DekuUpdate for Command {
-    fn update(&mut self) -> Result<(), DekuError> {
-        Ok(())
-    }
-}
-
-impl DekuWrite<()> for Command {
-    fn write(&self, output: &mut BitVec<u8, Msb0>, _: ()) -> Result<(), DekuError> {
-        for action in self.actions.iter() {
-            DekuWrite::write(action, output, ())?;
-        }
-        Ok(())
-    }
-}
-
-impl TryFrom<Command> for Vec<u8> {
-    type Error = DekuError;
-    fn try_from(input: Command) -> Result<Self, Self::Error> {
-        DekuContainerWrite::to_bytes(&input)
-    }
-}
-
-impl DekuContainerWrite for Command {
-    fn to_bytes(&self) -> Result<Vec<u8>, DekuError> {
-        let output = self.to_bits()?;
-        Ok(output.into_vec())
-    }
-
-    fn to_bits(&self) -> Result<BitVec<u8, Msb0>, DekuError> {
-        let mut output: BitVec<u8, Msb0> = BitVec::new();
-        self.write(&mut output, ())?;
-        Ok(output)
     }
 }
 
@@ -188,7 +94,7 @@ mod test {
                 }),
             ],
         };
-        let data = &hex!("B4 42   41 00 00 08   81 04 02 03  C0");
+        let data = &hex!("B4 42 41 00 00 08 81 04 02 03 C0");
 
         test_item(cmd, data);
     }
@@ -248,7 +154,7 @@ mod test {
     }
 
     #[test]
-    fn test_comman_response_id() {
+    fn test_command_response_id() {
         assert_eq!(
             Command {
                 actions: vec![

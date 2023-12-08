@@ -1,24 +1,24 @@
 use core::fmt::Debug;
 
 use deku::prelude::*;
-use deku::{DekuContainerRead, DekuContainerWrite};
 
-#[deku_derive(DekuRead, DekuWrite)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct WithPadding<T, const B: usize = 0, const A: usize = 0>(
     #[deku(pad_bits_before = "B", pad_bits_after = "A")] pub T,
 )
 where
     T: Clone + Debug + PartialEq + for<'a> DekuRead<'a> + DekuWrite;
 
-pub fn test_item<T>(item: T, data: &[u8])
+pub fn test_item<'a, T>(item: T, data: &'a [u8])
 where
-    T: Clone + Debug + PartialEq + DekuContainerWrite + for<'a> DekuContainerRead<'a>,
+    T: Clone + Debug + PartialEq + TryFrom<&'a [u8]>  + TryInto<Vec<u8>>,
+    <T as TryFrom<&'a [u8]>>::Error: Debug,
+    <T as TryInto<Vec<u8>>>::Error: Debug
 {
-    let result = item.to_bytes().unwrap();
+    let result: Vec<u8> = item.clone().try_into().unwrap();
     // println!("{:?} == {:?}", BitVec::<u8, Msb0>::from_slice(&result), BitVec::<u8, Msb0>::from_slice(data));
     assert_eq!(result.as_slice(), data, "{:?} == {:?}", &item, data);
 
-    let (_, result) = T::from_bytes((&data, 0)).expect("should be parsed without error");
+    let result = T::try_from(data).expect("should be parsed without error");
     assert_eq!(result, item.clone(), "{:?} == {:?}", data, &item);
 }
