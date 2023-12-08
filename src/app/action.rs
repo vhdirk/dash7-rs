@@ -1,7 +1,7 @@
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 use std::fmt;
 
-#[cfg(not(feature="std"))]
+#[cfg(not(feature = "std"))]
 use alloc::fmt;
 
 use bitvec::field::BitField;
@@ -11,12 +11,10 @@ use deku::{
     prelude::*,
 };
 
-use super::{
-    data::FileHeader,
-    interface::{InterfaceConfiguration, InterfaceType},
-    operand::{ActionStatus, FileOffset, Length, Permission, PermissionLevel},
-    query::Query,
-    session::InterfaceStatus,
+use super::operand::{
+    ActionQuery, Chunk, CopyFile, Extension, FileData, FileId, FileProperties, Forward,
+    IndirectForward, Logic, Nop, PermissionRequest, ReadFileData, RequestTag, ResponseTag,
+    StatusOperand,
 };
 
 // ===============================================================================
@@ -93,6 +91,10 @@ pub enum OpCode {
     Extension,
 }
 
+// ===============================================================================
+// Actions
+// ===============================================================================
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Action {
     /// Nop
@@ -148,7 +150,8 @@ pub enum Action {
 
 macro_rules! read_action {
     ($action: ident, $operand: ty, $input: ident) => {{
-        <$operand as DekuRead<'_, _>>::read($input, ()).map(|(rest, action)| (rest, Self::$action(action)))?
+        <$operand as DekuRead<'_, _>>::read($input, ())
+            .map(|(rest, action)| (rest, Self::$action(action)))?
     }};
 }
 
@@ -211,10 +214,13 @@ impl TryFrom<&'_ [u8]> for Action {
     }
 }
 
-fn pad_rest<'a>(input_bits: &'a BitSlice<u8,Msb0>, rest: &'a BitSlice<u8,Msb0>)  -> (&'a [u8], usize){
+fn pad_rest<'a>(
+    input_bits: &'a BitSlice<u8, Msb0>,
+    rest: &'a BitSlice<u8, Msb0>,
+) -> (&'a [u8], usize) {
     let pad = 8 * ((rest.len() + 7) / 8) - rest.len();
     let read_idx = input_bits.len() - (rest.len() + pad);
-        (input_bits[read_idx..].domain().region().unwrap().1, pad)
+    (input_bits[read_idx..].domain().region().unwrap().1, pad)
 }
 
 impl DekuContainerRead<'_> for Action {
@@ -222,10 +228,7 @@ impl DekuContainerRead<'_> for Action {
         let input_bits = input.0.view_bits::<Msb0>();
         let (rest, value) = <Self as DekuRead>::read(&input_bits[input.1..], ())?;
 
-        Ok((
-            pad_rest(input_bits,rest),
-            value,
-        ))
+        Ok((pad_rest(input_bits, rest), value))
     }
 }
 
@@ -312,7 +315,7 @@ impl DekuWrite<()> for Action {
         // now write the opcode with offset 2
         let code = self.deku_id()?.deku_id()? as u8;
         println!("code {:?}", code);
-        output[offset+2..offset+8].store_be(code);
+        output[offset + 2..offset + 8].store_be(code);
         Ok(())
     }
 }
@@ -336,365 +339,22 @@ impl DekuContainerWrite for Action {
     }
 }
 
-/// File access type event that will trigger an ALP action.
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(bits = 3, type = "u8")]
-pub enum ActionCondition {
-    /// Check for existence
-    #[default]
-    #[deku(id = "0")]
-    List,
-    /// Trigger upon file read
-    #[deku(id = "1")]
-    Read,
-    /// Trigger upon file write
-    #[deku(id = "2")]
-    Write,
-    /// Trigger upon file write-flush
-    // ALP_SPEC Action write-flush does not exist. Only write and flush exist.
-    #[deku(id = "3")]
-    WriteFlush,
-}
-
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct ActionHeader {
-    /// Group with next action
-    #[deku(bits = 1)]
-    pub group: bool,
-    /// Ask for a response (status)
-    #[deku(bits = 1, pad_bits_after = "6")]
-    pub response: bool,
-    //OpCode would be here. 6 bits padding instead
-}
-
-// ===============================================================================
-// Actions
-// ===============================================================================
-// Nop
-/// Does nothing
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct Nop {
-    pub header: ActionHeader,
-}
-
-/// Checks whether a file exists
-// ALP_SPEC: How is the result of this command different from a read file of size 0?
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct FileId {
-    pub header: ActionHeader,
-    pub file_id: u8,
-}
-
-// Write data to a file
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct FileData {
-    pub header: ActionHeader,
-
-    pub offset: FileOffset,
-
-    #[deku(update = "self.data.len()")]
-    length: Length,
-
-    #[deku(count = "length", endian = "big")]
-    data: Vec<u8>,
-}
-
-impl FileData {
-    pub fn new(header: ActionHeader, offset: FileOffset, data: Vec<u8>) -> Self {
-        Self {
-            header,
-            offset,
-            length: data.len().into(),
-            data,
-        }
-    }
-
-    pub fn data(&self) -> &Vec<u8> {
-        &self.data
-    }
-
-    pub fn set_data(&mut self, data: Vec<u8>) {
-        self.length = data.len().into();
-        self.data = data;
-    }
-}
-
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct FileProperties {
-    pub header: ActionHeader,
-
-    pub file_id: u8,
-    pub file_header: FileHeader,
-}
-
-// Read
-/// Read data from a file
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct ReadFileData {
-    pub header: ActionHeader,
-
-    pub offset: FileOffset,
-    pub length: Length,
-}
-
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct ActionQuery {
-    pub header: ActionHeader,
-
-    pub query: Query,
-}
-
-/// Request a level of permission using some permission type
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct PermissionRequest {
-    pub header: ActionHeader,
-    /// See operand::permission_level
-    pub level: PermissionLevel,
-    pub permission: Permission,
-}
-
-/// Copy a file to another file
-// ALP_SPEC: What does that mean? Is it a complete file copy including the file properties or just
-// the data? If not then if the destination file is bigger than the source, does the copy only
-// overwrite the first part of the destination file?
-//
-// Wouldn't it be more appropriate to have 1 size and 2 file offsets?
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct CopyFile {
-    pub header: ActionHeader,
-    pub src_file_id: u8,
-    pub dst_file_id: u8,
-}
-
-#[derive(DekuRead, DekuWrite, Clone, Copy, Debug, PartialEq)]
-#[deku(bits = 2, type = "u8")]
-
-pub enum StatusType {
-    #[deku(id = "0")]
-    Action,
-    #[deku(id = "1")]
-    Interface,
-}
-
-/// Forward rest of the command over the interface
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct StatusOperand {
-    #[deku(update = "self.status.deku_id().unwrap()", pad_bits_after = "6")]
-    status_type: StatusType,
-
-    #[deku(ctx = "*status_type")]
-    pub status: Status,
-}
-
-impl Into<StatusOperand> for Status {
-    fn into(self) -> StatusOperand {
-        StatusOperand {
-            status_type: self.deku_id().unwrap(),
-            status: self,
-        }
-    }
-}
-
-impl Into<Status> for StatusOperand {
-    fn into(self) -> Status {
-        self.status
-    }
-}
-
-/// Statuses regarding actions sent in a request
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "status_type: StatusType", id = "status_type")]
-pub enum Status {
-    // ALP SPEC: This is named status, but it should be named action status compared to the '2'
-    // other statuses.
-    #[deku(id = "StatusType::Action")]
-    Action(ActionStatus),
-    #[deku(id = "StatusType::Interface")]
-    Interface(InterfaceStatus),
-    // ALP SPEC: Where are the stack errors?
-}
-
-/// Action received before any responses to a request that contained a RequestTag
-///
-/// This allows matching responses to requests when doing multiple requests in parallel.
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct ResponseTag {
-    /// End of packet
-    ///
-    /// Signal the last response packet for the request `id`
-    #[deku(bits = 1)]
-    pub eop: bool,
-    /// An error occured
-    #[deku(bits = 1, pad_bits_after = "6")]
-    pub error: bool,
-
-    pub id: u8,
-}
-
-// Special
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(bits = 2, type = "u8")]
-pub enum ChunkStep {
-    #[deku(id = "0")]
-    Continue,
-    #[deku(id = "1")]
-    Start,
-    #[deku(id = "2")]
-    End,
-    #[deku(id = "3")]
-    StartEnd,
-}
-
-/// Provide chunk information and therefore allows to send an ALP command by chunks.
-///
-/// Specification:
-/// An ALP Command may be chunked into multiple Chunks. A special Chunk Action is inserted at the beginning of each
-/// ALP Command Chunk to define its chunk state: START, CONTINUE or END (see 6.2.2.1). If the Chunk Action is not
-/// present, the ALP Command is not chunked (implicit START/END). The Group (11.5.3) and Break Query conditions are
-/// extended over all chunks of the ALP Command.
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct Chunk {
-    #[deku(pad_bits_after = "6")]
-    pub step: ChunkStep,
-}
-
-/// Provide logical link of a group of queries
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(bits = 2, type = "u8")]
-pub enum LogicOp {
-    #[deku(id = "0")]
-    Or,
-    #[deku(id = "1")]
-    Xor,
-    #[deku(id = "2")]
-    Nor,
-    #[deku(id = "3")]
-    Nand,
-}
-
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct Logic {
-    #[deku(pad_bits_after = "6")]
-    pub logic: LogicOp,
-}
-
-/// Forward rest of the command over the interface
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct Forward {
-    // ALP_SPEC Ask for response ?
-    #[deku(bits = 1, pad_bits_before = "1", pad_bits_after = "6")]
-    pub response: bool,
-
-    #[deku(update = "self.configuration.deku_id().unwrap()")]
-    interface_type: InterfaceType,
-
-    #[deku(ctx = "*interface_type")]
-    pub configuration: InterfaceConfiguration,
-}
-
-impl Forward {
-    pub fn new(response: bool, configuration: InterfaceConfiguration) -> Self {
-        Self {
-            response,
-            interface_type: configuration.deku_id().unwrap(),
-            configuration,
-        }
-    }
-}
-
-/// Forward rest of the command over the interface
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct IndirectForward {
-    #[deku(bits = 1, update = "self.configuration.is_some()")]
-    overloaded: bool,
-
-    #[deku(bits = 1, pad_bits_after = "6")]
-    pub response: bool,
-
-    pub interface_file_id: u8,
-
-    #[deku(
-        reader = "IndirectForward::read(deku::rest, *overloaded)",
-        writer = "IndirectForward::write(deku::output, &self.configuration)"
-    )]
-    pub configuration: Option<InterfaceConfiguration>,
-}
-
-impl IndirectForward {
-    pub fn new(
-        response: bool,
-        interface_file_id: u8,
-        configuration: Option<InterfaceConfiguration>,
-    ) -> Self {
-        Self {
-            overloaded: configuration.is_some(),
-            response,
-            interface_file_id,
-            configuration,
-        }
-    }
-
-    fn read(
-        rest: &BitSlice<u8, Msb0>,
-        overloaded: bool,
-    ) -> Result<(&BitSlice<u8, Msb0>, Option<InterfaceConfiguration>), DekuError> {
-        // ALP_SPEC: The first byte in the interface_file defines how to parse the
-        // configuration overload, or even its byte size.
-        // We can not continue parsing here!
-
-        let config = if !overloaded {
-            None
-        } else {
-            Some(InterfaceConfiguration::Unknown)
-        };
-
-        Ok((rest, config))
-    }
-
-    fn write(
-        output: &mut BitVec<u8, Msb0>,
-        configuration: &Option<InterfaceConfiguration>,
-    ) -> Result<(), DekuError> {
-        if let Some(config) = configuration.as_ref() {
-            DekuWrite::write(config, output, config.deku_id().unwrap())?;
-        }
-        Ok(())
-    }
-}
-
-/// Provide command payload identifier
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct RequestTag {
-    /// Ask for end of packet
-    ///
-    /// Signal the last response packet for the request `id`
-    #[deku(bits = 1, pad_bits_after = "7")]
-    pub eop: bool,
-
-    pub id: u8,
-}
-
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct Extension {
-    pub header: ActionHeader,
-}
-
 #[cfg(test)]
 mod test {
     use hex_literal::hex;
 
     use super::*;
     use crate::{
-        alp::{
-            data::{self, FilePermissions, UserPermissions},
-            interface::{Dash7InterfaceConfiguration, GroupCondition},
-            network::{Address, Addressee, NlsState},
-            operand::{PermissionLevel, StatusCode},
-            query::NonVoid,
-            session::QoS,
-            varint::VarInt,
+        app::{
+            interface::{Dash7InterfaceConfiguration, GroupCondition, InterfaceConfiguration},
+            operand::{ActionHeader, PermissionLevel, StatusCode, FileOffset, Permission, LogicOp, ChunkStep, ActionStatus, Status},
+            query::{NonVoid, Query},
         },
+        data::{self, FilePermissions, UserPermissions, FileHeader},
+        network::{Address, Addressee, NlsState},
+        session::QoS,
         test_tools::test_item,
+        types::VarInt,
     };
 
     #[test]

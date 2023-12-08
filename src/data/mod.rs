@@ -1,5 +1,6 @@
 use deku::prelude::*;
 
+/// File access type event that will trigger an ALP action.
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(bits = 3, endian = "big", type = "u8")]
 pub enum ActionCondition {

@@ -1,6 +1,7 @@
 use deku::prelude::*;
 
-use super::{network::Addressee, session::QoS, varint::VarInt};
+use crate::{network::Addressee, types::VarInt, session::QoS};
+
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(bits = 2, type = "u8")]

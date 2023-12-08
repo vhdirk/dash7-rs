@@ -1,6 +1,7 @@
 use deku::prelude::*;
 
-use crate::alp::{network::Addressee, physical::Channel, varint::VarInt};
+use crate::{physical::Channel, network::Addressee, types::VarInt};
+
 
 /// The Response Modes define the condition for termination on success of a Request
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]

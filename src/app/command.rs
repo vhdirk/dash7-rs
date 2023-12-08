@@ -1,5 +1,6 @@
 use deku::prelude::*;
-use super::action::{Action, OpCode, RequestTag, ResponseTag};
+use super::action::{Action, OpCode};
+use super::operand::{RequestTag, ResponseTag};
 
 #[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
 pub struct Command {
@@ -50,9 +51,8 @@ mod test {
     use hex_literal::hex;
 
     use crate::{
-        alp::{
-            action::{ActionHeader, Nop, ReadFileData},
-            operand::FileOffset,
+        app::{
+            operand::{FileOffset, ActionHeader, Nop, ReadFileData},
         },
         test_tools::test_item,
     };

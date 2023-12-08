@@ -1,6 +1,10 @@
 use deku::prelude::*;
 
-use super::{interface::GroupCondition, varint::VarInt};
+mod network;
+mod advertising;
+
+use crate::app::interface::GroupCondition;
+use crate::types::VarInt;
 
 /// Network Layer Security
 #[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq)]
