@@ -2,25 +2,6 @@ use deku::prelude::*;
 
 use crate::{network::Addressee, types::VarInt, session::QoS};
 
-
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(bits = 2, type = "u8")]
-pub enum GroupCondition {
-    /// <, =, > (always true)
-    #[default]
-    #[deku(id = "0")]
-    Any,
-    /// <, >
-    #[deku(id = "1")]
-    NotEqual,
-    /// =
-    #[deku(id = "2")]
-    Equal,
-    /// >
-    #[deku(id = "3")]
-    GreaterThan,
-}
-
 /// Section 9.2.1
 ///
 /// Parameters to handle the sending of a request.

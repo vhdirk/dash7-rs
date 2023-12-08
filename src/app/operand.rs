@@ -6,14 +6,14 @@ use deku::{
 
 use crate::{data::FileHeader, session::InterfaceStatus};
 
-use super::interface::{InterfaceType, InterfaceConfiguration};
+use super::interface::{InterfaceConfiguration, InterfaceType};
 pub use super::query::Query;
 
 // ===============================================================================
 // Operands
 // ===============================================================================
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, Copy)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, Copy)]
 pub struct Length(
     #[deku(
         reader = "Length::read(deku::rest)",
@@ -176,7 +176,6 @@ pub struct ActionHeader {
     pub response: bool,
     //OpCode would be here. 6 bits padding instead
 }
-
 
 // Nop
 /// Does nothing
@@ -486,7 +485,6 @@ pub struct RequestTag {
 pub struct Extension {
     pub header: ActionHeader,
 }
-
 
 #[cfg(test)]
 mod test {

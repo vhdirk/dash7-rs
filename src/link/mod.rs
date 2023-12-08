@@ -4,6 +4,8 @@ use crate::types::VarInt;
 use crate::utils::{read_array, write_array};
 use crate::physical::{ChannelHeader, SubBand};
 
+mod frame;
+pub use frame::{BackgroundFrameControl, BackgroundFrame, ForegroundFrameControl, ForegroundFrame};
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(bits = 6, type = "u8")]

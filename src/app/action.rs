@@ -346,14 +346,18 @@ mod test {
     use super::*;
     use crate::{
         app::{
-            interface::{Dash7InterfaceConfiguration, GroupCondition, InterfaceConfiguration},
-            operand::{ActionHeader, PermissionLevel, StatusCode, FileOffset, Permission, LogicOp, ChunkStep, ActionStatus, Status},
+            interface::{Dash7InterfaceConfiguration, InterfaceConfiguration},
+            operand::{
+                ActionHeader, ActionStatus, ChunkStep, FileOffset, LogicOp, Permission,
+                PermissionLevel, Status, StatusCode,
+            },
             query::{NonVoid, Query},
         },
-        data::{self, FilePermissions, UserPermissions, FileHeader},
+        data::{self, FileHeader, FilePermissions, UserPermissions},
         network::{Address, Addressee, NlsState},
         session::QoS,
         test_tools::test_item,
+        transport::GroupCondition,
         types::VarInt,
     };
 

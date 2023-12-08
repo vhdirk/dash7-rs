@@ -1,6 +1,6 @@
 [package]
 name = "dash7"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Dirk Van Haerenborgh <vhdirk@gmail.com>"]
 description = "Implementation of a DASH7 ALP protocol codec."

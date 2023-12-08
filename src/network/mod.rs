@@ -1,30 +1,48 @@
 use deku::prelude::*;
 
+mod addressee;
 mod network;
-mod advertising;
 
-use crate::app::interface::GroupCondition;
+pub use addressee::Addressee;
+pub use network::{Control, Frame, HoppingControl};
+
 use crate::types::VarInt;
 
 /// Network Layer Security
+/// SPEC: 7.4
 #[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq)]
 #[deku(bits = 3, type = "u8")]
 pub enum NlsMethod {
+    /// No security
     #[default]
     #[deku(id = "0x00")]
     None,
+
+    /// Encryption only, Counter Mode
     #[deku(id = "0x01")]
     AesCtr,
+
+    /// No encryption, Authentication, Cipher-block chaining with 128 bit MAC
     #[deku(id = "0x02")]
     AesCbcMac128,
+
+    /// No encryption, Authentication, Cipher-block chaining with 64 bit MAC
     #[deku(id = "0x03")]
     AesCbcMac64,
+
+    /// No encryption, Authentication, Cipher-block chaining with 32 bit MAC
     #[deku(id = "0x04")]
     AesCbcMac32,
+
+    /// Authentication with CBC-MAC-128 and Encryption with Counter Mode
     #[deku(id = "0x05")]
     AesCcm128,
+
+    /// Authentication with CBC-MAC-64 and Encryption with Counter Mode
     #[deku(id = "0x06")]
     AesCcm64,
+
+    /// Authentication with CBC-MAC-32 and Encryption with Counter Mode
     #[deku(id = "0x07")]
     AesCcm32,
 }
@@ -93,58 +111,12 @@ impl Default for Address {
     }
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-pub struct Addressee {
-    /// Group condition
-    /// Not used in sub-iot
-    pub group_condition: GroupCondition,
-
-    #[deku(update = "self.address.deku_id().unwrap()")]
-    address_type: AddressType,
-
-    /// Use VID instead of UID when possible
-    /// Not used in sub-iot
-    #[deku(bits = 1)]
-    pub use_vid: bool,
-
-    #[deku(update = "self.nls_state.deku_id().unwrap()")]
-    nls_method: NlsMethod,
-
-    pub access_class: u8,
-
-    #[deku(ctx = "*address_type")]
-    pub address: Address,
-
-    #[deku(ctx = "*nls_method")]
-    pub nls_state: NlsState,
-}
-
-impl Addressee {
-    pub fn new(
-        use_vid: bool,
-        group_condition: GroupCondition,
-        address: Address,
-        nls_state: NlsState,
-        access_class: u8,
-    ) -> Self {
-        Self {
-            use_vid,
-            group_condition,
-            address_type: address.deku_id().unwrap(),
-            nls_method: nls_state.deku_id().unwrap(),
-            access_class,
-            address,
-            nls_state,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use hex_literal::hex;
 
-    use crate::test_tools::test_item;
+    use crate::{transport::GroupCondition, test_tools::test_item};
 
     #[test]
     fn test_vid_aesccm32() {

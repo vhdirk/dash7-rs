@@ -16,13 +16,15 @@ impl Into<DekuError> for VarIntError {
     fn into(self) -> DekuError {
         match self {
             VarIntError::ValueTooLarge(value) => DekuError::InvalidParam(format!("VarInt: Value too large: {:?}. Max: {:?}", value, VarInt::MAX)),
-            VarIntError::ExponentTooLarge(exponent) => DekuError::InvalidParam(format!("VarInt: Exponent too large {:?}. Max: {:?}", exponent, 0b00000111)),
-            VarIntError::MantissaTooLarge(mantissa) => DekuError::InvalidParam(format!("VarInt: Mantissa too large {:?}. Max: {:?}", mantissa, 0b00011111)),
+            VarIntError::ExponentTooLarge(exponent) => DekuError::InvalidParam(format!("VarInt: Exponent too large {:?}. Max: {:?}", exponent, 2^3)),
+            VarIntError::MantissaTooLarge(mantissa) => DekuError::InvalidParam(format!("VarInt: Mantissa too large {:?}. Max: {:?}", mantissa, 2^5)),
             VarIntError::Unknown => DekuError::Unexpected("VarInt: Unknown error".to_string())
         }
     }
 }
 
+/// Variable int format
+/// SPEC: 6.2.2 Compressed Format
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct VarInt {
     #[deku(

@@ -1,8 +1,14 @@
 # Dash7-rs
 
+[![Crates.io][crates-badge]][crates-url]
+[![Documentation][doc-badge]][doc-url]
 [![MIT licensed][mit-badge]][mit-url]
 [![codecov][codecov-badge]][codecov-url]
 
+[crates-badge]: https://img.shields.io/crates/v/dash7.svg
+[crates-url]: https://crates.io/crates/dash7
+[doc-badge]: https://docs.rs/dash7/badge.svg
+[doc-url]: https://docs.rs/dash7
 [mit-badge]: https://img.shields.io/badge/license-MIT-blue.svg
 [mit-url]: LICENSE
 [codecov-badge]: https://codecov.io/gh/vhdirk/dash7-rs/graph/badge.svg?token=3ATUANHK0O

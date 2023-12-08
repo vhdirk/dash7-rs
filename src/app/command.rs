@@ -1,13 +1,17 @@
-use deku::prelude::*;
-use super::action::{Action, OpCode};
+use super::action::Action;
 use super::operand::{RequestTag, ResponseTag};
+use deku::prelude::*;
 
 #[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
+#[deku(ctx = "command_length: u32", ctx_default = "u32::MAX")]
 pub struct Command {
     // we cannot process an indirect forward without knowing the interface type, which is stored in the interface file
     // as identified by the indirectforward itself
     // As such, we HAVE to bail here
-    #[deku(until = "|action: &Action| { action.deku_id().unwrap() == OpCode::IndirectForward }")]
+    #[deku(
+        until = "|action: &Action| { action.deku_id().unwrap() == OpCode::IndirectForward }",
+        bytes_read = "command_length"
+    )]
     pub actions: Vec<Action>,
 }
 
@@ -51,9 +55,7 @@ mod test {
     use hex_literal::hex;
 
     use crate::{
-        app::{
-            operand::{FileOffset, ActionHeader, Nop, ReadFileData},
-        },
+        app::operand::{ActionHeader, FileOffset, Nop, ReadFileData},
         test_tools::test_item,
     };
 
