@@ -202,7 +202,7 @@ pub struct FileData {
     #[deku(update = "self.data.len()")]
     length: Length,
 
-    #[deku(count = "length", endian = "big")]
+    #[deku(count = "length")]
     data: Vec<u8>,
 }
 

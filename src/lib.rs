@@ -50,8 +50,11 @@ pub mod link;
 /// Utility functions
 pub(crate) mod utils;
 
-/// reusable types
+/// Reusable types
 pub mod types;
+
+/// System files
+pub mod file;
 
 #[cfg(test)]
 mod test_tools;

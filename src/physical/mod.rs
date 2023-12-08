@@ -68,7 +68,14 @@ pub struct ChannelStatusIdentifier {
 pub struct SubBand {
     pub channel_index_start: u16,
     pub channel_index_end: u16,
-    pub eirp: u8,
+    pub eirp: i8,
     pub clear_channel_assessment: u8,
     pub duty: u8,
 }
+
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+pub struct ChannelStatus {
+  pub identifier: ChannelStatusIdentifier,
+  pub noise_floor:u8,
+}
+
