@@ -4,7 +4,7 @@ use deku::{
     prelude::*,
 };
 
-use crate::{data::FileHeader, session::InterfaceStatus};
+use crate::{data::FileHeader, session::InterfaceStatus, file::File};
 
 use super::interface::{InterfaceConfiguration, InterfaceType};
 pub use super::query::Query;
@@ -192,37 +192,59 @@ pub struct FileId {
     pub file_id: u8,
 }
 
-// Write data to a file
+/// Write data to a file
+// TODO: figure out a way to immediately decode the file
+// This will probably invole
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct FileData {
     pub header: ActionHeader,
 
     pub offset: FileOffset,
 
-    #[deku(update = "self.data.len()")]
-    length: Length,
-
-    #[deku(count = "length")]
-    data: Vec<u8>,
+    #[deku(
+        reader = "FileData::read(deku::rest, offset)",
+        writer = "FileData::write(deku::output, &self.data, &self.offset)"
+    )]
+    data: File,
 }
 
 impl FileData {
-    pub fn new(header: ActionHeader, offset: FileOffset, data: Vec<u8>) -> Self {
+    pub fn new(header: ActionHeader, offset: FileOffset, data: File) -> Self {
+        // TODO file id has to match data!
         Self {
             header,
             offset,
-            length: data.len().into(),
             data,
         }
     }
 
-    pub fn data(&self) -> &Vec<u8> {
-        &self.data
+    fn read<'a>(rest: &'a BitSlice<u8, Msb0>, offset: &FileOffset) -> Result<(&'a BitSlice<u8, Msb0>, File), DekuError> {
+        let (rest, length) = <Length as DekuRead<'_, _>>::read(rest, ())?;
+        let file_id = offset.file_id.try_into()?;
+
+        File::read(rest, (file_id, Into::<u32>::into(length)))
     }
 
-    pub fn set_data(&mut self, data: Vec<u8>) {
-        self.length = data.len().into();
-        self.data = data;
+    fn write(output: &mut BitVec<u8, Msb0>, data: &File, offset: &FileOffset) -> Result<(), DekuError> {
+        let file_id = offset.file_id.try_into()?;
+
+        let vec_size = match data {
+            File::Other(val) => val.len() as u32,
+            _ => 0
+        };
+
+        // write a stub size
+        let length_offset = output.len();
+        DekuWrite::write(&0u8, output, ())?;
+
+        // write the file
+        let output_offset = output.len();
+        DekuWrite::write(data, output, (file_id, vec_size))?;
+
+        // now overwrite the length again
+        let data_length = Length((output.len() - output_offset) as u32 / u8::BITS);
+        output[length_offset..length_offset + 8].clone_from_bitslice(&data_length.to_bits()?);
+        Ok(())
     }
 }
 

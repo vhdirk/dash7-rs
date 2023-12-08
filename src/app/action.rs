@@ -162,8 +162,6 @@ impl DekuRead<'_, ()> for Action {
         input: &'_ BitSlice<u8, Msb0>,
         _: (),
     ) -> Result<(&'_ BitSlice<u8, Msb0>, Self), DekuError> {
-        println!("bitslice length {:?} {:?}", input, input.len());
-
         let (rest, _) = <u8 as DekuRead<'_, _>>::read(input, (Endian::Big, BitSize(2)))?;
         let (_, code) = <OpCode as DekuRead<'_, _>>::read(rest, ())?;
 
@@ -273,7 +271,6 @@ macro_rules! write_action {
 
 impl DekuWrite<()> for Action {
     fn write(&self, output: &mut BitVec<u8, Msb0>, _: ()) -> Result<(), DekuError> {
-        println!("output {:?} {:?}", output, output.len());
         let offset = output.len();
         match self {
             Action::Nop(action) => write_action!(action, output),
@@ -307,7 +304,6 @@ impl DekuWrite<()> for Action {
 
         // now write the opcode with offset 2
         let code = self.deku_id()?.deku_id()? as u8;
-        println!("code {:?}", code);
         output[offset + 2..offset + 8].store_be(code);
         Ok(())
     }
@@ -351,7 +347,7 @@ mod test {
         session::QoS,
         test_tools::test_item,
         transport::GroupCondition,
-        types::VarInt,
+        types::VarInt, file::File,
     };
 
     #[test]
@@ -420,12 +416,12 @@ mod test {
                     response: false,
                 },
                 FileOffset {
-                    file_id: 9,
+                    file_id: 0xF9,
                     offset: 5u32.into(),
                 },
-                data,
+                File::Other(data)
             )),
-            &hex!("84 09 05 03 010203"),
+            &hex!("84 F9 05 03 010203"),
         )
     }
 
@@ -657,12 +653,12 @@ mod test {
                     response: false,
                 },
                 FileOffset {
-                    file_id: 9,
+                    file_id: 0xF9,
                     offset: 5u32.into(),
                 },
-                data,
+                File::Other(data),
             )),
-            &hex!("20 09 05 03 010203"),
+            &hex!("20 F9 05 03 010203"),
         )
     }
 

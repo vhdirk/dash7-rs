@@ -4,8 +4,10 @@ use std::fmt;
 #[cfg(not(feature = "std"))]
 use alloc::fmt;
 
-use deku::bitvec::{BitVec, BitView, Msb0};
-use deku::prelude::*;
+use deku::{
+    bitvec::{BitSlice, BitVec, BitView, Msb0},
+    prelude::*,
+};
 
 use crate::utils::pad_rest;
 
@@ -27,22 +29,16 @@ pub struct Command {
 
 /// Stub implementation so we can implement DekuContainerRead
 impl<'a> DekuRead<'a, ()> for Command {
-    fn read(
-        _: &'a deku::bitvec::BitSlice<u8, deku::bitvec::Msb0>,
-        _: (),
-    ) -> Result<(&'a deku::bitvec::BitSlice<u8, deku::bitvec::Msb0>, Self), DekuError>
+    fn read(_: &'a BitSlice<u8, Msb0>, _: ()) -> Result<(&'a BitSlice<u8, Msb0>, Self), DekuError>
     where
-        Self: Sized {
+        Self: Sized,
+    {
         unreachable!("This should not have been called")
     }
 }
 
 impl DekuWrite<()> for Command {
-    fn write(
-        &self,
-        _: &mut deku::bitvec::BitVec<u8, deku::bitvec::Msb0>,
-        _: (),
-    ) -> Result<(), DekuError> {
+    fn write(&self, _: &mut BitVec<u8, Msb0>, _: ()) -> Result<(), DekuError> {
         unreachable!("This should not have been called")
     }
 }
@@ -82,9 +78,7 @@ impl Command {
 }
 
 impl<'a> DekuContainerRead<'a> for Command {
-    fn from_bytes(
-        input: (&'a [u8], usize),
-    ) -> Result<((&'a [u8], usize), Self), DekuError> {
+    fn from_bytes(input: (&'a [u8], usize)) -> Result<((&'a [u8], usize), Self), DekuError> {
         let input_bits = input.0.view_bits::<Msb0>();
         let size = (input_bits.len() - input.1) as u32 / u8::BITS;
         let (rest, value) = Self::read(&input_bits[input.1..], size)?;
@@ -133,7 +127,10 @@ mod test {
 
     use hex_literal::hex;
 
-    use crate::{app::operand::{ActionHeader, FileOffset, Nop, ReadFileData}, test_tools::test_item};
+    use crate::{
+        app::operand::{ActionHeader, FileOffset, Nop, ReadFileData},
+        test_tools::test_item,
+    };
 
     use super::*;
 

@@ -10,6 +10,14 @@ license = "MIT"
 keywords = ["dash7", "alp", "parser", "protocol"]
 categories = ["encoding", "parser-implementations"]
 
+[lib]
+name = "lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "cli"
+path = "src/bin.rs"
+
 [dependencies]
 deku = { version = "0.16.0", default-features = false }
 bitvec = "1.0.1"
@@ -26,3 +34,8 @@ alloc = ["deku/alloc"]
 spec_v1_2 = []
 subiot_v5_3 = []
 wizzilab_v5_3 = []
+
+
+# [patch.crates-io]
+# deku = { path = "../deku" }
+# deku = {git="https://github.com/vhdirk/deku" ,branch = "predicate-stop-when-empty"}
