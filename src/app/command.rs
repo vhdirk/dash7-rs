@@ -1,5 +1,6 @@
 #[cfg(feature = "std")]
 use std::fmt;
+use std::fmt::Display;
 
 #[cfg(not(feature = "std"))]
 use alloc::fmt;
@@ -49,22 +50,34 @@ impl Command {
         Self { actions }
     }
 
-    pub fn request_id(&self) -> Option<u8> {
+    pub fn request_tag(&self) -> Option<&RequestTag> {
         for action in self.actions.iter() {
-            if let Action::RequestTag(RequestTag { id, .. }) = action {
-                return Some(*id);
+            if let Action::RequestTag(operand) = action {
+                return Some(operand);
+            }
+        }
+        None
+    }
+
+    pub fn request_id(&self) -> Option<u8> {
+        self.request_tag().map(|t| t.id)
+    }
+
+    pub fn response_tag(&self) -> Option<&ResponseTag> {
+        for action in self.actions.iter() {
+            if let Action::ResponseTag(operand) = action {
+                return Some(operand);
             }
         }
         None
     }
 
     pub fn response_id(&self) -> Option<u8> {
-        for action in self.actions.iter() {
-            if let Action::ResponseTag(ResponseTag { id, .. }) = action {
-                return Some(*id);
-            }
-        }
-        None
+        self.response_tag().map(|t| t.id)
+    }
+
+    pub fn tag_id(&self) -> Option<u8> {
+        self.request_id().or(self.response_id())
     }
 
     pub fn is_last_response(&self) -> bool {
@@ -119,6 +132,45 @@ impl TryFrom<Command> for Vec<u8> {
     type Error = DekuError;
     fn try_from(input: Command) -> Result<Self, Self::Error> {
         DekuContainerWrite::to_bytes(&input)
+    }
+}
+
+impl Display for Command {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let tag_str = self
+            .tag_id()
+            .map_or("".to_string(), |t| format!("with tag {}", t));
+        f.write_str(&format!("Command {}", &tag_str))?;
+
+        let status = if let Some(operand) = self.response_tag() {
+            if operand.eop {
+                if operand.error {
+                    "completed, with error"
+                } else {
+                    "completed, without error"
+                }
+            } else {
+                "executing"
+            }
+        } else {
+            "executing"
+        };
+
+        f.write_str(&format!("({})", status))?;
+
+        if self.actions.len() > 0 {
+            f.write_str("\n\tactions:\n")?;
+
+            for action in self.actions.iter() {
+                f.write_str(&format!("\t\t{:?}\n", action))?;
+            }
+        }
+
+        // if self.interface_status is not None:
+        //   output += "\tinterface status: {}\n".format(self.interface_status)
+        // return output
+
+        Ok(())
     }
 }
 

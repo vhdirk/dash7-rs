@@ -15,7 +15,7 @@ name = "lib"
 path = "src/lib.rs"
 
 [[bin]]
-name = "cli"
+name = "dash7"
 path = "src/bin.rs"
 
 [dependencies]

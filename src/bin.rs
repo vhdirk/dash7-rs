@@ -1,5 +1,9 @@
 use clap::{Args, Parser, Subcommand};
-use lib::app::command::Command;
+use lib::{
+    app::command::Command,
+    file::{File, FileId},
+    link::{BackgroundFrame, ForegroundFrame},
+};
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
@@ -30,7 +34,7 @@ struct ParseTypeArgs {
     serial: bool,
 
     #[clap(long = "systemfile", short = 'g', action)]
-    systemfile: bool,
+    systemfile: Option<u8>,
 }
 
 #[derive(Debug, Args)]
@@ -47,18 +51,30 @@ fn remove_whitespace(s: &str) -> String {
 }
 
 fn parse(args: ParseArgs) {
-    let input =  hex::decode(remove_whitespace(&args.hex)).expect("Could not parse input jex");
+    let input = hex::decode(remove_whitespace(&args.hex)).expect("Could not parse input jex");
 
     if args.parse_type.dll_foreground {
+        let frame =
+            ForegroundFrame::try_from(input.as_slice()).expect("Could not foreground frame");
+        println!("{:?}", frame);
+        return;
     } else if args.parse_type.dll_background {
+        let frame =
+            BackgroundFrame::try_from(input.as_slice()).expect("Could not background frame");
+        println!("{:?}", frame);
+        return;
     } else if args.parse_type.alp {
         let command = Command::try_from(input.as_slice()).expect("Could not parse command");
-        println!("{:?}", command);
+        println!("{}", command);
         return;
     } else if args.parse_type.serial {
         unimplemented!();
-    } else if args.parse_type.systemfile {
-        unimplemented!();
+    } else if let Some(file_id_raw) = args.parse_type.systemfile {
+        let file_id: FileId = file_id_raw.try_into().expect("File id invalid");
+        let file =
+            File::from_bytes((input.as_slice(), 0), file_id, 0).expect("Could not parse file");
+        println!("{:?}", file);
+        return;
     }
 }
 
@@ -69,39 +85,3 @@ pub fn main() {
         Commands::Parse(args) => parse(args),
     }
 }
-
-// from d7a.alp.parser import Parser as AlpParser
-// from d7a.dll.parser import Parser as DllFrameParser, FrameType
-// from d7a.serial_modem_interface.parser import Parser as SerialParser
-// from d7a.system_files.system_file_ids import SystemFileIds
-// from d7a.system_files.system_files import SystemFiles
-
-// parser_types = ["fg", "bg", "alp", "serial", "systemfile"]
-// argparser = argparse.ArgumentParser()
-// argparser.add_argument("-t", "--type", choices=parser_types, required=True)
-// argparser.add_argument("-f", "--file-id", help="the ID of the system file to parse", type=int)
-// argparser.add_argument('data', help="The data to be parsed, input as an hexstring")
-// args = argparser.parse_args()
-
-// hexstring = args.data.strip().replace(' ', '')
-// data = bytearray(hexstring.decode("hex"))
-// if args.type == "alp":
-//   print AlpParser().parse(ConstBitStream(data), len(data))
-//   exit(0)
-// if args.type == "serial":
-//   parser = SerialParser()
-// if args.type == "fg":
-//   parser = DllFrameParser(frame_type=FrameType.FOREGROUND)
-// if args.type == "bg":
-//   parser = DllFrameParser(frame_type=FrameType.BACKGROUND)
-// if args.type == "systemfile":
-//   file = SystemFileIds(args.file_id)
-//   file_type = SystemFiles().files[file]
-//   print(file_type.parse(ConstBitStream(data)))
-//   exit(0)
-
-// msgtype, cmds, info = parser.parse(data)
-// for cmd in cmds:
-//   print cmd
-
-// print info
