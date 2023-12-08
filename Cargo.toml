@@ -26,7 +26,3 @@ alloc = ["deku/alloc"]
 spec_v1_2 = []
 subiot_v5_3 = []
 wizzilab_v5_3 = []
-
-[patch.crates-io]
-# deku = { path = "../deku" }
-deku = {git="https://github.com/vhdirk/deku" ,branch = "predicate-stop-when-empty"}

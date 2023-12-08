@@ -25,6 +25,16 @@ impl<T> Drop for TransientDropper<T> {
     }
 }
 
+
+pub fn pad_rest<'a>(
+    input_bits: &'a BitSlice<u8, Msb0>,
+    rest: &'a BitSlice<u8, Msb0>,
+) -> (&'a [u8], usize) {
+    let pad = 8 * ((rest.len() + 7) / 8) - rest.len();
+    let read_idx = input_bits.len() - (rest.len() + pad);
+    (input_bits[read_idx..].domain().region().unwrap().1, pad)
+}
+
 /// Read and convert to String
 pub fn read_string<const N: usize>(
     rest: &BitSlice<u8, Msb0>,

@@ -1,9 +1,19 @@
-use super::action::Action;
-use super::operand::{RequestTag, ResponseTag};
+#[cfg(feature = "std")]
+use std::fmt;
+
+#[cfg(not(feature = "std"))]
+use alloc::fmt;
+
+use deku::bitvec::{BitVec, BitView, Msb0};
 use deku::prelude::*;
 
+use crate::utils::pad_rest;
+
+use super::action::Action;
+use super::operand::{RequestTag, ResponseTag};
+
 #[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
-#[deku(ctx = "command_length: u32", ctx_default = "u32::MAX")]
+#[deku(ctx = "command_length: u32")]
 pub struct Command {
     // we cannot process an indirect forward without knowing the interface type, which is stored in the interface file
     // as identified by the indirectforward itself
@@ -13,6 +23,28 @@ pub struct Command {
         bytes_read = "command_length"
     )]
     pub actions: Vec<Action>,
+}
+
+/// Stub implementation so we can implement DekuContainerRead
+impl<'a> DekuRead<'a, ()> for Command {
+    fn read(
+        _: &'a deku::bitvec::BitSlice<u8, deku::bitvec::Msb0>,
+        _: (),
+    ) -> Result<(&'a deku::bitvec::BitSlice<u8, deku::bitvec::Msb0>, Self), DekuError>
+    where
+        Self: Sized {
+        unreachable!("This should not have been called")
+    }
+}
+
+impl DekuWrite<()> for Command {
+    fn write(
+        &self,
+        _: &mut deku::bitvec::BitVec<u8, deku::bitvec::Msb0>,
+        _: (),
+    ) -> Result<(), DekuError> {
+        unreachable!("This should not have been called")
+    }
 }
 
 impl Command {
@@ -49,15 +81,59 @@ impl Command {
     }
 }
 
+impl<'a> DekuContainerRead<'a> for Command {
+    fn from_bytes(
+        input: (&'a [u8], usize),
+    ) -> Result<((&'a [u8], usize), Self), DekuError> {
+        let input_bits = input.0.view_bits::<Msb0>();
+        let size = (input_bits.len() - input.1) as u32 / u8::BITS;
+        let (rest, value) = Self::read(&input_bits[input.1..], size)?;
+
+        Ok((pad_rest(input_bits, rest), value))
+    }
+}
+
+/// Stub implementation so we can implement DekuContainerWrite
+impl DekuContainerWrite for Command {
+    fn to_bytes(&self) -> Result<Vec<u8>, DekuError> {
+        let output = self.to_bits()?;
+        Ok(output.into_vec())
+    }
+
+    fn to_bits(&self) -> Result<BitVec<u8, Msb0>, DekuError> {
+        let mut output: BitVec<u8, Msb0> = BitVec::new();
+        self.write(&mut output, u32::MAX)?;
+        Ok(output)
+    }
+}
+
+impl TryFrom<&'_ [u8]> for Command {
+    type Error = DekuError;
+    fn try_from(input: &'_ [u8]) -> Result<Self, Self::Error> {
+        let (rest, res) = <Self as DekuContainerRead>::from_bytes((input, 0))?;
+        if !rest.0.is_empty() {
+            return Err(DekuError::Parse({
+                let res = fmt::format(format_args!("Too much data"));
+                res
+            }));
+        }
+        Ok(res)
+    }
+}
+
+impl TryFrom<Command> for Vec<u8> {
+    type Error = DekuError;
+    fn try_from(input: Command) -> Result<Self, Self::Error> {
+        DekuContainerWrite::to_bytes(&input)
+    }
+}
+
 #[cfg(test)]
 mod test {
 
     use hex_literal::hex;
 
-    use crate::{
-        app::operand::{ActionHeader, FileOffset, Nop, ReadFileData},
-        test_tools::test_item,
-    };
+    use crate::{app::operand::{ActionHeader, FileOffset, Nop, ReadFileData}, test_tools::test_item};
 
     use super::*;
 

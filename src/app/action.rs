@@ -11,6 +11,8 @@ use deku::{
     prelude::*,
 };
 
+use crate::utils::pad_rest;
+
 use super::operand::{
     ActionQuery, Chunk, CopyFile, Extension, FileData, FileId, FileProperties, Forward,
     IndirectForward, Logic, Nop, PermissionRequest, ReadFileData, RequestTag, ResponseTag,
@@ -212,15 +214,6 @@ impl TryFrom<&'_ [u8]> for Action {
         }
         Ok(res)
     }
-}
-
-fn pad_rest<'a>(
-    input_bits: &'a BitSlice<u8, Msb0>,
-    rest: &'a BitSlice<u8, Msb0>,
-) -> (&'a [u8], usize) {
-    let pad = 8 * ((rest.len() + 7) / 8) - rest.len();
-    let read_idx = input_bits.len() - (rest.len() + pad);
-    (input_bits[read_idx..].domain().region().unwrap().1, pad)
 }
 
 impl DekuContainerRead<'_> for Action {
