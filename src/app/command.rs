@@ -139,8 +139,8 @@ impl Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let tag_str = self
             .tag_id()
-            .map_or("".to_string(), |t| format!("with tag {}", t));
-        f.write_str(&format!("Command {}", &tag_str))?;
+            .map_or("".to_string(), |t| format!("with tag {} ", t));
+        f.write_str(&format!("Command {} ", &tag_str))?;
 
         let status = if let Some(operand) = self.response_tag() {
             if operand.eop {

@@ -34,5 +34,5 @@ std = ["deku/std"]
 alloc = ["deku/alloc"]
 
 spec_v1_2 = []
-subiot_v5_3 = []
+subiot_v0 = []
 wizzilab_v5_3 = []
