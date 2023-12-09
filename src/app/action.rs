@@ -343,11 +343,12 @@ mod test {
             query::{NonVoid, Query},
         },
         data::{self, FileHeader, FilePermissions, UserPermissions},
+        file::File,
         network::{Address, Addressee, NlsState},
         session::QoS,
         test_tools::test_item,
         transport::GroupCondition,
-        types::VarInt, file::File,
+        types::VarInt,
     };
 
     #[test]
@@ -419,7 +420,7 @@ mod test {
                     file_id: 0xF9,
                     offset: 5u32.into(),
                 },
-                File::Other(data)
+                File::Other(data),
             )),
             &hex!("84 F9 05 03 010203"),
         )

@@ -5,20 +5,32 @@ use deku::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum VarIntError{
+pub enum VarIntError {
     ValueTooLarge(u32),
     ExponentTooLarge(u8),
     MantissaTooLarge(u8),
-    Unknown
+    Unknown,
 }
 
 impl Into<DekuError> for VarIntError {
     fn into(self) -> DekuError {
         match self {
-            VarIntError::ValueTooLarge(value) => DekuError::InvalidParam(format!("VarInt: Value too large: {:?}. Max: {:?}", value, VarInt::MAX)),
-            VarIntError::ExponentTooLarge(exponent) => DekuError::InvalidParam(format!("VarInt: Exponent too large {:?}. Max: {:?}", exponent, 2^3)),
-            VarIntError::MantissaTooLarge(mantissa) => DekuError::InvalidParam(format!("VarInt: Mantissa too large {:?}. Max: {:?}", mantissa, 2^5)),
-            VarIntError::Unknown => DekuError::Unexpected("VarInt: Unknown error".to_string())
+            VarIntError::ValueTooLarge(value) => DekuError::InvalidParam(format!(
+                "VarInt: Value too large: {:?}. Max: {:?}",
+                value,
+                VarInt::MAX
+            )),
+            VarIntError::ExponentTooLarge(exponent) => DekuError::InvalidParam(format!(
+                "VarInt: Exponent too large {:?}. Max: {:?}",
+                exponent,
+                2 ^ 3
+            )),
+            VarIntError::MantissaTooLarge(mantissa) => DekuError::InvalidParam(format!(
+                "VarInt: Mantissa too large {:?}. Max: {:?}",
+                mantissa,
+                2 ^ 5
+            )),
+            VarIntError::Unknown => DekuError::Unexpected("VarInt: Unknown error".to_string()),
         }
     }
 }
@@ -43,7 +55,7 @@ impl VarInt {
     pub fn new(value: u32, ceil: bool) -> Result<Self, VarIntError> {
         if !Self::is_valid(value) {
             Err(VarIntError::ValueTooLarge(value))
-        } else{
+        } else {
             Ok(Self { value, ceil })
         }
     }
@@ -53,7 +65,6 @@ impl VarInt {
     }
 
     pub fn decompress(exponent: u8, mantissa: u8) -> Result<u32, VarIntError> {
-
         if exponent & 0b11111000 > 0 {
             return Err(VarIntError::ExponentTooLarge(exponent));
         }
@@ -65,7 +76,10 @@ impl VarInt {
         Ok(4u32.pow(exponent as u32) * mantissa as u32)
     }
 
-    pub fn compress(value: u32, ceil: bool) -> Result<(/*exponent: */ u8, /*mantissa: */ u8), VarIntError> {
+    pub fn compress(
+        value: u32,
+        ceil: bool,
+    ) -> Result<(/*exponent: */ u8, /*mantissa: */ u8), VarIntError> {
         if !Self::is_valid(value) {
             return Err(VarIntError::ValueTooLarge(value));
         }
@@ -98,7 +112,9 @@ impl VarInt {
         let (rest, exponent) = <u8 as DekuRead<'_, _>>::read(rest, (Endian::Big, BitSize(3)))?;
         let (rest, mantissa) = <u8 as DekuRead<'_, _>>::read(rest, (Endian::Big, BitSize(5)))?;
 
-        Self::decompress(exponent, mantissa).map_err(Into::into).map(|value| (rest, value))
+        Self::decompress(exponent, mantissa)
+            .map_err(Into::into)
+            .map(|value| (rest, value))
     }
 
     fn write(output: &mut BitVec<u8, Msb0>, value: &u32, ceil: &bool) -> Result<(), DekuError> {

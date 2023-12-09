@@ -115,6 +115,12 @@ impl TryFrom<u8> for FileId {
     }
 }
 
+impl Into<u8> for FileId {
+    fn into(self) -> u8 {
+        self.deku_id().unwrap()
+    }
+}
+
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 #[deku(
     ctx = "file_id: FileId, length: u32",

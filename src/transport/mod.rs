@@ -1,7 +1,6 @@
 use deku::prelude::*;
 
-use crate::{types::VarInt, app::command::Command};
-
+use crate::{app::command::Command, types::VarInt};
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(bits = 2, type = "u8")]
@@ -47,7 +46,7 @@ pub struct AckTemplate {
 }
 
 #[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
-#[deku(ctx="command_length: u32", ctx_default = "u32::MAX")]
+#[deku(ctx = "command_length: u32", ctx_default = "u32::MAX")]
 pub struct Frame {
     control: Control,
 
@@ -74,6 +73,6 @@ pub struct Frame {
     #[deku(cond = "control.is_ack_not_void")]
     ack_template: Option<AckTemplate>,
 
-    #[deku(ctx="command_length")]
+    #[deku(ctx = "command_length")]
     command: Command,
 }

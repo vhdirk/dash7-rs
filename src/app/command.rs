@@ -180,8 +180,16 @@ mod test {
     use hex_literal::hex;
 
     use crate::{
-        app::operand::{ActionHeader, FileOffset, Nop, ReadFileData},
+        app::{
+            interface::InterfaceConfiguration,
+            operand::{ActionHeader, FileData, FileOffset, Forward, Nop, ReadFileData, Status},
+        },
+        file::File,
+        network::{Address, Addressee, NlsState},
+        physical::{Channel, ChannelBand, ChannelClass, ChannelCoding, ChannelHeader},
+        session::{Dash7InterfaceStatus, InterfaceStatus},
         test_tools::test_item,
+        transport::GroupCondition,
     };
 
     use super::*;
@@ -411,5 +419,195 @@ mod test {
             ]
         }
         .is_last_response());
+    }
+
+    #[test]
+    fn test_simple_received_return_file_data_command() {
+        let data = [
+            0x62u8, // Interface Status action
+            0xD7,   // D7ASP interface
+            32,     // channel header
+            0, 16,   // channel_id
+            70,   // rxlevel (- dBm)
+            80,   // link budget
+            80,   // target rx level
+            0,    // status
+            200,  // fifo token
+            0,    // seq
+            20,   // response timeout
+            0x10, // addressee ctrl (NOID)
+            0,    // access class
+            0x20, // action=32/ReturnFileData
+            0x51, // File ID
+            0x00, // offset
+            0x0b, // length
+            0x48, 0x65, 0x6c, 0x6c, 0x6f, // Hello
+            0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, // World
+        ];
+
+        let item = Command {
+            actions: vec![
+                Action::Status(
+                    Status::Interface(InterfaceStatus::Dash7(Dash7InterfaceStatus {
+                        channel: Channel {
+                            header: ChannelHeader::new(
+                                ChannelBand::Band433,
+                                ChannelClass::LoRate,
+                                ChannelCoding::Pn9,
+                            ),
+                            index: 16,
+                        },
+                        rx_level: 70,
+                        link_budget: 80,
+                        target_rx_level: 80,
+                        nls: false,
+                        missed: false,
+                        retry: false,
+                        unicast: false,
+                        fifo_token: 200,
+                        sequence_number: 0,
+                        response_timeout: 20u32.into(),
+                        addressee: Addressee::default(),
+                    }))
+                    .into(),
+                ),
+                Action::ReturnFileData(FileData::new(
+                    ActionHeader::default(),
+                    FileOffset::no_offset(0x51),
+                    File::Other("Hello world".into()),
+                )),
+            ],
+        };
+
+        test_item(item, &data);
+    }
+
+    #[test]
+    fn test_simple_received_return_file_data_command_with_tag_request() {
+        let data = [
+            0xB4u8, // tag request with send response bit set
+            25,     // tag ID
+            0x62,   // Interface Status action
+            0xD7,   // D7ASP interface
+            32,     // channel header
+            0, 16,   // channel_id
+            70,   // rxlevel (- dBm)
+            80,   // link budget
+            80,   // target rx level
+            0,    // status
+            200,  // fifo token
+            0,    // seq
+            20,   // response timeout
+            0x10, // addressee ctrl (NOID)
+            0,    // access class
+            0x20, // action=32/ReturnFileData
+            0x51, // File ID
+            0x00, // offset
+            0x0b, // length
+            0x48, 0x65, 0x6c, 0x6c, 0x6f, // Hello
+            0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, // World
+        ];
+
+        let item = Command {
+            actions: vec![
+                Action::RequestTag(RequestTag { eop: true, id: 25 }),
+                Action::Status(
+                    Status::Interface(InterfaceStatus::Dash7(Dash7InterfaceStatus {
+                        channel: Channel {
+                            header: ChannelHeader::new(
+                                ChannelBand::Band433,
+                                ChannelClass::LoRate,
+                                ChannelCoding::Pn9,
+                            ),
+                            index: 16,
+                        },
+                        rx_level: 70,
+                        link_budget: 80,
+                        target_rx_level: 80,
+                        nls: false,
+                        missed: false,
+                        retry: false,
+                        unicast: false,
+                        fifo_token: 200,
+                        sequence_number: 0,
+                        response_timeout: 20u32.into(),
+                        addressee: Addressee::default(),
+                    }))
+                    .into(),
+                ),
+                Action::ReturnFileData(FileData::new(
+                    ActionHeader::default(),
+                    FileOffset::no_offset(0x51),
+                    File::Other("Hello world".into()),
+                )),
+            ],
+        };
+
+        test_item(item, &data);
+    }
+
+    #[test]
+    fn test_command_with_interface_status() {
+        let data = &hex!(
+            r#"
+        62 D7 14 32 00 32 2D 3E 50 80 00 00 58 20 01 39 38 38 37 00 39 00 2E 32
+        01 44 35 00 2C 00 F4 01 00 00 44 48 00 09 00 00 00 00 00 00 30 00 00 44
+        48 00 09 00 00 30 00 00 00 00 02 00 44 48 00 09 00  00 70 00 00 00 30 02 00"#
+        );
+
+        let item = Command {
+            actions: vec![
+                Action::Status(
+                    Status::Interface(InterfaceStatus::Dash7(Dash7InterfaceStatus {
+                        channel: Channel {
+                            header: ChannelHeader::new(
+                                ChannelBand::Band868,
+                                ChannelClass::LoRate,
+                                ChannelCoding::FecPn9,
+                            ),
+                            index: 50,
+                        },
+                        rx_level: 45,
+                        link_budget: 64,
+                        target_rx_level: 80,
+                        nls: true,
+                        missed: false,
+                        retry: false,
+                        unicast: false,
+                        fifo_token: 0,
+                        sequence_number: 0,
+                        response_timeout: 240.into(),
+                        addressee: Addressee::new(
+                            false,
+                            GroupCondition::Any,
+                            Address::Uid(4123107267735781422u64),
+                            NlsState::None,
+                            1,
+                        ),
+                    }))
+                    .into(),
+                ),
+                Action::Forward(Forward::new(false, InterfaceConfiguration::Serial)),
+                Action::WriteFileData(FileData::new(
+                    ActionHeader {
+                        group: true,
+                        response: true,
+                    },
+                    FileOffset {
+                        file_id: 35,
+                        offset: 0u32.into(),
+                    },
+                    File::Other(
+                        hex!(
+                            r#"00 F4 01 00 00 44 48 00 09 00 00 00 00 00 00 30
+                    00 00 44 48 00 09 00 00 30 00 00 00 00 02 00"#
+                        )
+                        .to_vec(),
+                    ),
+                )),
+            ],
+        };
+
+        test_item(item, data);
     }
 }

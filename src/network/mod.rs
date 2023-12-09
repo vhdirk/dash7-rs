@@ -74,10 +74,10 @@ pub enum NlsState {
 #[deku(bits = 2, type = "u8")]
 pub enum AddressType {
     /// Broadcast to an estimated number of receivers, encoded in compressed format on a byte.
-    #[default]
     #[deku(id = "0x00")]
     NbId,
     /// Broadcast to everyone
+    #[default]
     #[deku(id = "0x01")]
     NoId,
     /// Unicast to target via its UID (Unique Dash7 ID)
@@ -107,7 +107,7 @@ pub enum Address {
 
 impl Default for Address {
     fn default() -> Self {
-        Self::NbId(VarInt::default())
+        Self::NoId
     }
 }
 
@@ -116,7 +116,7 @@ mod tests {
     use super::*;
     use hex_literal::hex;
 
-    use crate::{transport::GroupCondition, test_tools::test_item};
+    use crate::{test_tools::test_item, transport::GroupCondition};
 
     #[test]
     fn test_vid_aesccm32() {

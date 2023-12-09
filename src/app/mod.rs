@@ -1,4 +1,3 @@
-
 /// Operands used to build the ALP Actions
 pub mod operand;
 

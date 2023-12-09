@@ -1,6 +1,9 @@
 use deku::prelude::*;
 
-use crate::{network::{AddressType, Address, self}, app::operand::Length};
+use crate::{
+    app::operand::Length,
+    network::{self, Address, AddressType},
+};
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct BackgroundFrameControl {
@@ -32,10 +35,10 @@ pub struct ForegroundFrame {
     subnet: u8,
     control: ForegroundFrameControl,
 
-    #[deku(ctx="control.address_type")]
+    #[deku(ctx = "control.address_type")]
     target_address: Address,
 
-    #[deku(ctx="Into::<u32>::into(*length)")]
+    #[deku(ctx = "Into::<u32>::into(*length)")]
     frame: network::Frame,
     crc16: u16,
 }

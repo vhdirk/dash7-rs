@@ -4,7 +4,7 @@ use deku::{
     prelude::*,
 };
 
-use crate::{data::FileHeader, session::InterfaceStatus, file::File};
+use crate::{data::FileHeader, file::File, session::InterfaceStatus};
 
 use super::interface::{InterfaceConfiguration, InterfaceType};
 pub use super::query::Query;
@@ -90,6 +90,13 @@ pub struct FileOffset {
     pub offset: Length,
 }
 
+impl FileOffset {
+    pub fn no_offset(file_id: u8) -> Self {
+        Self { file_id, offset: 0u32.into() }
+    }
+}
+
+
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 #[deku(type = "u8")]
 pub enum StatusCode {
@@ -166,7 +173,7 @@ pub enum PermissionLevel {
     // ALP SPEC: Does something else exist?
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct ActionHeader {
     /// Group with next action
     #[deku(bits = 1)]
@@ -175,6 +182,12 @@ pub struct ActionHeader {
     #[deku(bits = 1, pad_bits_after = "6")]
     pub response: bool,
     //OpCode would be here. 6 bits padding instead
+}
+
+impl ActionHeader {
+    pub fn new(group: bool, response: bool) -> Self {
+        Self { group, response }
+    }
 }
 
 // Nop
@@ -218,19 +231,26 @@ impl FileData {
         }
     }
 
-    fn read<'a>(rest: &'a BitSlice<u8, Msb0>, offset: &FileOffset) -> Result<(&'a BitSlice<u8, Msb0>, File), DekuError> {
+    fn read<'a>(
+        rest: &'a BitSlice<u8, Msb0>,
+        offset: &FileOffset,
+    ) -> Result<(&'a BitSlice<u8, Msb0>, File), DekuError> {
         let (rest, length) = <Length as DekuRead<'_, _>>::read(rest, ())?;
         let file_id = offset.file_id.try_into()?;
 
         File::read(rest, (file_id, Into::<u32>::into(length)))
     }
 
-    fn write(output: &mut BitVec<u8, Msb0>, data: &File, offset: &FileOffset) -> Result<(), DekuError> {
+    fn write(
+        output: &mut BitVec<u8, Msb0>,
+        data: &File,
+        offset: &FileOffset,
+    ) -> Result<(), DekuError> {
         let file_id = offset.file_id.try_into()?;
 
         let vec_size = match data {
             File::Other(val) => val.len() as u32,
-            _ => 0
+            _ => 0,
         };
 
         // write a stub size
@@ -342,6 +362,7 @@ pub enum Status {
     Interface(InterfaceStatus),
     // ALP SPEC: Where are the stack errors?
 }
+
 
 /// Action received before any responses to a request that contained a RequestTag
 ///

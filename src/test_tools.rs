@@ -11,9 +11,9 @@ where
 
 pub fn test_item<'a, T>(item: T, data: &'a [u8])
 where
-    T: Clone + Debug + PartialEq + TryFrom<&'a [u8]>  + TryInto<Vec<u8>>,
+    T: Clone + Debug + PartialEq + TryFrom<&'a [u8]> + TryInto<Vec<u8>>,
     <T as TryFrom<&'a [u8]>>::Error: Debug,
-    <T as TryInto<Vec<u8>>>::Error: Debug
+    <T as TryInto<Vec<u8>>>::Error: Debug,
 {
     let result: Vec<u8> = item.clone().try_into().unwrap();
     // println!("{:?} == {:?}", BitVec::<u8, Msb0>::from_slice(&result), BitVec::<u8, Msb0>::from_slice(data));

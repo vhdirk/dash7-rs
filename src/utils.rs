@@ -1,12 +1,13 @@
+use core::cmp;
 use core::{
     mem::{self, MaybeUninit},
     ptr, slice,
 };
-use core::cmp;
 
 use deku::{
+    bitvec::{BitSlice, BitVec, Msb0},
+    ctx::{ByteSize, Limit},
     prelude::*,
-    bitvec::{BitSlice, BitVec, Msb0}, ctx::{ByteSize, Limit},
 };
 
 struct TransientDropper<T> {
@@ -25,7 +26,6 @@ impl<T> Drop for TransientDropper<T> {
     }
 }
 
-
 pub fn pad_rest<'a>(
     input_bits: &'a BitSlice<u8, Msb0>,
     rest: &'a BitSlice<u8, Msb0>,
@@ -41,21 +41,23 @@ pub fn read_string<const N: usize>(
 ) -> Result<(&BitSlice<u8, Msb0>, String), DekuError> {
     let (rest, value) = Vec::<u8>::read(rest, Limit::new_byte_size(ByteSize(N)))?;
 
-    String::from_utf8(value).map_err(|err| {
-        DekuError::Parse(format!("Could not parse bytes into string {:?}", err))
-    }).map(|value| (rest, value))
+    String::from_utf8(value)
+        .map_err(|err| DekuError::Parse(format!("Could not parse bytes into string {:?}", err)))
+        .map(|value| (rest, value))
 }
 
 /// from String to [u8] and write
-pub fn write_string<const N: usize>(output: &mut BitVec<u8, Msb0>, value: &str) -> Result<(), DekuError> {
-    let mut bytes = [0u8;N];
+pub fn write_string<const N: usize>(
+    output: &mut BitVec<u8, Msb0>,
+    value: &str,
+) -> Result<(), DekuError> {
+    let mut bytes = [0u8; N];
 
     let max_index = cmp::min(value.len(), N);
     bytes[0..max_index].clone_from_slice(&value.as_bytes()[0..max_index]);
 
     DekuWrite::write(&bytes.as_slice(), output, ())
 }
-
 
 pub fn read_array<'a, T, const N: usize>(
     rest: &'a BitSlice<u8, Msb0>,

@@ -35,10 +35,10 @@ enum ParseType {
 
 #[derive(Debug, Args)]
 struct ParseArgs {
-    #[arg(value_enum, short='t', long="type")]
+    #[arg(value_enum, short = 't', long = "type")]
     parse_type: Option<ParseType>,
 
-    #[arg(short='f')]
+    #[arg(short = 'f')]
     file_id: Option<u8>,
 
     #[arg()]
@@ -89,19 +89,19 @@ fn parse_any_file(input: &[u8]) -> Result<(), DekuError> {
 
 fn parse_any(input: &[u8]) -> Result<(), DekuError> {
     if parse_foreground_frame(input).is_ok() {
-        return Ok(())
+        return Ok(());
     }
     if parse_background_frame(input).is_ok() {
-        return Ok(())
+        return Ok(());
     }
     if parse_alp_command(input).is_ok() {
-        return Ok(())
+        return Ok(());
     }
     if parse_serial(input).is_ok() {
-        return Ok(())
+        return Ok(());
     }
     if parse_any_file(input).is_ok() {
-        return Ok(())
+        return Ok(());
     }
 
     Err(DekuError::Parse("Could not parse input".to_string()))
@@ -127,8 +127,8 @@ fn parse(args: ParseArgs) {
             } else {
                 parse_any_file(input).expect("Could not parse file")
             }
-        },
-        None => parse_any(input).expect("Could not parse input")
+        }
+        None => parse_any(input).expect("Could not parse input"),
     }
 }
 

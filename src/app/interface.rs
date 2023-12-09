@@ -1,6 +1,6 @@
 use deku::prelude::*;
 
-use crate::{network::Addressee, types::VarInt, session::QoS};
+use crate::{network::Addressee, session::QoS, types::VarInt};
 
 /// Section 9.2.1
 ///

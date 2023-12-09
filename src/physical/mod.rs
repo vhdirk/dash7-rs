@@ -46,10 +46,24 @@ pub struct ChannelHeader {
     pub channel_coding: ChannelCoding,
 }
 
+impl ChannelHeader {
+    pub fn new(
+        channel_band: ChannelBand,
+        channel_class: ChannelClass,
+        channel_coding: ChannelCoding,
+    ) -> Self {
+        Self {
+            channel_band,
+            channel_class,
+            channel_coding,
+        }
+    }
+}
+
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct Channel {
     pub header: ChannelHeader,
-    #[deku(endian="big")]
+    #[deku(endian = "big")]
     pub index: u16,
 }
 
@@ -75,7 +89,6 @@ pub struct SubBand {
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct ChannelStatus {
-  pub identifier: ChannelStatusIdentifier,
-  pub noise_floor:u8,
+    pub identifier: ChannelStatusIdentifier,
+    pub noise_floor: u8,
 }
-

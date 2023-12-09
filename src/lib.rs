@@ -35,7 +35,7 @@ pub mod transport;
 /// Network layer
 pub mod network;
 
-/// Session lauyer
+/// Session layer
 pub mod session;
 
 /// Physycal layer
@@ -58,4 +58,3 @@ pub mod file;
 
 #[cfg(test)]
 mod test_tools;
-

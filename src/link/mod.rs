@@ -1,11 +1,11 @@
 use deku::prelude::*;
 
+use crate::physical::{ChannelHeader, SubBand};
 use crate::types::VarInt;
 use crate::utils::{read_array, write_array};
-use crate::physical::{ChannelHeader, SubBand};
 
 mod frame;
-pub use frame::{BackgroundFrameControl, BackgroundFrame, ForegroundFrameControl, ForegroundFrame};
+pub use frame::{BackgroundFrame, BackgroundFrameControl, ForegroundFrame, ForegroundFrameControl};
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(bits = 6, type = "u8")]

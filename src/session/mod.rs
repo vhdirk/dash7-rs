@@ -1,7 +1,6 @@
 use deku::prelude::*;
 
-use crate::{physical::Channel, network::Addressee, types::VarInt};
-
+use crate::{network::Addressee, physical::Channel, types::VarInt, app::interface::InterfaceType};
 
 /// The Response Modes define the condition for termination on success of a Request
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
@@ -104,8 +103,32 @@ pub struct QoS {
     pub response_mode: ResponseMode,
 }
 
+
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct InterfaceStatus {
+#[deku(type="InterfaceType")]
+pub enum InterfaceStatus {
+    #[deku(id = "InterfaceType::Host")]
+    Host,
+
+    #[deku(id = "InterfaceType::Serial")]
+    Serial,
+
+    // #[deku(id = "InterfaceType::LoRaWanABP")]
+    // LoRaWanABP(LoRaWANABPInterfaceConfiguration),
+
+    // #[deku(id = "InterfaceType::LoRaWanOTAA")]
+    // LoRaWanOTAA(LoRaWANOTAAInterfaceConfiguration),
+
+    #[deku(id = "InterfaceType::Dash7")]
+    Dash7(Dash7InterfaceStatus),
+
+    #[deku(id_pat = "_")]
+    Unknown,
+}
+
+
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+pub struct Dash7InterfaceStatus {
     /// PHY layer channel
     pub channel: Channel,
     /// PHY layer RX level in -dBm
