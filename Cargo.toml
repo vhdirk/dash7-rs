@@ -1,6 +1,6 @@
 [package]
 name = "dash7"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 authors = ["Dirk Van Haerenborgh <vhdirk@gmail.com>"]
 description = "Implementation of a DASH7 ALP protocol codec."
@@ -11,12 +11,12 @@ keywords = ["dash7", "alp", "parser", "protocol"]
 categories = ["encoding", "parser-implementations"]
 
 [lib]
-name = "lib"
+name = "dash7"
 path = "src/lib.rs"
 
 [[bin]]
 name = "dash7"
-path = "src/bin.rs"
+path = "src/main.rs"
 
 [dependencies]
 deku = { version = "0.16.0", default-features = false }

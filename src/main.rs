@@ -1,6 +1,6 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use deku::DekuError;
-use lib::{
+use dash7::{
     app::command::Command,
     file::{File, FileId},
     link::{BackgroundFrame, ForegroundFrame},
