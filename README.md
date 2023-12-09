@@ -36,7 +36,7 @@ cargo install dash7
 For [sub-iot](https://github.com/Sub-IoT/Sub-IoT-Stack) payloads
 
 ```sh
-cargo install dash7 --no-default-features -F std,subiot_v0
+cargo install dash7 --no-default-features -F std,subiot
 ```
 
 ### Usage

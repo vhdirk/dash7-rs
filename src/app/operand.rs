@@ -92,10 +92,12 @@ pub struct FileOffset {
 
 impl FileOffset {
     pub fn no_offset(file_id: u8) -> Self {
-        Self { file_id, offset: 0u32.into() }
+        Self {
+            file_id,
+            offset: 0u32.into(),
+        }
     }
 }
-
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 #[deku(type = "u8")]
@@ -335,6 +337,8 @@ pub struct StatusOperand {
     pub status: Status,
 }
 
+
+
 impl Into<StatusOperand> for Status {
     fn into(self) -> StatusOperand {
         StatusOperand {
@@ -359,10 +363,97 @@ pub enum Status {
     #[deku(id = "StatusType::Action")]
     Action(ActionStatus),
     #[deku(id = "StatusType::Interface")]
-    Interface(InterfaceStatus),
+    Interface(InterfaceStatusOperand),
     // ALP SPEC: Where are the stack errors?
 }
 
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+pub struct InterfaceStatusOperand {
+    pub interface_id: u8,
+
+    #[deku(
+        reader = "InterfaceStatusOperand::read(deku::rest, *interface_id)",
+        writer = "InterfaceStatusOperand::write(deku::output, &self.status, self.interface_id)"
+    )]
+    pub status: InterfaceStatus,
+}
+
+impl From<InterfaceStatus> for InterfaceStatusOperand {
+    fn from(status: InterfaceStatus) -> Self {
+        Self {
+            interface_id: status.deku_id().unwrap().deku_id().unwrap(),
+            status,
+        }
+    }
+}
+
+impl Into<StatusOperand> for InterfaceStatusOperand {
+    fn into(self) -> StatusOperand {
+        Status::Interface(self).into()
+    }
+}
+
+
+impl InterfaceStatusOperand {
+    pub fn read<'a>(
+        rest: &'a BitSlice<u8, Msb0>,
+        interface_id: u8,
+    ) -> Result<(&'a BitSlice<u8, Msb0>, InterfaceStatus), DekuError> {
+        let (rest, length) = <Length as DekuRead<'_, _>>::read(rest, ())?;
+        let interface_id = interface_id.try_into()?;
+        InterfaceStatus::read(rest, (interface_id, Into::<u32>::into(length)))
+    }
+
+    #[cfg(not(feature = "subiot_v0_0"))]
+    pub fn write(
+        output: &mut BitVec<u8, Msb0>,
+        status: &InterfaceStatus,
+        interface_id: u8,
+    ) -> Result<(), DekuError> {
+        let interface_id = interface_id.try_into()?;
+
+        let vec_size = match status {
+            InterfaceStatus::Other(val) => val.len() as u32,
+            _ => 0,
+        };
+
+        // write a stub size
+        let length_offset = output.len();
+        DekuWrite::write(&0u8, output, ())?;
+
+        // write the file
+        let output_offset = output.len();
+        DekuWrite::write(status, output, (interface_id, vec_size))?;
+
+        // now overwrite the length again
+        let data_length = Length((output.len() - output_offset) as u32 / u8::BITS);
+        output[length_offset..length_offset + 8].clone_from_bitslice(&data_length.to_bits()?);
+
+        Ok(())
+    }
+
+    // Subiot v0.0 was missing the length field
+    #[cfg(feature = "subiot_v0_0")]
+    pub fn read<'a>(
+        rest: &'a BitSlice<u8, Msb0>,
+        interface_id: u8,
+    ) -> Result<(&'a BitSlice<u8, Msb0>, InterfaceStatus), DekuError> {
+        let interface_id = interface_id.try_into()?;
+        InterfaceStatus::read(rest, (interface_id, 0))
+    }
+
+    // Subiot v0.0 was missing the length field
+    #[cfg(feature = "subiot_v0_0")]
+    pub fn write(
+        output: &mut BitVec<u8, Msb0>,
+        status: &InterfaceStatus,
+        interface_id: u8,
+    ) -> Result<(), DekuError> {
+        let interface_id = interface_id.try_into()?;
+        let output_offset = output.len();
+        DekuWrite::write(status, output, (interface_id, 0))
+    }
+}
 
 /// Action received before any responses to a request that contained a RequestTag
 ///
@@ -534,7 +625,13 @@ mod test {
     use hex_literal::hex;
 
     use super::*;
-    use crate::test_tools::test_item;
+    use crate::{
+        network::{Address, Addressee, NlsState},
+        physical::{Channel, ChannelBand, ChannelClass, ChannelCoding, ChannelHeader},
+        session::Dash7InterfaceStatus,
+        test_tools::test_item,
+        transport::GroupCondition,
+    };
 
     #[test]
     fn test_length() {
@@ -563,5 +660,41 @@ mod test {
             },
             &hex!("02 F6"),
         )
+    }
+
+    #[test]
+    fn test_interface_status() {
+        let data = &hex!("D7 14 32 00 32 2D 3E 50 80 00 00 58 20 01 39 38 38 37 00 39 00 2E");
+
+        let item: InterfaceStatusOperand = InterfaceStatus::Dash7(Dash7InterfaceStatus {
+            channel: Channel {
+                header: ChannelHeader::new(
+                    ChannelBand::Band868,
+                    ChannelClass::LoRate,
+                    ChannelCoding::FecPn9,
+                ),
+                index: 50,
+            },
+            rx_level: 45,
+            link_budget: 62,
+            target_rx_level: 80,
+            nls: true,
+            missed: false,
+            retry: false,
+            unicast: false,
+            fifo_token: 0,
+            sequence_number: 0,
+            response_timeout: 384.into(),
+            addressee: Addressee::new(
+                false,
+                GroupCondition::Any,
+                Address::Uid(4123107267735781422u64),
+                NlsState::None,
+                1,
+            ),
+        })
+        .into();
+
+        test_item::<InterfaceStatusOperand>(item, data);
     }
 }

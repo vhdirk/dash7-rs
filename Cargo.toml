@@ -29,10 +29,23 @@ hex = "0.4.3"
 hex-literal = "0.4.1"
 
 [features]
-default = ["std", "spec_v1_2"]
+default = ["std", "spec"]
 std = ["deku/std"]
 alloc = ["deku/alloc"]
 
-spec_v1_2 = []
-subiot_v0 = []
-wizzilab_v5_3 = []
+# main variants, used in code
+_wizzilab = []
+_subiot = []
+_spec = []
+
+# specific supported version
+spec_v1_2 = ["_spec"]
+subiot_v0_0 = ["_subiot"]
+subiot_v0_1 = ["_subiot"]
+wizzilab_v5_3 = ["_wizzilab"]
+
+# shorthand pointing at latest version
+spec = ["spec_v1_2"]
+subiot = ["subiot_v0_1"]
+wizzilab = ["wizzilab_v5_3"]
+

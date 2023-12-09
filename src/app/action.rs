@@ -345,7 +345,8 @@ mod test {
         data::{self, FileHeader, FilePermissions, UserPermissions},
         file::File,
         network::{Address, Addressee, NlsState},
-        session::QoS,
+        physical::{Channel, ChannelBand, ChannelClass, ChannelCoding, ChannelHeader},
+        session::{Dash7InterfaceStatus, InterfaceStatus, QoS},
         test_tools::test_item,
         transport::GroupCondition,
         types::VarInt,
@@ -731,7 +732,15 @@ mod test {
         )
     }
 
-    #[cfg(not(feature = "subiot_v0"))]
+    #[test]
+    fn test_forward_serial() {
+        test_item(
+            Action::Forward(Forward::new(false, InterfaceConfiguration::Serial)),
+            &hex!("32 01"),
+        )
+    }
+
+    #[cfg(not(feature = "subiot"))]
     #[test]
     fn test_indirect_forward_dash7_serialization() {
         let item = Action::IndirectForward(IndirectForward::new(
@@ -757,7 +766,7 @@ mod test {
         assert_eq!(result.as_slice(), data, "{:?} == {:?}", &item, data);
     }
 
-    #[cfg(not(feature = "subiot_v0"))]
+    #[cfg(not(feature = "_subiot"))]
     #[test]
     fn test_indirect_forward_dash7_deserialization() {
         let input = &hex!("F3 09 00 00 00 37 FF ABCD 01 02 03 04 05");
@@ -799,7 +808,7 @@ mod test {
         );
     }
 
-    #[cfg(feature = "subiot_v0")]
+    #[cfg(feature = "_subiot")]
     #[test]
     fn test_indirect_forward_dash7_serialization_subiot() {
         let item = Action::IndirectForward(IndirectForward::new(
@@ -825,7 +834,7 @@ mod test {
         assert_eq!(result.as_slice(), data, "{:?} == {:?}", &item, data);
     }
 
-    #[cfg(feature = "subiot_v0")]
+    #[cfg(feature = "_subiot")]
     #[test]
     fn test_indirect_forward_dash7_deserialization_subiot() {
         let input = &hex!("F3 09 00 00 37 FF ABCD 01 02 03 04 05");
@@ -932,5 +941,46 @@ mod test {
             }),
             &[0xFF],
         )
+    }
+
+    #[test]
+    fn test_interface_status() {
+        let data = &hex!("62 D7 14 32 00 32 2D 3E 50 80 00 00 58 20 01 39 38 38 37 00 39 00 2E");
+
+        let item = Action::Status(
+            Status::Interface(
+                InterfaceStatus::Dash7(Dash7InterfaceStatus {
+                    channel: Channel {
+                        header: ChannelHeader::new(
+                            ChannelBand::Band868,
+                            ChannelClass::LoRate,
+                            ChannelCoding::FecPn9,
+                        ),
+                        index: 50,
+                    },
+                    rx_level: 45,
+                    link_budget: 62,
+                    target_rx_level: 80,
+                    nls: true,
+                    missed: false,
+                    retry: false,
+                    unicast: false,
+                    fifo_token: 0,
+                    sequence_number: 0,
+                    response_timeout: 384.into(),
+                    addressee: Addressee::new(
+                        false,
+                        GroupCondition::Any,
+                        Address::Uid(4123107267735781422u64),
+                        NlsState::None,
+                        1,
+                    ),
+                })
+                .into(),
+            )
+            .into(),
+        );
+
+        test_item(item, data);
     }
 }

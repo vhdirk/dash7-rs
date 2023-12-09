@@ -23,8 +23,11 @@
 // //! are composed between them (OR, XOR, NOR, NAND). Without any Logical action, the
 // //! queries are AND'ed.
 
-use mutually_exclusive_features::exactly_one_of;
-exactly_one_of!("spec_v1_2", "subiot_v0", "wizzilab_v5_3");
+use mutually_exclusive_features::{exactly_one_of, none_or_one_of};
+exactly_one_of!("_spec", "_subiot", "_subiot", "_wizzilab");
+
+none_or_one_of!("subiot_v0_0", "subiot_v0_1");
+none_or_one_of!("wizzilab_v5_3");
 
 /// Application layer (ALP)
 pub mod app;

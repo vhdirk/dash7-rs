@@ -1,3 +1,4 @@
+use bitvec::view::BitView;
 use deku::prelude::*;
 
 use crate::{network::Addressee, session::QoS, types::VarInt};
@@ -25,7 +26,7 @@ pub struct Dash7InterfaceConfiguration {
     /// Response Execution Delay in Compressed Format, unit is in milliseconds.
     ///
     /// Time given to the target to process the request.
-    #[cfg(not(feature = "subiot_v0"))]
+    #[cfg(not(feature = "_subiot"))]
     pub te: VarInt,
 
     /// Address of the target.
@@ -94,6 +95,22 @@ pub enum InterfaceType {
     #[deku(id_pat = "_")]
     Unknown,
 }
+
+
+impl TryFrom<u8> for InterfaceType {
+    type Error = DekuError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        Ok(Self::read(value.view_bits(), ())?.1)
+    }
+}
+
+impl Into<u8> for InterfaceType {
+    fn into(self) -> u8 {
+        self.deku_id().unwrap()
+    }
+}
+
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 #[deku(ctx = "interface_type: InterfaceType", id = "interface_type")]

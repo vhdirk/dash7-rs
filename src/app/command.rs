@@ -9,24 +9,24 @@ use deku::{
     prelude::*,
 };
 
-use crate::{utils::pad_rest, session::InterfaceStatus};
+use crate::{session::InterfaceStatus, utils::pad_rest};
 
-use super::{action::Action, operand::{StatusOperand, Status}};
 use super::operand::{RequestTag, ResponseTag};
+use super::{
+    action::Action,
+    operand::{Status, StatusOperand},
+};
 
 #[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
-#[deku(ctx = "command_length: u32")]
+#[deku(ctx = "length: u32")]
 pub struct Command {
     // we cannot process an indirect forward without knowing the interface type, which is stored in the interface file
     // as identified by the indirectforward itself
     // As such, we HAVE to bail here
     // Hopefully this will be addressed in SPEC 1.3
-    #[deku(
-        until = "|action: &Action| { action.deku_id().unwrap() == OpCode::IndirectForward }",
-    )]
-
+    #[deku(until = "|action: &Action| { action.deku_id().unwrap() == OpCode::IndirectForward }")]
     // Always stop reading when length is reached
-    #[deku(bytes_read = "command_length")]
+    #[deku(bytes_read = "length")]
     pub actions: Vec<Action>,
 }
 
@@ -55,9 +55,9 @@ impl Command {
 
     pub fn interface_status(&self) -> Option<&InterfaceStatus> {
         for action in self.actions.iter() {
-            if let Action::Status(StatusOperand { status, ..}) = &action {
+            if let Action::Status(StatusOperand { status, .. }) = &action {
                 if let Status::Interface(iface_status) = status {
-                    return Some(iface_status);
+                    return Some(&iface_status.status);
                 }
             }
         }
@@ -68,7 +68,7 @@ impl Command {
     pub fn actions_without_interface_status(&self) -> Vec<&Action> {
         let mut actions = vec![];
         for action in self.actions.iter() {
-            if let Action::Status(StatusOperand { status, ..}) = &action {
+            if let Action::Status(StatusOperand { status, .. }) = &action {
                 if let Status::Interface(_) = status {
                     continue;
                 }
@@ -163,7 +163,7 @@ impl TryFrom<Command> for Vec<u8> {
     }
 }
 
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 impl Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let tag_str = self
@@ -455,8 +455,9 @@ mod test {
         .is_last_response());
     }
 
+    #[cfg(feature = "subiot_v0_0")]
     #[test]
-    fn test_simple_received_return_file_data_command() {
+    fn test_simple_received_return_file_data_command_subiot_v0_0() {
         let data = [
             0x62u8, // Interface Status action
             0xD7,   // D7ASP interface
@@ -482,27 +483,30 @@ mod test {
         let item = Command {
             actions: vec![
                 Action::Status(
-                    Status::Interface(InterfaceStatus::Dash7(Dash7InterfaceStatus {
-                        channel: Channel {
-                            header: ChannelHeader::new(
-                                ChannelBand::Band433,
-                                ChannelClass::LoRate,
-                                ChannelCoding::Pn9,
-                            ),
-                            index: 16,
-                        },
-                        rx_level: 70,
-                        link_budget: 80,
-                        target_rx_level: 80,
-                        nls: false,
-                        missed: false,
-                        retry: false,
-                        unicast: false,
-                        fifo_token: 200,
-                        sequence_number: 0,
-                        response_timeout: 20u32.into(),
-                        addressee: Addressee::default(),
-                    }))
+                    Status::Interface(
+                        InterfaceStatus::Dash7(Dash7InterfaceStatus {
+                            channel: Channel {
+                                header: ChannelHeader::new(
+                                    ChannelBand::Band433,
+                                    ChannelClass::LoRate,
+                                    ChannelCoding::Pn9,
+                                ),
+                                index: 16,
+                            },
+                            rx_level: 70,
+                            link_budget: 80,
+                            target_rx_level: 80,
+                            nls: false,
+                            missed: false,
+                            retry: false,
+                            unicast: false,
+                            fifo_token: 200,
+                            sequence_number: 0,
+                            response_timeout: 20u32.into(),
+                            addressee: Addressee::default(),
+                        })
+                        .into(),
+                    )
                     .into(),
                 ),
                 Action::ReturnFileData(FileData::new(
@@ -516,6 +520,7 @@ mod test {
         test_item(item, &data);
     }
 
+    #[cfg(feature = "subiot_v0_0")]
     #[test]
     fn test_simple_received_return_file_data_command_with_tag_request() {
         let data = [
@@ -546,27 +551,30 @@ mod test {
             actions: vec![
                 Action::RequestTag(RequestTag { eop: true, id: 25 }),
                 Action::Status(
-                    Status::Interface(InterfaceStatus::Dash7(Dash7InterfaceStatus {
-                        channel: Channel {
-                            header: ChannelHeader::new(
-                                ChannelBand::Band433,
-                                ChannelClass::LoRate,
-                                ChannelCoding::Pn9,
-                            ),
-                            index: 16,
-                        },
-                        rx_level: 70,
-                        link_budget: 80,
-                        target_rx_level: 80,
-                        nls: false,
-                        missed: false,
-                        retry: false,
-                        unicast: false,
-                        fifo_token: 200,
-                        sequence_number: 0,
-                        response_timeout: 20u32.into(),
-                        addressee: Addressee::default(),
-                    }))
+                    Status::Interface(
+                        InterfaceStatus::Dash7(Dash7InterfaceStatus {
+                            channel: Channel {
+                                header: ChannelHeader::new(
+                                    ChannelBand::Band433,
+                                    ChannelClass::LoRate,
+                                    ChannelCoding::Pn9,
+                                ),
+                                index: 16,
+                            },
+                            rx_level: 70,
+                            link_budget: 80,
+                            target_rx_level: 80,
+                            nls: false,
+                            missed: false,
+                            retry: false,
+                            unicast: false,
+                            fifo_token: 200,
+                            sequence_number: 0,
+                            response_timeout: 20u32.into(),
+                            addressee: Addressee::default(),
+                        })
+                        .into(),
+                    )
                     .into(),
                 ),
                 Action::ReturnFileData(FileData::new(
@@ -582,59 +590,64 @@ mod test {
 
     #[test]
     fn test_command_with_interface_status() {
+        // 44
         let data = &hex!(
             r#"
         62 D7 14 32 00 32 2D 3E 50 80 00 00 58 20 01 39 38 38 37 00 39 00 2E 32
         01 44 35 00 2C 00 F4 01 00 00 44 48 00 09 00 00 00 00 00 00 30 00 00 44
-        48 00 09 00 00 30 00 00 00 00 02 00 44 48 00 09 00  00 70 00 00 00 30 02 00"#
+        48 00 09 00 00 30 00 00 00 00 02 00 44 48 00 09 00 00 70 00 00 00 30 02 00"#
         );
 
         let item = Command {
             actions: vec![
                 Action::Status(
-                    Status::Interface(InterfaceStatus::Dash7(Dash7InterfaceStatus {
-                        channel: Channel {
-                            header: ChannelHeader::new(
-                                ChannelBand::Band868,
-                                ChannelClass::LoRate,
-                                ChannelCoding::FecPn9,
+                    Status::Interface(
+                        InterfaceStatus::Dash7(Dash7InterfaceStatus {
+                            channel: Channel {
+                                header: ChannelHeader::new(
+                                    ChannelBand::Band868,
+                                    ChannelClass::LoRate,
+                                    ChannelCoding::FecPn9,
+                                ),
+                                index: 50,
+                            },
+                            rx_level: 45,
+                            link_budget: 62,
+                            target_rx_level: 80,
+                            nls: true,
+                            missed: false,
+                            retry: false,
+                            unicast: false,
+                            fifo_token: 0,
+                            sequence_number: 0,
+                            response_timeout: 384.into(),
+                            addressee: Addressee::new(
+                                false,
+                                GroupCondition::Any,
+                                Address::Uid(4123107267735781422u64),
+                                NlsState::None,
+                                1,
                             ),
-                            index: 50,
-                        },
-                        rx_level: 45,
-                        link_budget: 64,
-                        target_rx_level: 80,
-                        nls: true,
-                        missed: false,
-                        retry: false,
-                        unicast: false,
-                        fifo_token: 0,
-                        sequence_number: 0,
-                        response_timeout: 240.into(),
-                        addressee: Addressee::new(
-                            false,
-                            GroupCondition::Any,
-                            Address::Uid(4123107267735781422u64),
-                            NlsState::None,
-                            1,
-                        ),
-                    }))
+                        })
+                        .into(),
+                    )
                     .into(),
                 ),
                 Action::Forward(Forward::new(false, InterfaceConfiguration::Serial)),
                 Action::WriteFileData(FileData::new(
                     ActionHeader {
-                        group: true,
+                        group: false,
                         response: true,
                     },
                     FileOffset {
-                        file_id: 35,
+                        file_id: 53,
                         offset: 0u32.into(),
                     },
                     File::Other(
                         hex!(
-                            r#"00 F4 01 00 00 44 48 00 09 00 00 00 00 00 00 30
-                    00 00 44 48 00 09 00 00 30 00 00 00 00 02 00"#
+                            r#"
+                       00 F4 01 00 00 44 48 00 09 00 00 00 00 00 00 30 00 00 44
+                       48 00 09 00 00 30 00 00 00 00 02 00 44 48 00 09 00 00 70 00 00 00 30 02 00"#
                         )
                         .to_vec(),
                     ),

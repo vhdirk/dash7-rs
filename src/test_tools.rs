@@ -16,7 +16,11 @@ where
     <T as TryInto<Vec<u8>>>::Error: Debug,
 {
     let result: Vec<u8> = item.clone().try_into().unwrap();
-    // println!("{:?} == {:?}", BitVec::<u8, Msb0>::from_slice(&result), BitVec::<u8, Msb0>::from_slice(data));
+
+
+    use deku::bitvec::{BitVec, Msb0};
+    println!("{:?} == {:?}", BitVec::<u8, Msb0>::from_slice(&result), BitVec::<u8, Msb0>::from_slice(data));
+
     assert_eq!(result.as_slice(), data, "{:?} == {:?}", &item, data);
 
     let result = T::try_from(data).expect("should be parsed without error");

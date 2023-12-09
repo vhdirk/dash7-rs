@@ -1,9 +1,9 @@
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 use std::fmt::Display;
 
 use deku::prelude::*;
 
-use crate::{network::Addressee, physical::Channel, types::VarInt, app::interface::InterfaceType};
+use crate::{app::interface::InterfaceType, network::Addressee, physical::Channel, types::VarInt};
 
 /// The Response Modes define the condition for termination on success of a Request
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
@@ -98,9 +98,8 @@ pub struct QoS {
     pub response_mode: ResponseMode,
 }
 
-
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(type="InterfaceType")]
+#[deku(ctx = "interface_id: InterfaceType, length: u32", id = "interface_id")]
 pub enum InterfaceStatus {
     #[deku(id = "InterfaceType::Host")]
     Host,
@@ -109,28 +108,32 @@ pub enum InterfaceStatus {
     Serial,
 
     // #[deku(id = "InterfaceType::LoRaWanABP")]
-    // LoRaWanABP(LoRaWANABPInterfaceConfiguration),
+    // LoRaWanABP(LoRaWANABPInterfaceStatus),
 
     // #[deku(id = "InterfaceType::LoRaWanOTAA")]
-    // LoRaWanOTAA(LoRaWANOTAAInterfaceConfiguration),
-
+    // LoRaWanOTAA(LoRaWANOTAAInterfaceStatus),
     #[deku(id = "InterfaceType::Dash7")]
     Dash7(Dash7InterfaceStatus),
 
     #[deku(id_pat = "_")]
-    Unknown,
+    Other(#[deku(count = "length")] Vec<u8>),
 }
 
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 impl Display for InterfaceStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Dash7(status) => status.fmt(f),
-            _ => f.write_str(&format!("{}InterfaceStatus{{}}", self.deku_id().map(|i| format!("{:?}", i)).unwrap_or("Unknown".to_string())))
+            Self::Other(status) => f.write_str(&format!("OtherInterfaceStatus{{ {:?} }}", status)),
+            _ => f.write_str(&format!(
+                "{}InterfaceStatus{{}}",
+                self.deku_id()
+                    .map(|i| format!("{:?}", i))
+                    .unwrap_or("Unknown".to_string())
+            )),
         }
     }
 }
-
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct Dash7InterfaceStatus {
@@ -165,8 +168,7 @@ pub struct Dash7InterfaceStatus {
     pub addressee: Addressee,
 }
 
-
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 impl Display for Dash7InterfaceStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("Dash7InterfaceStatus { ")?;
@@ -180,13 +182,15 @@ impl Display for Dash7InterfaceStatus {
         f.write_str(&format!("unicast: {:?}, ", self.unicast))?;
         f.write_str(&format!("fifo_token: {:?}, ", self.fifo_token))?;
         f.write_str(&format!("sequence_number: {:?}, ", self.sequence_number))?;
-        f.write_str(&format!("response_timeout: {:?}, ", Into::<u32>::into(self.response_timeout)))?;
+        f.write_str(&format!(
+            "response_timeout: {:?}, ",
+            Into::<u32>::into(self.response_timeout)
+        ))?;
         f.write_str(&format!("addressee: {:?}, ", self.addressee))?;
         f.write_str(" }")?;
         Ok(())
     }
 }
-
 
 #[cfg(test)]
 mod test {
