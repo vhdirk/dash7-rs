@@ -116,7 +116,7 @@ fn parse(args: ParseArgs) {
             parse_foreground_frame(input).expect("Could not foreground frame")
         }
         Some(ParseType::Background) => {
-            parse_background_frame(input).expect("Could not foreground frame")
+            parse_background_frame(input).expect("Could not background frame")
         }
         Some(ParseType::Alp) => parse_alp_command(input).expect("Could not parse command"),
         Some(ParseType::Serial) => parse_serial(input).expect("Could not parse serial"),
