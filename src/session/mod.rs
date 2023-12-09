@@ -1,3 +1,6 @@
+#[cfg(feature="std")]
+use std::fmt::Display;
+
 use deku::prelude::*;
 
 use crate::{network::Addressee, physical::Channel, types::VarInt, app::interface::InterfaceType};
@@ -68,26 +71,18 @@ pub enum RetryMode {
     #[default]
     #[deku(id = "0")]
     No,
-
-    #[cfg(feature = "wizzilab_v5_3")]
     #[deku(id = "1")]
     OneshotRetry,
-    #[cfg(feature = "wizzilab_v5_3")]
     #[deku(id = "2")]
     FifoFast,
-    #[cfg(feature = "wizzilab_v5_3")]
     #[deku(id = "3")]
     FifoSlow,
-    #[cfg(feature = "wizzilab_v5_3")]
     #[deku(id = "4")]
     SingleFast,
-    #[cfg(feature = "wizzilab_v5_3")]
     #[deku(id = "5")]
     SingleSlow,
-    #[cfg(feature = "wizzilab_v5_3")]
     #[deku(id = "6")]
     OneshotSticky,
-    #[cfg(feature = "wizzilab_v5_3")]
     #[deku(id = "7")]
     Rfu,
 }
@@ -126,6 +121,16 @@ pub enum InterfaceStatus {
     Unknown,
 }
 
+#[cfg(feature="std")]
+impl Display for InterfaceStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Dash7(status) => status.fmt(f),
+            _ => f.write_str(&format!("{}InterfaceStatus{{}}", self.deku_id().map(|i| format!("{:?}", i)).unwrap_or("Unknown".to_string())))
+        }
+    }
+}
+
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 pub struct Dash7InterfaceStatus {
@@ -159,6 +164,29 @@ pub struct Dash7InterfaceStatus {
     /// Address of source
     pub addressee: Addressee,
 }
+
+
+#[cfg(feature="std")]
+impl Display for Dash7InterfaceStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Dash7InterfaceStatus { ")?;
+        f.write_str(&format!("channel: {:?}, ", self.channel))?;
+        f.write_str(&format!("rx_level: {:?}, ", self.rx_level))?;
+        f.write_str(&format!("link_budget: {:?}, ", self.link_budget))?;
+        f.write_str(&format!("target_rx_level: {:?}, ", self.target_rx_level))?;
+        f.write_str(&format!("nls: {:?}, ", self.nls))?;
+        f.write_str(&format!("missed: {:?}, ", self.missed))?;
+        f.write_str(&format!("retry: {:?}, ", self.retry))?;
+        f.write_str(&format!("unicast: {:?}, ", self.unicast))?;
+        f.write_str(&format!("fifo_token: {:?}, ", self.fifo_token))?;
+        f.write_str(&format!("sequence_number: {:?}, ", self.sequence_number))?;
+        f.write_str(&format!("response_timeout: {:?}, ", Into::<u32>::into(self.response_timeout)))?;
+        f.write_str(&format!("addressee: {:?}, ", self.addressee))?;
+        f.write_str(" }")?;
+        Ok(())
+    }
+}
+
 
 #[cfg(test)]
 mod test {

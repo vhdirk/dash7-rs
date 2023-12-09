@@ -37,7 +37,7 @@ impl Into<DekuError> for VarIntError {
 
 /// Variable int format
 /// SPEC: 6.2.2 Compressed Format
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, Copy, PartialEq)]
 pub struct VarInt {
     #[deku(
         reader = "VarInt::read(deku::rest)",

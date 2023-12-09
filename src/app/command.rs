@@ -1,6 +1,5 @@
 #[cfg(feature = "std")]
-use std::fmt;
-use std::fmt::Display;
+use std::fmt::{self, Display};
 
 #[cfg(not(feature = "std"))]
 use alloc::fmt;
@@ -10,9 +9,9 @@ use deku::{
     prelude::*,
 };
 
-use crate::utils::pad_rest;
+use crate::{utils::pad_rest, session::InterfaceStatus};
 
-use super::action::Action;
+use super::{action::Action, operand::{StatusOperand, Status}};
 use super::operand::{RequestTag, ResponseTag};
 
 #[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
@@ -21,10 +20,13 @@ pub struct Command {
     // we cannot process an indirect forward without knowing the interface type, which is stored in the interface file
     // as identified by the indirectforward itself
     // As such, we HAVE to bail here
+    // Hopefully this will be addressed in SPEC 1.3
     #[deku(
         until = "|action: &Action| { action.deku_id().unwrap() == OpCode::IndirectForward }",
-        bytes_read = "command_length"
     )]
+
+    // Always stop reading when length is reached
+    #[deku(bytes_read = "command_length")]
     pub actions: Vec<Action>,
 }
 
@@ -38,6 +40,7 @@ impl<'a> DekuRead<'a, ()> for Command {
     }
 }
 
+/// Stub implementation so we can implement DekuContainerWrite
 impl DekuWrite<()> for Command {
     fn write(&self, _: &mut BitVec<u8, Msb0>, _: ()) -> Result<(), DekuError> {
         unreachable!("This should not have been called")
@@ -48,6 +51,31 @@ impl Command {
     pub fn new(actions: Vec<Action>) -> Self {
         // TODO: validate actions
         Self { actions }
+    }
+
+    pub fn interface_status(&self) -> Option<&InterfaceStatus> {
+        for action in self.actions.iter() {
+            if let Action::Status(StatusOperand { status, ..}) = &action {
+                if let Status::Interface(iface_status) = status {
+                    return Some(iface_status);
+                }
+            }
+        }
+        None
+    }
+
+    // TODO: a generator would be great here
+    pub fn actions_without_interface_status(&self) -> Vec<&Action> {
+        let mut actions = vec![];
+        for action in self.actions.iter() {
+            if let Action::Status(StatusOperand { status, ..}) = &action {
+                if let Status::Interface(_) = status {
+                    continue;
+                }
+            }
+            actions.push(action);
+        }
+        actions
     }
 
     pub fn request_tag(&self) -> Option<&RequestTag> {
@@ -135,6 +163,7 @@ impl TryFrom<Command> for Vec<u8> {
     }
 }
 
+#[cfg(feature="std")]
 impl Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let tag_str = self
@@ -158,17 +187,22 @@ impl Display for Command {
 
         f.write_str(&format!("({})", status))?;
 
-        if self.actions.len() > 0 {
+        let actions = self.actions_without_interface_status();
+        if actions.len() > 0 {
             f.write_str("\n\tactions:\n")?;
 
-            for action in self.actions.iter() {
+            for action in actions.iter() {
                 f.write_str(&format!("\t\t{:?}\n", action))?;
             }
         }
 
-        // if self.interface_status is not None:
-        //   output += "\tinterface status: {}\n".format(self.interface_status)
-        // return output
+        if let Some(interface_status) = self.interface_status() {
+            if actions.len() > 0 {
+                f.write_str("\n")?;
+            }
+
+            f.write_str(&format!("\tinterface status: {}\n", interface_status))?;
+        }
 
         Ok(())
     }
