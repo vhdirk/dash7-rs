@@ -22,7 +22,7 @@ path = "src/bin.rs"
 deku = { version = "0.16.0", default-features = false }
 bitvec = "1.0.1"
 mutually_exclusive_features = "0.0.3"
-clap = { version = "4.4.11", features = ["derive", "debug", "string", "cargo"] }
+clap = { version = "4.4.11", features = ["derive", "string", "cargo"] }
 hex = "0.4.3"
 
 [dev-dependencies]
@@ -36,8 +36,3 @@ alloc = ["deku/alloc"]
 spec_v1_2 = []
 subiot_v5_3 = []
 wizzilab_v5_3 = []
-
-
-# [patch.crates-io]
-# deku = { path = "../deku" }
-# deku = {git="https://github.com/vhdirk/deku" ,branch = "predicate-stop-when-empty"}
