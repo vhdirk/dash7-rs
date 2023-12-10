@@ -25,10 +25,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        std:
+          - std
+
         features:
-          - std,spec
-          - std,subiot
-          - std,wizzilab
+          - spec
+          - subiot
+          - wizzilab
 
     steps:
       - uses: actions/checkout@v3
@@ -39,9 +42,9 @@ jobs:
         with:
           tool: grcov
       - name: Build
-        run: cargo build --no-default-features -F ${{ matrix.features }} --verbose
+        run: cargo build --no-default-features -F ${{ matrix.std }} -F ${{ matrix.features }} --verbose
       - name: Run tests
-        run: cargo test --no-default-features -F ${{ matrix.features }}  --verbose
+        run: cargo test --no-default-features -F ${{ matrix.std }} -F ${{ matrix.features }} --verbose
         env:
           RUSTFLAGS: -Cinstrument-coverage
           RUSTDOCFLAGS: -Cinstrument-coverage
