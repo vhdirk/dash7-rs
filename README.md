@@ -4,6 +4,7 @@
 [![Documentation][doc-badge]][doc-url]
 [![MIT licensed][mit-badge]][mit-url]
 [![codecov][codecov-badge]][codecov-url]
+[![ci][ci-badge]][ci-url]
 
 [crates-badge]: https://img.shields.io/crates/v/dash7.svg
 [crates-url]: https://crates.io/crates/dash7
@@ -13,6 +14,8 @@
 [mit-url]: LICENSE
 [codecov-badge]: https://codecov.io/gh/vhdirk/dash7-rs/graph/badge.svg?token=3ATUANHK0O
 [codecov-url]: https://codecov.io/gh/vhdirk/dash7-rs
+[ci-badge]: https://github.com/vhdirk/dash7-rs/actions/workflows/ci.yml/badge.svg
+[ci-url]: https://github.com/vhdirk/dash7-rs/actions/workflows/ci.yml
 
 Dash7 payload encoding and decoding in Rust!
 
@@ -23,7 +26,7 @@ I have plans for supporting `no_std`, possibly even without `alloc`, but as of t
 
 ## CLI
 
-This crate also contains a CLI binary to help you decode dash7 payloads (as hex strings) quickly.
+This crate also contains a CLI utility to help you decode dash7 payloads (as hex strings) quickly.
 
 ### Installation
 
