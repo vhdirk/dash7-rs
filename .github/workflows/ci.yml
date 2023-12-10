@@ -45,10 +45,10 @@ jobs:
         env:
           RUSTFLAGS: -Cinstrument-coverage
           RUSTDOCFLAGS: -Cinstrument-coverage
-          LLVM_PROFILE_FILE: dash7-${{ matrix.features }}%p-%m.profraw
+          LLVM_PROFILE_FILE: dash7-%p-%m.profraw
       - name: Produce coverage info
         run: |
-          grcov $(find . -name "dash7-${{ matrix.features }}*.profraw" -print) \
+          grcov $(find . -name "dash7-*.profraw" -print) \
             -s . \
             --branch \
             --ignore-not-existing \
@@ -61,6 +61,7 @@ jobs:
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v3
         with:
+          flags: "${{ matrix.features }}"
           files: lcov.info
           fail_ci_if_error: true
         env:
