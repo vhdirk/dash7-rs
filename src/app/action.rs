@@ -834,7 +834,6 @@ mod test {
             Some(InterfaceConfiguration::Dash7(Dash7InterfaceConfiguration {
                 qos: QoS::default(),
                 dormant_session_timeout: VarInt::default(),
-                te: VarInt::default(),
                 addressee: Addressee::new(
                     false,
                     GroupCondition::Any,
@@ -870,7 +869,6 @@ mod test {
         let expected_config = Dash7InterfaceConfiguration {
             qos: QoS::default(),
             dormant_session_timeout: VarInt::default(),
-            te: VarInt::default(),
             addressee: Addressee::new(
                 false,
                 GroupCondition::Any,
