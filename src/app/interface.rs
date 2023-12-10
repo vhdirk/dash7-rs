@@ -1,6 +1,10 @@
 use deku::prelude::*;
 
-use crate::{network::Addressee, session::{QoS, InterfaceType}, types::VarInt};
+use crate::{
+    network::Addressee,
+    session::{InterfaceType, QoS},
+    types::VarInt,
+};
 
 /// Section 9.2.1
 ///
@@ -72,7 +76,6 @@ pub struct LoRaWANABPInterfaceConfiguration {
 
     pub network_id: u32,
 }
-
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 #[deku(ctx = "interface_type: InterfaceType", id = "interface_type")]

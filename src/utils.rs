@@ -56,7 +56,7 @@ pub fn write_length_prefixed<I, E, T, L>(
     output: &mut BitVec<u8, Msb0>,
     item: &T,
     enum_id: I,
-    fallback_length: L
+    fallback_length: L,
 ) -> Result<(), DekuError>
 where
     T: DekuWrite<(E, L)>,

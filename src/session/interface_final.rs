@@ -64,7 +64,6 @@ pub enum InterfaceFinalStatusCode {
     NotSupportedMode = 0xEA,
 }
 
-
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 #[deku(ctx = "interface_id: InterfaceType, length: u32", id = "interface_id")]
 pub enum InterfaceTxStatus {
@@ -94,4 +93,3 @@ pub struct Dash7InterfaceTxStatus {
     /// Addressee
     pub address: Addressee,
 }
-

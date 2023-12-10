@@ -52,7 +52,6 @@ impl InterfaceFinalStatusOperand {
     }
 }
 
-
 #[derive(DekuRead, DekuWrite, Clone, Copy, Debug, PartialEq)]
 #[deku(bits = 2, type = "u8")]
 pub enum TxStatusType {
@@ -68,7 +67,6 @@ pub struct TxStatusOperand {
     #[deku(ctx = "*status_type")]
     pub status: TxStatus,
 }
-
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 #[deku(ctx = "status_type: TxStatusType", id = "status_type")]

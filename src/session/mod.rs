@@ -32,7 +32,6 @@ pub enum InterfaceType {
     Unknown,
 }
 
-
 impl TryFrom<u8> for InterfaceType {
     type Error = DekuError;
 

@@ -13,7 +13,6 @@ use crate::{data::FileHeader, file::File, session::InterfaceStatus};
 #[cfg(feature = "_wizzilab")]
 pub use super::interface_final::*;
 
-
 // ===============================================================================
 // Operands
 // ===============================================================================
@@ -358,10 +357,9 @@ pub enum Status {
     #[deku(id = "StatusType::Interface")]
     Interface(InterfaceStatusOperand),
 
-    #[cfg(feature="_wizzilab")]
+    #[cfg(feature = "_wizzilab")]
     #[deku(id = "StatusType::InterfaceFinal")]
     InterfaceFinal(InterfaceFinalStatusOperand),
-
     // ALP SPEC: Where are the stack errors?
 }
 

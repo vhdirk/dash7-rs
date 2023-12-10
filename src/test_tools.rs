@@ -17,9 +17,12 @@ where
 {
     let result: Vec<u8> = item.clone().try_into().unwrap();
 
-
     use deku::bitvec::{BitVec, Msb0};
-    println!("{:?} == {:?}", BitVec::<u8, Msb0>::from_slice(&result), BitVec::<u8, Msb0>::from_slice(data));
+    println!(
+        "{:?} == {:?}",
+        BitVec::<u8, Msb0>::from_slice(&result),
+        BitVec::<u8, Msb0>::from_slice(data)
+    );
 
     assert_eq!(result.as_slice(), data, "{:?} == {:?}", &item, data);
 

@@ -10,5 +10,5 @@ pub mod query;
 
 pub mod command;
 
-#[cfg(feature="_wizzilab")]
+#[cfg(feature = "_wizzilab")]
 mod interface_final;
