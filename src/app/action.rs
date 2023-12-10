@@ -361,6 +361,7 @@ mod test {
         },
         data::{self, FileHeader, FilePermissions, UserPermissions},
         file::File,
+        link::AccessClass,
         network::{Address, Addressee, NlsState},
         physical::{Channel, ChannelBand, ChannelClass, ChannelCoding, ChannelHeader},
         session::{Dash7InterfaceStatus, InterfaceStatus, QoS},
@@ -760,6 +761,8 @@ mod test {
     #[cfg(not(feature = "subiot"))]
     #[test]
     fn test_indirect_forward_dash7_serialization() {
+        use crate::link::AccessClass;
+
         let item = Action::IndirectForward(IndirectForward::new(
             true,
             9,
@@ -772,7 +775,7 @@ mod test {
                     GroupCondition::Any,
                     Address::Vid(0xABCD),
                     NlsState::AesCcm32([1, 2, 3, 4, 5]),
-                    0xFF,
+                    AccessClass::unavailable(),
                 ),
             })),
         ));
@@ -808,7 +811,7 @@ mod test {
                 GroupCondition::Any,
                 Address::Vid(0xABCD),
                 NlsState::AesCcm32([1, 2, 3, 4, 5]),
-                0xFF,
+                AccessClass::unavailable(),
             ),
         };
 
@@ -839,7 +842,7 @@ mod test {
                     GroupCondition::Any,
                     Address::Vid(0xABCD),
                     NlsState::AesCcm32([1, 2, 3, 4, 5]),
-                    0xFF,
+                    AccessClass::unavailable(),
                 ),
             })),
         ));
@@ -874,7 +877,7 @@ mod test {
                 GroupCondition::Any,
                 Address::Vid(0xABCD),
                 NlsState::AesCcm32([1, 2, 3, 4, 5]),
-                0xFF,
+                AccessClass::unavailable(),
             ),
         };
 
@@ -988,7 +991,7 @@ mod test {
                         GroupCondition::Any,
                         Address::Uid(4123107267735781422u64),
                         NlsState::None,
-                        1,
+                        AccessClass::new(0, 1),
                     ),
                 })
                 .into(),

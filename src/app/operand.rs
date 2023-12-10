@@ -594,6 +594,7 @@ mod test {
 
     use super::*;
     use crate::{
+        link::AccessClass,
         network::{Address, Addressee, NlsState},
         physical::{Channel, ChannelBand, ChannelClass, ChannelCoding, ChannelHeader},
         session::Dash7InterfaceStatus,
@@ -658,7 +659,7 @@ mod test {
                 GroupCondition::Any,
                 Address::Uid(4123107267735781422u64),
                 NlsState::None,
-                1,
+                AccessClass::new(0, 1),
             ),
         })
         .into();

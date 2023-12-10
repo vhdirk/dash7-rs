@@ -1,6 +1,6 @@
 use deku::prelude::*;
 
-use crate::transport;
+use crate::{link::AccessClass, transport};
 
 use super::{Address, AddressType, NlsMethod};
 
@@ -35,7 +35,7 @@ pub struct Frame {
     #[deku(cond = "control.has_hopping")]
     hopping_control: Option<HoppingControl>,
 
-    origin_access_class: u8,
+    origin_access_class: AccessClass,
 
     #[deku(ctx = "control.origin_address_type")]
     origin_access_adress: Address,

@@ -116,7 +116,7 @@ mod tests {
     use super::*;
     use hex_literal::hex;
 
-    use crate::{test_tools::test_item, transport::GroupCondition};
+    use crate::{link::AccessClass, test_tools::test_item, transport::GroupCondition};
 
     #[test]
     fn test_vid_aesccm32() {
@@ -126,7 +126,7 @@ mod tests {
                 GroupCondition::Any,
                 Address::Vid(0xABCD),
                 NlsState::AesCcm32(hex!("00 11 22 33 44")),
-                0xFF,
+                AccessClass::new(0x0F, 0x0F),
             ),
             &hex!("37 FF ABCD 0011223344"),
         )
@@ -135,7 +135,13 @@ mod tests {
     #[test]
     fn test_noid_none() {
         test_item(
-            Addressee::new(false, GroupCondition::Any, Address::NoId, NlsState::None, 0),
+            Addressee::new(
+                false,
+                GroupCondition::Any,
+                Address::NoId,
+                NlsState::None,
+                AccessClass::default(),
+            ),
             &[0b0010000, 0],
         );
     }
@@ -148,7 +154,7 @@ mod tests {
                 GroupCondition::Any,
                 Address::NbId(VarInt::new(0, false).unwrap()),
                 NlsState::None,
-                0,
+                AccessClass::default(),
             ),
             &[0, 0, 0],
         );
@@ -162,7 +168,7 @@ mod tests {
                 GroupCondition::Any,
                 Address::Uid(0),
                 NlsState::None,
-                0,
+                AccessClass::default(),
             ),
             &[0b00100000, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         );
@@ -176,7 +182,7 @@ mod tests {
                 GroupCondition::Any,
                 Address::NbId(VarInt::new(1, false).unwrap()),
                 NlsState::AesCtr([0, 1, 2, 3, 4]),
-                0,
+                AccessClass::default(),
             ),
             &[0b00000001, 0, 1, 0, 1, 2, 3, 4],
         );
@@ -190,7 +196,7 @@ mod tests {
                 GroupCondition::Any,
                 Address::Vid(0x1234),
                 NlsState::None,
-                5,
+                AccessClass::new(0, 5),
             ),
             &[0b00110000, 5, 0b00010010, 0b00110100],
         );
@@ -204,7 +210,7 @@ mod tests {
                 GroupCondition::Any,
                 Address::Uid(0x1234567890123456),
                 NlsState::None,
-                105,
+                AccessClass::new(0x06, 0x09),
             ),
             &[
                 0b00100000, 105, 0b00010010, 0b00110100, 0b01010110, 0b01111000, 0b10010000,
@@ -221,7 +227,7 @@ mod tests {
                 GroupCondition::Any,
                 Address::NoId,
                 NlsState::AesCbcMac128([10, 20, 30, 40, 50]),
-                0xBE,
+                AccessClass::new(0x0B, 0x0E),
             ),
             &[0b00010010, 0xBE, 10, 20, 30, 40, 50],
         );
@@ -235,7 +241,7 @@ mod tests {
                 GroupCondition::Any,
                 Address::NbId(VarInt::new(100, false).unwrap()),
                 NlsState::None,
-                0,
+                AccessClass::new(0, 0),
             ),
             &[0, 0, 0x39],
         );
