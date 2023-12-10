@@ -4,10 +4,14 @@ use deku::{
     prelude::*,
 };
 
+use super::interface::InterfaceConfiguration;
+pub use super::query::Query;
+use crate::session::InterfaceType;
+use crate::utils::{read_length_prefixed, write_length_prefixed};
 use crate::{data::FileHeader, file::File, session::InterfaceStatus};
 
-use super::interface::{InterfaceConfiguration, InterfaceType};
-pub use super::query::Query;
+#[cfg(feature = "_wizzilab")]
+pub use super::interface_final::*;
 
 // ===============================================================================
 // Operands
@@ -239,7 +243,6 @@ impl FileData {
     ) -> Result<(&'a BitSlice<u8, Msb0>, File), DekuError> {
         let (rest, length) = <Length as DekuRead<'_, _>>::read(rest, ())?;
         let file_id = offset.file_id.try_into()?;
-
         File::read(rest, (file_id, Into::<u32>::into(length)))
     }
 
@@ -248,25 +251,12 @@ impl FileData {
         data: &File,
         offset: &FileOffset,
     ) -> Result<(), DekuError> {
-        let file_id = offset.file_id.try_into()?;
-
         let vec_size = match data {
             File::Other(val) => val.len() as u32,
             _ => 0,
         };
 
-        // write a stub size
-        let length_offset = output.len();
-        DekuWrite::write(&0u8, output, ())?;
-
-        // write the file
-        let output_offset = output.len();
-        DekuWrite::write(data, output, (file_id, vec_size))?;
-
-        // now overwrite the length again
-        let data_length = Length((output.len() - output_offset) as u32 / u8::BITS);
-        output[length_offset..length_offset + 8].clone_from_bitslice(&data_length.to_bits()?);
-        Ok(())
+        write_length_prefixed(output, data, offset.file_id, vec_size)
     }
 }
 
@@ -325,6 +315,10 @@ pub enum StatusType {
     Action,
     #[deku(id = "1")]
     Interface,
+
+    //#[cfg(feature="wizzilab")]
+    #[deku(id = "2")]
+    InterfaceFinal,
 }
 
 /// Forward rest of the command over the interface
@@ -336,8 +330,6 @@ pub struct StatusOperand {
     #[deku(ctx = "*status_type")]
     pub status: Status,
 }
-
-
 
 impl Into<StatusOperand> for Status {
     fn into(self) -> StatusOperand {
@@ -364,6 +356,10 @@ pub enum Status {
     Action(ActionStatus),
     #[deku(id = "StatusType::Interface")]
     Interface(InterfaceStatusOperand),
+
+    #[cfg(feature = "_wizzilab")]
+    #[deku(id = "StatusType::InterfaceFinal")]
+    InterfaceFinal(InterfaceFinalStatusOperand),
     // ALP SPEC: Where are the stack errors?
 }
 
@@ -393,15 +389,18 @@ impl Into<StatusOperand> for InterfaceStatusOperand {
     }
 }
 
-
 impl InterfaceStatusOperand {
+    #[cfg(not(feature = "subiot_v0_0"))]
     pub fn read<'a>(
         rest: &'a BitSlice<u8, Msb0>,
         interface_id: u8,
     ) -> Result<(&'a BitSlice<u8, Msb0>, InterfaceStatus), DekuError> {
-        let (rest, length) = <Length as DekuRead<'_, _>>::read(rest, ())?;
-        let interface_id = interface_id.try_into()?;
-        InterfaceStatus::read(rest, (interface_id, Into::<u32>::into(length)))
+        // Subiot v0.0 was missing the length field
+        #[cfg(feature = "subiot_v0_0")]
+        return InterfaceStatus::read(rest, (interface_id.try_into()?, 0));
+
+        #[cfg(not(feature = "subiot_v0_0"))]
+        return read_length_prefixed(rest, interface_id);
     }
 
     #[cfg(not(feature = "subiot_v0_0"))]
@@ -410,48 +409,17 @@ impl InterfaceStatusOperand {
         status: &InterfaceStatus,
         interface_id: u8,
     ) -> Result<(), DekuError> {
-        let interface_id = interface_id.try_into()?;
-
         let vec_size = match status {
             InterfaceStatus::Other(val) => val.len() as u32,
             _ => 0,
         };
 
-        // write a stub size
-        let length_offset = output.len();
-        DekuWrite::write(&0u8, output, ())?;
+        // Subiot v0.0 was missing the length field
+        #[cfg(feature = "subiot_v0_0")]
+        return DekuWrite::write(status, output, (interface_id.try_into()?, vec_size));
 
-        // write the file
-        let output_offset = output.len();
-        DekuWrite::write(status, output, (interface_id, vec_size))?;
-
-        // now overwrite the length again
-        let data_length = Length((output.len() - output_offset) as u32 / u8::BITS);
-        output[length_offset..length_offset + 8].clone_from_bitslice(&data_length.to_bits()?);
-
-        Ok(())
-    }
-
-    // Subiot v0.0 was missing the length field
-    #[cfg(feature = "subiot_v0_0")]
-    pub fn read<'a>(
-        rest: &'a BitSlice<u8, Msb0>,
-        interface_id: u8,
-    ) -> Result<(&'a BitSlice<u8, Msb0>, InterfaceStatus), DekuError> {
-        let interface_id = interface_id.try_into()?;
-        InterfaceStatus::read(rest, (interface_id, 0))
-    }
-
-    // Subiot v0.0 was missing the length field
-    #[cfg(feature = "subiot_v0_0")]
-    pub fn write(
-        output: &mut BitVec<u8, Msb0>,
-        status: &InterfaceStatus,
-        interface_id: u8,
-    ) -> Result<(), DekuError> {
-        let interface_id = interface_id.try_into()?;
-        let output_offset = output.len();
-        DekuWrite::write(status, output, (interface_id, 0))
+        #[cfg(not(feature = "subiot_v0_0"))]
+        return write_length_prefixed(output, status, interface_id, vec_size);
     }
 }
 

@@ -1,10 +1,10 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use deku::DekuError;
 use dash7::{
     app::command::Command,
     file::{File, FileId},
     link::{BackgroundFrame, ForegroundFrame},
 };
+use deku::DekuError;
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]

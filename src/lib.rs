@@ -24,7 +24,7 @@
 // //! queries are AND'ed.
 
 use mutually_exclusive_features::{exactly_one_of, none_or_one_of};
-exactly_one_of!("_spec", "_subiot", "_subiot", "_wizzilab");
+exactly_one_of!("_spec", "_subiot", "_wizzilab");
 
 none_or_one_of!("subiot_v0_0", "subiot_v0_1");
 none_or_one_of!("wizzilab_v5_3");
