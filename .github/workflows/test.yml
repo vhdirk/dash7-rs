@@ -12,6 +12,13 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features:
+          - std,spec
+          - std,subiot
+          - std,wizzilab
+
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
@@ -21,16 +28,16 @@ jobs:
         with:
           tool: grcov
       - name: Build
-        run: cargo build --verbose
+        run: cargo build --no-default-features -F ${{ matrix.features }} --verbose
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --no-default-features -F ${{ matrix.features }}  --verbose
         env:
           RUSTFLAGS: -Cinstrument-coverage
           RUSTDOCFLAGS: -Cinstrument-coverage
-          LLVM_PROFILE_FILE: dash7-%p-%m.profraw
+          LLVM_PROFILE_FILE: dash7-${{ matrix.features }}%p-%m.profraw
       - name: Produce coverage info
         run: |
-          grcov $(find . -name "dash7-*.profraw" -print) \
+          grcov $(find . -name "dash7-${{ matrix.features }}*.profraw" -print) \
             -s . \
             --branch \
             --ignore-not-existing \

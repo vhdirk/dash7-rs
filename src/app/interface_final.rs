@@ -55,7 +55,6 @@ impl InterfaceFinalStatusOperand {
 
 #[derive(DekuRead, DekuWrite, Clone, Copy, Debug, PartialEq)]
 #[deku(bits = 2, type = "u8")]
-
 pub enum TxStatusType {
     #[deku(id = "1")]
     Interface,
