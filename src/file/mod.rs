@@ -71,7 +71,17 @@ pub enum FileId {
     FofStatus,
     #[deku(id_pat = "0x07 | 0x14..=0x16")]
     Rfu,
-    #[deku(id_pat = "0x18..=0x1F")]
+    #[deku(id = "0x17")]
+    LocationData,
+    #[deku(id = "0x18")]
+    RootKey,
+    #[deku(id = "0x19")]
+    UserKey,
+    #[deku(id = "0x1B")]
+    SensorDescription,
+    #[deku(id = "0x1C")]
+    Rtc,
+    #[deku(id_pat = "0x1D..=0x1F")]
     D7AalpRfu,
     #[deku(id = "0x20")]
     AccessProfile00,
@@ -121,6 +131,9 @@ impl Into<u8> for FileId {
     }
 }
 
+/// File IDs 0x00-0x17 and 0x20-0x2F are reserved by the DASH7 spec.
+/// File IDs 0x18-0x1F Reserved for D7AALP.
+/// File IDs 0x20+I with I in [0, 14] are reserved for Access Profiles.
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
 #[deku(
     ctx = "file_id: FileId, length: u32",

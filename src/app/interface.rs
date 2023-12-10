@@ -98,3 +98,165 @@ pub enum InterfaceConfiguration {
     #[deku(id_pat = "_")]
     Unknown,
 }
+
+#[cfg(test)]
+mod test {
+    use crate::{
+        network::{Address, NlsState},
+        session::{ResponseMode, RetryMode},
+        test_tools::test_item,
+        transport::GroupCondition,
+    };
+
+    use super::*;
+    use hex_literal::hex;
+
+    #[test]
+    fn test_dash7_interface_configuration() {
+        test_item(
+            Dash7InterfaceConfiguration {
+                qos: QoS {
+                    retry_mode: RetryMode::No,
+                    response_mode: ResponseMode::Any,
+                    stop_on_error: false,
+                    record: false,
+                },
+                dormant_session_timeout: 0x20.into(),
+
+                #[cfg(not(feature = "_subiot"))]
+                te: 0x34.into(),
+
+                addressee: Addressee::new(
+                    false,
+                    GroupCondition::Any,
+                    Address::Vid(0xABCD),
+                    NlsState::AesCcm32([1, 2, 3, 4, 5]),
+                    0xFF,
+                ),
+            },
+            #[cfg(not(feature = "_subiot"))]
+            &hex!("02 28 2D 37 FF ABCD 0102030405"),
+            #[cfg(feature = "_subiot")]
+            &hex!("02 28 37 FF ABCD 0102030405"),
+        )
+    }
+
+    #[test]
+    fn test_dash7_interface_configuration_with_address_nbid() {
+        test_item(
+            Dash7InterfaceConfiguration {
+                qos: QoS {
+                    retry_mode: RetryMode::No,
+                    response_mode: ResponseMode::Any,
+                    stop_on_error: false,
+                    record: false,
+                },
+                dormant_session_timeout: 0x20.into(),
+
+                #[cfg(not(feature = "_subiot"))]
+                te: 0x34.into(),
+
+                addressee: Addressee::new(
+                    true,
+                    GroupCondition::NotEqual,
+                    Address::NbId(0x15.into()),
+                    NlsState::None,
+                    0,
+                ),
+            },
+            #[cfg(not(feature = "_subiot"))]
+            &hex!("02 28 2D 48 00 15"),
+            #[cfg(feature = "_subiot")]
+            &hex!("02 28 48 00 15"),
+        )
+    }
+    #[test]
+    fn test_dash7_interface_configuration_with_address_noid() {
+        test_item(
+            Dash7InterfaceConfiguration {
+                qos: QoS {
+                    retry_mode: RetryMode::No,
+                    response_mode: ResponseMode::Any,
+                    stop_on_error: false,
+                    record: false,
+                },
+                dormant_session_timeout: 0x20.into(),
+
+                #[cfg(not(feature = "_subiot"))]
+                te: 0x34.into(),
+
+                addressee: Addressee::new(
+                    false,
+                    GroupCondition::Equal,
+                    Address::NoId,
+                    NlsState::AesCbcMac128([0x0A, 0x0B, 0x0C, 0x0D, 0x0E]),
+                    0x24,
+                ),
+            },
+            #[cfg(not(feature = "_subiot"))]
+            &hex!("02 28 2D 92 24 0A 0B 0C 0D 0E"),
+            #[cfg(feature = "_subiot")]
+            &hex!("02 28 92 24 0A 0B 0C 0D 0E"),
+        )
+    }
+
+    #[test]
+    fn test_dash7_interface_configuration_with_address_uid() {
+        test_item(
+            Dash7InterfaceConfiguration {
+                qos: QoS {
+                    retry_mode: RetryMode::No,
+                    response_mode: ResponseMode::Any,
+                    stop_on_error: false,
+                    record: false,
+                },
+                dormant_session_timeout: 0x20.into(),
+
+                #[cfg(not(feature = "_subiot"))]
+                te: 0x34.into(),
+
+                addressee: Addressee::new(
+                    true,
+                    GroupCondition::GreaterThan,
+                    Address::Uid(0x0001020304050607),
+                    NlsState::AesCcm64([0xA1, 0xA2, 0xA3, 0xA4, 0xA5]),
+                    0x48,
+                ),
+            },
+            #[cfg(not(feature = "_subiot"))]
+            &hex!("02 28 2D EE 48 0001020304050607 A1A2A3A4A5"),
+            #[cfg(feature = "_subiot")]
+            &hex!("02 28 EE 48 0001020304050607 A1A2A3A4A5"),
+        )
+    }
+
+    #[test]
+    fn test_dash7_interface_configuration_with_address_vid() {
+        test_item(
+            Dash7InterfaceConfiguration {
+                qos: QoS {
+                    retry_mode: RetryMode::No,
+                    response_mode: ResponseMode::Any,
+                    stop_on_error: false,
+                    record: false,
+                },
+                dormant_session_timeout: 0x20.into(),
+
+                #[cfg(not(feature = "_subiot"))]
+                te: 0x34.into(),
+
+                addressee: Addressee::new(
+                    false,
+                    GroupCondition::Any,
+                    Address::Vid(0xABCD),
+                    NlsState::AesCcm32([0xA1, 0xA2, 0xA3, 0xA4, 0xA5]),
+                    0xFF,
+                ),
+            },
+            #[cfg(not(feature = "_subiot"))]
+            &hex!("02 28 2D 37 FF AB CD A1A2A3A4A5"),
+            #[cfg(feature = "_subiot")]
+            &hex!("02 28 37 FF AB CD A1A2A3A4A5"),
+        )
+    }
+}

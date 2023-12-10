@@ -79,17 +79,53 @@ pub struct Dash7InterfaceTxStatus {
     /// PHY layer channel header
     pub channel: Channel,
     /// Target power in dBm
-    pub target_rx_: i8,
+    pub target_rx_level: i8,
     /// D7A Error
-    pub err: InterfaceFinalStatusCode,
-    /// RFU
-    /// XXX align to u32
-    pub rfu_0: u8,
-    pub rfu_1: u8,
-    pub rfu_2: u8,
+    pub error: InterfaceFinalStatusCode,
     /// End transmission date using the local RTC time stamp
     #[deku(pad_bits_before = "24")]
     pub lts: u32,
     /// Addressee
-    pub address: Addressee,
+    pub addressee: Addressee,
+}
+
+#[cfg(test)]
+mod test {
+    use hex_literal::hex;
+
+    use crate::{
+        network::{Address, Addressee, NlsState},
+        physical::{Channel, ChannelBand, ChannelClass, ChannelCoding, ChannelHeader},
+        test_tools::test_item,
+        transport::GroupCondition,
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_interface_tx_status() {
+        test_item(
+            Dash7InterfaceTxStatus {
+                channel: Channel {
+                    header: ChannelHeader::new(
+                        ChannelBand::NotImpl,
+                        ChannelClass::LoRate,
+                        ChannelCoding::Rfu,
+                    ),
+                    index: 0x0123,
+                },
+                target_rx_level: 2,
+                error: InterfaceFinalStatusCode::Busy,
+                lts: 0x0708_0000,
+                addressee: Addressee::new(
+                    false,
+                    GroupCondition::Any,
+                    Address::Vid(0x0011),
+                    NlsState::AesCcm64([0; 5]),
+                    0xFF,
+                ),
+            },
+            &hex!("01 0123 02 FF 00 00 00 0000 0807 36 FF 0011 0000000000"),
+        )
+    }
 }
