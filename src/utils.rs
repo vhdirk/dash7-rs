@@ -10,6 +10,8 @@ use deku::{
     prelude::*,
 };
 
+use crate::app::operand::Length;
+
 struct TransientDropper<T> {
     base_ptr: *mut T,
     initialized_count: usize,
@@ -33,6 +35,50 @@ pub fn pad_rest<'a>(
     let pad = 8 * ((rest.len() + 7) / 8) - rest.len();
     let read_idx = input_bits.len() - (rest.len() + pad);
     (input_bits[read_idx..].domain().region().unwrap().1, pad)
+}
+
+pub fn read_length_prefixed<'a, I, E, T, L>(
+    rest: &'a BitSlice<u8, Msb0>,
+    enum_id: I,
+) -> Result<(&'a BitSlice<u8, Msb0>, T), DekuError>
+where
+    T: DekuRead<'a, (E, L)>,
+    E: TryFrom<I>,
+    DekuError: From<<E as TryFrom<I>>::Error>,
+    Length: Into<L>,
+{
+    let (rest, length) = <Length as DekuRead<'_, _>>::read(rest, ())?;
+    let enum_id = enum_id.try_into()?;
+    T::read(rest, (enum_id, Into::<L>::into(length)))
+}
+
+pub fn write_length_prefixed<I, E, T, L>(
+    output: &mut BitVec<u8, Msb0>,
+    item: &T,
+    enum_id: I,
+    fallback_length: L
+) -> Result<(), DekuError>
+where
+    T: DekuWrite<(E, L)>,
+    E: TryFrom<I>,
+    DekuError: From<<E as TryFrom<I>>::Error>,
+    L: Into<Length>,
+{
+    let enum_id = enum_id.try_into()?;
+
+    // write a stub size
+    let length_offset = output.len();
+    DekuWrite::write(&0u8, output, ())?;
+
+    // write the file
+    let output_offset = output.len();
+    DekuWrite::write(item, output, (enum_id, fallback_length))?;
+
+    // now overwrite the length again
+    let data_length: Length = ((output.len() - output_offset) as u32 / u8::BITS).into();
+    output[length_offset..length_offset + 8].clone_from_bitslice(&data_length.to_bits()?);
+
+    Ok(())
 }
 
 /// Read and convert to String

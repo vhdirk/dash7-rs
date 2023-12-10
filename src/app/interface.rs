@@ -1,7 +1,6 @@
-use bitvec::view::BitView;
 use deku::prelude::*;
 
-use crate::{network::Addressee, session::QoS, types::VarInt};
+use crate::{network::Addressee, session::{QoS, InterfaceType}, types::VarInt};
 
 /// Section 9.2.1
 ///
@@ -72,43 +71,6 @@ pub struct LoRaWANABPInterfaceConfiguration {
     pub device_address: u32,
 
     pub network_id: u32,
-}
-
-#[derive(DekuRead, DekuWrite, Debug, Clone, Copy, PartialEq)]
-#[deku(bits = 8, type = "u8")]
-pub enum InterfaceType {
-    #[deku(id = "0x00")]
-    Host,
-
-    #[deku(id = "0x01")]
-    Serial,
-
-    #[deku(id = "0x02")]
-    LoRaWanABP,
-
-    #[deku(id = "0x03")]
-    LoRaWanOTAA,
-
-    #[deku(id = "0xD7")]
-    Dash7,
-
-    #[deku(id_pat = "_")]
-    Unknown,
-}
-
-
-impl TryFrom<u8> for InterfaceType {
-    type Error = DekuError;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        Ok(Self::read(value.view_bits(), ())?.1)
-    }
-}
-
-impl Into<u8> for InterfaceType {
-    fn into(self) -> u8 {
-        self.deku_id().unwrap()
-    }
 }
 
 

@@ -3,7 +3,50 @@ use std::fmt::Display;
 
 use deku::prelude::*;
 
-use crate::{app::interface::InterfaceType, network::Addressee, physical::Channel, types::VarInt};
+use crate::{network::Addressee, physical::Channel, types::VarInt};
+
+// #[cfg(feature="_wizzilab")]
+mod interface_final;
+// #[cfg(feature="_wizzilab")]
+pub use interface_final::{InterfaceFinalStatus, InterfaceFinalStatusCode, InterfaceTxStatus};
+
+#[derive(DekuRead, DekuWrite, Debug, Clone, Copy, PartialEq)]
+#[deku(bits = 8, type = "u8")]
+pub enum InterfaceType {
+    #[deku(id = "0x00")]
+    Host,
+
+    #[deku(id = "0x01")]
+    Serial,
+
+    #[deku(id = "0x02")]
+    LoRaWanABP,
+
+    #[deku(id = "0x03")]
+    LoRaWanOTAA,
+
+    #[deku(id = "0xD7")]
+    Dash7,
+
+    #[deku(id_pat = "_")]
+    Unknown,
+}
+
+
+impl TryFrom<u8> for InterfaceType {
+    type Error = DekuError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        use bitvec::view::BitView;
+        Ok(Self::read(value.view_bits(), ())?.1)
+    }
+}
+
+impl Into<u8> for InterfaceType {
+    fn into(self) -> u8 {
+        self.deku_id().unwrap()
+    }
+}
 
 /// The Response Modes define the condition for termination on success of a Request
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]

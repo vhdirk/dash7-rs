@@ -19,6 +19,9 @@ use super::operand::{
     StatusOperand,
 };
 
+#[cfg(feature = "_wizzilab")]
+use super::interface_final::*;
+
 // ===============================================================================
 // OpCodes
 // ===============================================================================
@@ -77,6 +80,10 @@ pub enum OpCode {
     Status,
     #[deku(id = "35")]
     ResponseTag,
+
+    #[cfg(feature="_wizzilab")]
+    #[deku(id = "38")]
+    TxStatus,
 
     // Special
     #[deku(id = "48")]
@@ -141,6 +148,9 @@ pub enum Action {
     Status(StatusOperand),
     ResponseTag(ResponseTag),
 
+    #[cfg(feature="_wizzilab")]
+    TxStatus(TxStatusOperand),
+
     // Special
     Chunk(Chunk),
     Logic(Logic),
@@ -188,6 +198,9 @@ impl DekuRead<'_, ()> for Action {
                 read_action!(ReturnFileProperties, FileProperties, input)
             }
             OpCode::ResponseTag => read_action!(ResponseTag, ResponseTag, input),
+
+            #[cfg(feature="_wizzilab")]
+            OpCode::TxStatus => read_action!(TxStatus, TxStatusOperand, input),
             OpCode::Chunk => read_action!(Chunk, Chunk, input),
             OpCode::Logic => read_action!(Logic, Logic, input),
             OpCode::RequestTag => read_action!(RequestTag, RequestTag, input),
@@ -246,6 +259,8 @@ impl DekuEnumExt<'_, OpCode> for Action {
             Action::ReturnFileData(_) => Ok(OpCode::ReturnFileData),
             Action::ReturnFileProperties(_) => Ok(OpCode::ReturnFileProperties),
             Action::ResponseTag(_) => Ok(OpCode::ResponseTag),
+            #[cfg(feature="_wizzilab")]
+            Action::TxStatus(_) => Ok(OpCode::TxStatus),
             Action::Chunk(_) => Ok(OpCode::Chunk),
             Action::Logic(_) => Ok(OpCode::Logic),
             Action::Status(_) => Ok(OpCode::Status),
@@ -293,6 +308,8 @@ impl DekuWrite<()> for Action {
             Action::ReturnFileData(action) => write_action!(action, output),
             Action::ReturnFileProperties(action) => write_action!(action, output),
             Action::ResponseTag(action) => write_action!(action, output),
+            #[cfg(feature="_wizzilab")]
+            Action::TxStatus(action) => write_action!(action, output),
             Action::Chunk(action) => write_action!(action, output),
             Action::Logic(action) => write_action!(action, output),
             Action::Status(action) => write_action!(action, output),
