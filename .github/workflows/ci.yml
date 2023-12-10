@@ -13,7 +13,7 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
@@ -34,7 +34,7 @@ jobs:
           - wizzilab
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: 'llvm-tools-preview'
@@ -47,8 +47,8 @@ jobs:
         run: cargo test --no-default-features -F ${{ matrix.std }} -F ${{ matrix.features }} --verbose
         env:
           CARGO_INCREMENTAL: '0'
-          RUSTFLAGS: ' -Cinstrument-coverage -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort '
-          RUSTDOCFLAGS: ' -Cinstrument-coverage -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort '
+          RUSTFLAGS: -Cinstrument-coverage
+          RUSTDOCFLAGS: -Cinstrument-coverage
           LLVM_PROFILE_FILE: dash7-%p-%m.profraw
       - name: Produce coverage info
         run: |
