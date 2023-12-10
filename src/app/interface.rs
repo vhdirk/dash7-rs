@@ -102,6 +102,7 @@ pub enum InterfaceConfiguration {
 #[cfg(test)]
 mod test {
     use crate::{
+        link::AccessClass,
         network::{Address, NlsState},
         session::{ResponseMode, RetryMode},
         test_tools::test_item,
@@ -131,7 +132,7 @@ mod test {
                     GroupCondition::Any,
                     Address::Vid(0xABCD),
                     NlsState::AesCcm32([1, 2, 3, 4, 5]),
-                    0xFF,
+                    AccessClass::new(0x0F, 0x0F),
                 ),
             },
             #[cfg(not(feature = "_subiot"))]
@@ -161,7 +162,7 @@ mod test {
                     GroupCondition::NotEqual,
                     Address::NbId(0x15.into()),
                     NlsState::None,
-                    0,
+                    AccessClass::default(),
                 ),
             },
             #[cfg(not(feature = "_subiot"))]
@@ -190,7 +191,7 @@ mod test {
                     GroupCondition::Equal,
                     Address::NoId,
                     NlsState::AesCbcMac128([0x0A, 0x0B, 0x0C, 0x0D, 0x0E]),
-                    0x24,
+                    AccessClass::new(0x02, 0x04),
                 ),
             },
             #[cfg(not(feature = "_subiot"))]
@@ -220,7 +221,7 @@ mod test {
                     GroupCondition::GreaterThan,
                     Address::Uid(0x0001020304050607),
                     NlsState::AesCcm64([0xA1, 0xA2, 0xA3, 0xA4, 0xA5]),
-                    0x48,
+                    AccessClass::new(0x04, 0x08),
                 ),
             },
             #[cfg(not(feature = "_subiot"))]
@@ -250,7 +251,7 @@ mod test {
                     GroupCondition::Any,
                     Address::Vid(0xABCD),
                     NlsState::AesCcm32([0xA1, 0xA2, 0xA3, 0xA4, 0xA5]),
-                    0xFF,
+                    AccessClass::new(0x0F, 0x0F),
                 ),
             },
             #[cfg(not(feature = "_subiot"))]

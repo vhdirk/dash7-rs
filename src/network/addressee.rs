@@ -1,6 +1,6 @@
 use deku::prelude::*;
 
-use crate::transport::GroupCondition;
+use crate::{link::AccessClass, transport::GroupCondition};
 
 use super::{Address, AddressType, NlsMethod, NlsState};
 
@@ -21,7 +21,7 @@ pub struct Addressee {
     #[deku(update = "self.nls_state.deku_id().unwrap()")]
     nls_method: NlsMethod,
 
-    pub access_class: u8,
+    pub access_class: AccessClass,
 
     #[deku(ctx = "*address_type")]
     pub address: Address,
@@ -36,7 +36,7 @@ impl Addressee {
         group_condition: GroupCondition,
         address: Address,
         nls_state: NlsState,
-        access_class: u8,
+        access_class: AccessClass,
     ) -> Self {
         Self {
             use_vid,

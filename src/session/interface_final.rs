@@ -94,6 +94,7 @@ mod test {
     use hex_literal::hex;
 
     use crate::{
+        link::AccessClass,
         network::{Address, Addressee, NlsState},
         physical::{Channel, ChannelBand, ChannelClass, ChannelCoding, ChannelHeader},
         test_tools::test_item,
@@ -108,7 +109,7 @@ mod test {
             Dash7InterfaceTxStatus {
                 channel: Channel {
                     header: ChannelHeader::new(
-                        ChannelBand::NotImpl,
+                        ChannelBand::Rfu0,
                         ChannelClass::LoRate,
                         ChannelCoding::Rfu,
                     ),
@@ -122,7 +123,7 @@ mod test {
                     GroupCondition::Any,
                     Address::Vid(0x0011),
                     NlsState::AesCcm64([0; 5]),
-                    0xFF,
+                    AccessClass::new(0x0F, 0x0F),
                 ),
             },
             &hex!("01 0123 02 FF 00 00 00 0000 0807 36 FF 0011 0000000000"),

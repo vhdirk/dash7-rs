@@ -8,11 +8,13 @@ pub enum Bandwidth {
     KHz25 = 0x01,
 }
 
+/// D7A channel bands indexes
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(bits = 3, endian = "big", type = "u8")]
 pub enum ChannelBand {
     #[default]
-    NotImpl = 0x00,
+    Rfu0 = 0x00,
+    Rfu1 = 0x01,
     Band433 = 0x02,
     Band868 = 0x03,
     Band915 = 0x04,
@@ -36,6 +38,20 @@ pub enum ChannelCoding {
     Rfu = 1,
     FecPn9 = 2,
     Cw = 3,
+}
+
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(bits = 6, type = "u8")]
+pub enum CsmaCaMode {
+    #[default]
+    #[deku(id = "0")]
+    Unc,
+    #[deku(id = "1")]
+    Aind,
+    #[deku(id = "2")]
+    Raind,
+    #[deku(id = "3")]
+    Rigd,
 }
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]

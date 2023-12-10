@@ -8,23 +8,36 @@ mod frame;
 pub use frame::{BackgroundFrame, BackgroundFrameControl, ForegroundFrame, ForegroundFrameControl};
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(bits = 6, type = "u8")]
-pub enum CsmaCaMode {
-    #[default]
-    #[deku(id = "0")]
-    Unc,
-    #[deku(id = "1")]
-    Aind,
-    #[deku(id = "2")]
-    Raind,
-    #[deku(id = "3")]
-    Rigd,
-}
-
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct SubProfile {
     pub subband_bitmap: u8,
     pub scan_automation_period: VarInt,
+}
+
+/// The Access Specifier is the Index of the D7A file containing the Access
+/// Profile. Each bit of the Access Mask corresponds to one of the subprofiles,
+/// bit 0 corresponding to subprofile 0 and so on. The subprofiles having their
+/// Access Mask bits set to 1 and having non-void (not null) subband bitmaps are
+/// selected. As a result, only subprofiles performing scan automation (6.7) are
+/// selectable.
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+pub struct AccessClass {
+    #[deku(bits = 4)]
+    pub specifier: u8,
+    #[deku(bits = 4)]
+    pub mask: u8,
+}
+
+impl AccessClass {
+    pub fn new(specifier: u8, mask: u8) -> Self {
+        Self { specifier, mask }
+    }
+
+    pub fn unavailable() -> Self {
+        Self {
+            specifier: 0x0F,
+            mask: 0x0F,
+        }
+    }
 }
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
