@@ -11,7 +11,9 @@ use crate::types::VarInt;
 /// Network Layer Security
 /// SPEC: 7.4
 #[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq)]
-#[deku(bits = 3, type = "u8")]
+#[cfg_attr(not(feature = "_wizzilab"), deku(bits = 4))]
+#[cfg_attr(feature = "_wizzilab", deku(bits = 3))]
+#[deku(type = "u8")]
 pub enum NlsMethod {
     /// No security
     #[default]
@@ -116,13 +118,16 @@ mod tests {
     use super::*;
     use hex_literal::hex;
 
-    use crate::{link::AccessClass, test_tools::test_item, transport::GroupCondition};
-
+    #[cfg(feature = "_wizzilab")]
+    use crate::transport::GroupCondition;
+    use crate::{link::AccessClass, test_tools::test_item};
     #[test]
     fn test_vid_aesccm32() {
         test_item(
             Addressee::new(
+                #[cfg(feature = "_wizzilab")]
                 false,
+                #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
                 Address::Vid(0xABCD),
                 NlsState::AesCcm32(hex!("00 11 22 33 44")),
@@ -136,7 +141,9 @@ mod tests {
     fn test_noid_none() {
         test_item(
             Addressee::new(
+                #[cfg(feature = "_wizzilab")]
                 false,
+                #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
                 Address::NoId,
                 NlsState::None,
@@ -150,7 +157,9 @@ mod tests {
     fn test_nbid_none() {
         test_item(
             Addressee::new(
+                #[cfg(feature = "_wizzilab")]
                 false,
+                #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
                 Address::NbId(VarInt::new(0, false).unwrap()),
                 NlsState::None,
@@ -164,7 +173,9 @@ mod tests {
     fn test_uid_none() {
         test_item(
             Addressee::new(
+                #[cfg(feature = "_wizzilab")]
                 false,
+                #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
                 Address::Uid(0),
                 NlsState::None,
@@ -178,7 +189,9 @@ mod tests {
     fn test_nbid_aesctr() {
         test_item(
             Addressee::new(
+                #[cfg(feature = "_wizzilab")]
                 false,
+                #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
                 Address::NbId(VarInt::new(1, false).unwrap()),
                 NlsState::AesCtr([0, 1, 2, 3, 4]),
@@ -192,7 +205,9 @@ mod tests {
     fn test_vid_none() {
         test_item(
             Addressee::new(
+                #[cfg(feature = "_wizzilab")]
                 false,
+                #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
                 Address::Vid(0x1234),
                 NlsState::None,
@@ -206,7 +221,9 @@ mod tests {
     fn test_uid_none2() {
         test_item(
             Addressee::new(
+                #[cfg(feature = "_wizzilab")]
                 false,
+                #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
                 Address::Uid(0x1234567890123456),
                 NlsState::None,
@@ -223,7 +240,9 @@ mod tests {
     fn test_noid_aescbcmac128() {
         test_item(
             Addressee::new(
+                #[cfg(feature = "_wizzilab")]
                 false,
+                #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
                 Address::NoId,
                 NlsState::AesCbcMac128([10, 20, 30, 40, 50]),
@@ -237,7 +256,9 @@ mod tests {
     fn test_nbid_none2() {
         test_item(
             Addressee::new(
+                #[cfg(feature = "_wizzilab")]
                 false,
+                #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
                 Address::NbId(VarInt::new(100, false).unwrap()),
                 NlsState::None,

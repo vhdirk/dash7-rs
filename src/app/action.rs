@@ -350,6 +350,8 @@ mod test {
     use hex_literal::hex;
 
     use super::*;
+    #[cfg(feature = "_wizzilab")]
+    use crate::transport::GroupCondition;
     use crate::{
         app::{
             interface::{Dash7InterfaceConfiguration, InterfaceConfiguration},
@@ -366,7 +368,6 @@ mod test {
         physical::{Channel, ChannelBand, ChannelClass, ChannelCoding, ChannelHeader},
         session::{Dash7InterfaceStatus, InterfaceStatus, QoS},
         test_tools::test_item,
-        transport::GroupCondition,
         types::VarInt,
     };
 
@@ -769,9 +770,11 @@ mod test {
             Some(InterfaceConfiguration::Dash7(Dash7InterfaceConfiguration {
                 qos: QoS::default(),
                 dormant_session_timeout: VarInt::default(),
-                te: VarInt::default(),
+                execution_delay_timeout: VarInt::default(),
                 addressee: Addressee::new(
+                    #[cfg(feature = "_wizzilab")]
                     false,
+                    #[cfg(feature = "_wizzilab")]
                     GroupCondition::Any,
                     Address::Vid(0xABCD),
                     NlsState::AesCcm32([1, 2, 3, 4, 5]),
@@ -805,9 +808,11 @@ mod test {
         let expected_config = Dash7InterfaceConfiguration {
             qos: QoS::default(),
             dormant_session_timeout: VarInt::default(),
-            te: VarInt::default(),
+            execution_delay_timeout: VarInt::default(),
             addressee: Addressee::new(
+                #[cfg(feature = "_wizzilab")]
                 false,
+                #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
                 Address::Vid(0xABCD),
                 NlsState::AesCcm32([1, 2, 3, 4, 5]),
@@ -838,8 +843,6 @@ mod test {
                 qos: QoS::default(),
                 dormant_session_timeout: VarInt::default(),
                 addressee: Addressee::new(
-                    false,
-                    GroupCondition::Any,
                     Address::Vid(0xABCD),
                     NlsState::AesCcm32([1, 2, 3, 4, 5]),
                     AccessClass::unavailable(),
@@ -873,8 +876,6 @@ mod test {
             qos: QoS::default(),
             dormant_session_timeout: VarInt::default(),
             addressee: Addressee::new(
-                false,
-                GroupCondition::Any,
                 Address::Vid(0xABCD),
                 NlsState::AesCcm32([1, 2, 3, 4, 5]),
                 AccessClass::unavailable(),
@@ -987,7 +988,9 @@ mod test {
                     sequence_number: 0,
                     response_timeout: 384.into(),
                     addressee: Addressee::new(
+                        #[cfg(feature = "_wizzilab")]
                         false,
+                        #[cfg(feature = "_wizzilab")]
                         GroupCondition::Any,
                         Address::Uid(4123107267735781422u64),
                         NlsState::None,

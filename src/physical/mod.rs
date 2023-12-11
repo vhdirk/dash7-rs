@@ -41,7 +41,7 @@ pub enum ChannelCoding {
 }
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(bits = 6, type = "u8")]
+#[deku(bits = 4, type = "u8")]
 pub enum CsmaCaMode {
     #[default]
     #[deku(id = "0")]
@@ -52,6 +52,28 @@ pub enum CsmaCaMode {
     Raind,
     #[deku(id = "3")]
     Rigd,
+}
+
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[deku(bits = 4, type = "u8")]
+pub enum NoiseFloor {
+    /// Noise floor (in dBm). Use the default channel CCA threshold (5.4).
+    /// Eccao is set to 0 dB.
+    #[deku(id = "0x00")]
+    Fixed(u8),
+
+    /// Forget factor (seconds). Slow RSSI Variation with 6dB offset. Noise
+    /// Floor is computed based on regular RSSI measurements with a forget
+    /// factor defined by the associated parameter. Measurement above the
+    /// default channel CCA threshold are discarded. The regular RSSI
+    /// measurements period shall be at most 1/8 of the forget factor duration.
+    /// Eccao is set to 6 dB.
+    #[deku(id = "0x01")]
+    ForgetFactor(u8),
+
+    /// User defined
+    #[deku(id_pat = "_")]
+    Other,
 }
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
