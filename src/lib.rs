@@ -41,7 +41,7 @@ pub mod network;
 /// Session layer
 pub mod session;
 
-/// Physycal layer
+/// The Physical Layer (PHY 5) defines the spectrum, modulation and channel coding characteristics.
 pub mod physical;
 
 /// Data/Filesystem layer

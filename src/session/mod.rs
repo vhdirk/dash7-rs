@@ -5,9 +5,9 @@ use deku::prelude::*;
 
 use crate::{network::Addressee, physical::Channel, types::VarInt};
 
-// #[cfg(feature="_wizzilab")]
+#[cfg(feature = "_wizzilab")]
 mod interface_final;
-// #[cfg(feature="_wizzilab")]
+#[cfg(feature = "_wizzilab")]
 pub use interface_final::{InterfaceFinalStatus, InterfaceFinalStatusCode, InterfaceTxStatus};
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, Copy, PartialEq)]

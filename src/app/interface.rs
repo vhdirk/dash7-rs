@@ -30,7 +30,7 @@ pub struct Dash7InterfaceConfiguration {
     ///
     /// Time given to the target to process the request.
     #[cfg(not(feature = "_subiot"))]
-    pub te: VarInt,
+    pub execution_delay_timeout: VarInt,
 
     /// Address of the target.
     pub addressee: Addressee,
@@ -101,15 +101,15 @@ pub enum InterfaceConfiguration {
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    #[cfg(feature = "_wizzilab")]
+    use crate::transport::GroupCondition;
     use crate::{
         link::AccessClass,
         network::{Address, NlsState},
         session::{ResponseMode, RetryMode},
         test_tools::test_item,
-        transport::GroupCondition,
     };
-
-    use super::*;
     use hex_literal::hex;
 
     #[test]
@@ -125,10 +125,12 @@ mod test {
                 dormant_session_timeout: 0x20.into(),
 
                 #[cfg(not(feature = "_subiot"))]
-                te: 0x34.into(),
+                execution_delay_timeout: 0x34.into(),
 
                 addressee: Addressee::new(
+                    #[cfg(feature = "_wizzilab")]
                     false,
+                    #[cfg(feature = "_wizzilab")]
                     GroupCondition::Any,
                     Address::Vid(0xABCD),
                     NlsState::AesCcm32([1, 2, 3, 4, 5]),
@@ -155,20 +157,24 @@ mod test {
                 dormant_session_timeout: 0x20.into(),
 
                 #[cfg(not(feature = "_subiot"))]
-                te: 0x34.into(),
+                execution_delay_timeout: 0x34.into(),
 
                 addressee: Addressee::new(
+                    #[cfg(feature = "_wizzilab")]
                     true,
+                    #[cfg(feature = "_wizzilab")]
                     GroupCondition::NotEqual,
                     Address::NbId(0x15.into()),
                     NlsState::None,
                     AccessClass::default(),
                 ),
             },
-            #[cfg(not(feature = "_subiot"))]
-            &hex!("02 28 2D 48 00 15"),
+            #[cfg(feature = "_spec")]
+            &hex!("02 28 2D 00 00 15"),
             #[cfg(feature = "_subiot")]
-            &hex!("02 28 48 00 15"),
+            &hex!("02 28 00 00 15"),
+            #[cfg(feature = "_wizzilab")]
+            &hex!("02 28 2D 48 00 15"),
         )
     }
     #[test]
@@ -184,20 +190,24 @@ mod test {
                 dormant_session_timeout: 0x20.into(),
 
                 #[cfg(not(feature = "_subiot"))]
-                te: 0x34.into(),
+                execution_delay_timeout: 0x34.into(),
 
                 addressee: Addressee::new(
+                    #[cfg(feature = "_wizzilab")]
                     false,
+                    #[cfg(feature = "_wizzilab")]
                     GroupCondition::Equal,
                     Address::NoId,
                     NlsState::AesCbcMac128([0x0A, 0x0B, 0x0C, 0x0D, 0x0E]),
                     AccessClass::new(0x02, 0x04),
                 ),
             },
-            #[cfg(not(feature = "_subiot"))]
-            &hex!("02 28 2D 92 24 0A 0B 0C 0D 0E"),
+            #[cfg(feature = "_spec")]
+            &hex!("02 28 2D 12 24 0A 0B 0C 0D 0E"),
             #[cfg(feature = "_subiot")]
-            &hex!("02 28 92 24 0A 0B 0C 0D 0E"),
+            &hex!("02 28 12 24 0A 0B 0C 0D 0E"),
+            #[cfg(feature = "_wizzilab")]
+            &hex!("02 28 2D 92 24 0A 0B 0C 0D 0E"),
         )
     }
 
@@ -214,20 +224,24 @@ mod test {
                 dormant_session_timeout: 0x20.into(),
 
                 #[cfg(not(feature = "_subiot"))]
-                te: 0x34.into(),
+                execution_delay_timeout: 0x34.into(),
 
                 addressee: Addressee::new(
+                    #[cfg(feature = "_wizzilab")]
                     true,
+                    #[cfg(feature = "_wizzilab")]
                     GroupCondition::GreaterThan,
                     Address::Uid(0x0001020304050607),
                     NlsState::AesCcm64([0xA1, 0xA2, 0xA3, 0xA4, 0xA5]),
                     AccessClass::new(0x04, 0x08),
                 ),
             },
-            #[cfg(not(feature = "_subiot"))]
-            &hex!("02 28 2D EE 48 0001020304050607 A1A2A3A4A5"),
+            #[cfg(feature = "_spec")]
+            &hex!("02 28 2D 26 48 0001020304050607 A1A2A3A4A5"),
             #[cfg(feature = "_subiot")]
-            &hex!("02 28 EE 48 0001020304050607 A1A2A3A4A5"),
+            &hex!("02 28 26 48 0001020304050607 A1A2A3A4A5"),
+            #[cfg(feature = "_wizzilab")]
+            &hex!("02 28 2D EE 48 0001020304050607 A1A2A3A4A5"),
         )
     }
 
@@ -244,10 +258,12 @@ mod test {
                 dormant_session_timeout: 0x20.into(),
 
                 #[cfg(not(feature = "_subiot"))]
-                te: 0x34.into(),
+                execution_delay_timeout: 0x34.into(),
 
                 addressee: Addressee::new(
+                    #[cfg(feature = "_wizzilab")]
                     false,
+                    #[cfg(feature = "_wizzilab")]
                     GroupCondition::Any,
                     Address::Vid(0xABCD),
                     NlsState::AesCcm32([0xA1, 0xA2, 0xA3, 0xA4, 0xA5]),

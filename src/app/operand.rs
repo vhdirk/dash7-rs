@@ -593,13 +593,14 @@ mod test {
     use hex_literal::hex;
 
     use super::*;
+    #[cfg(feature = "_wizzilab")]
+    use crate::transport::GroupCondition;
     use crate::{
         link::AccessClass,
         network::{Address, Addressee, NlsState},
         physical::{Channel, ChannelBand, ChannelClass, ChannelCoding, ChannelHeader},
         session::Dash7InterfaceStatus,
         test_tools::test_item,
-        transport::GroupCondition,
     };
 
     #[test]
@@ -655,7 +656,9 @@ mod test {
             sequence_number: 0,
             response_timeout: 384.into(),
             addressee: Addressee::new(
+                #[cfg(feature = "_wizzilab")]
                 false,
+                #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
                 Address::Uid(4123107267735781422u64),
                 NlsState::None,
