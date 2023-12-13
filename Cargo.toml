@@ -1,51 +1,16 @@
-[package]
-name = "dash7"
+[workspace]
+resolver = "2"
+members = [
+    "dash7",
+    "dash7-tools"
+]
+
+[workspace.package]
 version = "0.6.1"
 edition = "2021"
 authors = ["Dirk Van Haerenborgh <vhdirk@gmail.com>"]
-description = "Implementation of a DASH7 ALP protocol codec."
 readme = "README.md"
 repository = "https://github.com/vhdirk/dash7-rs"
 license = "MIT"
 keywords = ["dash7", "alp", "parser", "protocol"]
 categories = ["encoding", "parser-implementations"]
-
-[lib]
-name = "dash7"
-path = "src/lib.rs"
-
-[[bin]]
-name = "dash7"
-path = "src/main.rs"
-
-[dependencies]
-deku = { version = "0.16.0", default-features = false }
-bitvec = "1.0.1"
-mutually_exclusive_features = "0.1.0"
-clap = { version = "4.5.4", features = ["derive", "string", "cargo"] }
-hex = "0.4.3"
-
-[dev-dependencies]
-hex-literal = "0.4.1"
-
-[features]
-default = ["std", "spec"]
-std = ["deku/std"]
-alloc = ["deku/alloc"]
-
-# main variants, used in code
-_wizzilab = []
-_subiot = []
-_spec = []
-
-# specific supported version
-spec_v1_2 = ["_spec"]
-subiot_v0_0 = ["_subiot"]
-subiot_v0_1 = ["_subiot"]
-wizzilab_v5_3 = ["_wizzilab"]
-
-# shorthand pointing at latest version
-spec = ["spec_v1_2"]
-subiot = ["subiot_v0_1"]
-wizzilab = ["wizzilab_v5_3"]
-

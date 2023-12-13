@@ -131,6 +131,11 @@ impl Into<u8> for FileId {
     }
 }
 
+pub trait SystemFile {
+    const ID: u8;
+    const SIZE: u32;
+}
+
 /// File IDs 0x00-0x17 and 0x20-0x2F are reserved by the DASH7 spec.
 /// File IDs 0x18-0x1F Reserved for D7AALP.
 /// File IDs 0x20+I with I in [0, 14] are reserved for Access Profiles.
