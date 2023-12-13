@@ -9,19 +9,15 @@ use deku::{
     prelude::*,
 };
 
-use crate::{
-    file::InterfaceConfiguration,
-    session::{InterfaceStatus, InterfaceType},
-    utils::pad_rest,
-};
+use crate::{session::InterfaceStatus, utils::pad_rest};
 
 use super::{
     action::Action,
-    operand::{Status, StatusOperand},
-};
-use super::{
     interface,
-    operand::{ActionHeader, FileOffset, Forward, ReadFileData, RequestTag, ResponseTag},
+    operand::{
+        ActionHeader, FileOffset, Forward, ReadFileData, RequestTag, ResponseTag, Status,
+        StatusOperand,
+    },
 };
 
 #[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
