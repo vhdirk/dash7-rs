@@ -24,22 +24,28 @@ Dash7 payload encoding and decoding in Rust!
 Currently, this library only assists in encoding and decoding dash7 payloads. Nothing more.
 I have plans for supporting `no_std`, possibly even without `alloc`, but as of this writing, only `std` targets are supported.
 
+To use the library, run
+
+```sh
+cargo add dash7
+```
+
 ## CLI
 
-This crate also contains a CLI utility to help you decode dash7 payloads (as hex strings) quickly.
+This repostory also contains a CLI utility in the package `dash7-tools` to help you decode dash7 payloads (as hex strings) quickly.
 
 ### Installation
 
 Dash7-rs is published on crates.io, so you can just install it with:
 
 ```sh
-cargo install dash7
+cargo install dash7-tools
 ```
 
 For [sub-iot](https://github.com/Sub-IoT/Sub-IoT-Stack) payloads
 
 ```sh
-cargo install dash7 --no-default-features -F std,subiot
+cargo install dash7-tools --no-default-features -F std,subiot
 ```
 
 ### Usage

@@ -27,15 +27,17 @@ jobs:
       matrix:
         std:
           - std
-
         features:
           - spec
           - subiot
           - wizzilab
-
+    defaults:
+      run:
+        working-directory: ./dash7
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
           components: 'llvm-tools-preview'
       - uses: taiki-e/install-action@main
@@ -58,7 +60,7 @@ jobs:
             --ignore-not-existing \
             --ignore='target/*' \
             --ignore='/*' \
-            --binary-path ./target/debug/ \
+            --binary-path ../target/debug/ \
             --excl-line='#\[derive' \
             -t lcov \
             -o lcov.info
