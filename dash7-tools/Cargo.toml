@@ -18,12 +18,14 @@ deku = { version = "0.16.0" }
 dash7 = { path = "../dash7", default-features = false, features = ["std"]}
 clap = { version = "4.4.11", features = ["derive", "string", "cargo"] }
 hex = "0.4.3"
-serialport = "4.3.0"
 log = "0.4.20"
-env_logger = "0.10.1"
+env_logger = "0.11.3"
 clap-verbosity-flag = "2.1.0"
 crc16 = "0.4.0"
 anyhow = "1.0.75"
+tokio = { version = "*", features = ["full"] }
+serialport = {package = "tokio-serial", version = "5.4.4" }
+quit = "2.0.0"
 
 [features]
 # specific supported version

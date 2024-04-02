@@ -120,27 +120,6 @@ impl Command {
         false
     }
 
-    pub fn add_read_file_action_system_file(
-        &mut self,
-        file_id: u8,
-        file_length: u32,
-        interface_configuration: Option<interface::InterfaceConfiguration>,
-    ) {
-        // default to host interface, when D7ASP interface is used prepend with Forward action
-        let interface_configuration =
-            interface_configuration.unwrap_or(interface::InterfaceConfiguration::Host);
-
-        self.actions.push(Action::Forward(Forward::new(
-            false,
-            interface_configuration.into(),
-        )));
-
-        self.actions.push(Action::ReadFileData(ReadFileData {
-            header: ActionHeader::default(),
-            offset: FileOffset::no_offset(file_id),
-            length: file_length.into(),
-        }))
-    }
 }
 
 impl<'a> DekuContainerRead<'a> for Command {

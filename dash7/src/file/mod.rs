@@ -54,15 +54,15 @@ pub enum FileId {
     #[deku(id = "0x0B")]
     DllStatus,
     #[deku(id = "0x0C")]
-    NwlRouting,
+    NetworkRouting,
     #[deku(id = "0x0D")]
-    NwlSecurity,
+    NetworkSecurity,
     #[deku(id = "0x0E")]
-    NwlSecurityKey,
+    NetworkSecurityKey,
     #[deku(id = "0x0F")]
-    NwlSsr,
+    NetworkSsr,
     #[deku(id = "0x10")]
-    NwlStatus,
+    NetworkStatus,
     #[deku(id = "0x11")]
     TrlStatus,
     #[deku(id = "0x12")]
@@ -201,12 +201,13 @@ pub enum File {
     #[deku(id = "FileId::DllStatus")]
     DllStatus(DllStatus),
 
-    #[deku(id = "FileId::NwlSecurityKey")]
+    #[deku(id = "FileId::NetworkSecurityKey")]
     NwlSecurityKey(SecurityKey),
 
     #[deku(id_pat = "_")]
     Other(#[deku(count = "length")] Vec<u8>),
 }
+
 
 impl File {
     pub fn from_bytes<'a>(

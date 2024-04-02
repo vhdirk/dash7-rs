@@ -27,15 +27,16 @@ jobs:
       matrix:
         std:
           - std
+
         features:
           - spec
           - subiot
           - wizzilab
-    defaults:
-      run:
-        working-directory: ./dash7
+
     steps:
       - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: sudo apt-get install -y libudev-dev
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -60,7 +61,7 @@ jobs:
             --ignore-not-existing \
             --ignore='target/*' \
             --ignore='/*' \
-            --binary-path ../target/debug/ \
+            --binary-path ./target/debug/ \
             --excl-line='#\[derive' \
             -t lcov \
             -o lcov.info

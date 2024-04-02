@@ -94,7 +94,7 @@ fn parse_any(input: &[u8]) -> Result<(), DekuError> {
     Err(DekuError::Parse("Could not parse input".to_string()))
 }
 
-pub fn parse(args: ParseArgs) {
+pub fn main(args: ParseArgs) {
     let input_vec = hex::decode(remove_whitespace(&args.hex)).expect("Could not parse input hex");
     let input = input_vec.as_slice();
 

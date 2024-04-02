@@ -1,16 +1,17 @@
 use clap::{Parser, Subcommand};
+use clap_verbosity_flag::Verbosity;
 
 mod parse;
-use clap_verbosity_flag::Verbosity;
-use parse::{parse, ParseArgs};
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
 #[command(propagate_version = true)]
 struct Cli {
+    /// Command to run
     #[clap(subcommand)]
     command: Commands,
 
+    /// Control command verbosity
     #[command(flatten)]
     verbose: Verbosity,
 }
@@ -18,9 +19,10 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum Commands {
     /// Parse a hex string
-    Parse(ParseArgs),
+    Parse(parse::ParseArgs),
 }
 
+#[quit::main]
 pub fn main() {
     let cli = Cli::parse();
 
@@ -29,6 +31,6 @@ pub fn main() {
         .init();
 
     match cli.command {
-        Commands::Parse(args) => parse(args),
+        Commands::Parse(args) => parse::main(args),
     }
 }
