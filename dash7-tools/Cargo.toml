@@ -20,7 +20,7 @@ clap = { version = "4.4.11", features = ["derive", "string", "cargo"] }
 hex = "0.4.3"
 log = "0.4.21"
 env_logger = "0.11.3"
-clap-verbosity-flag = "2.1.0"
+clap-verbosity-flag = "2.2.0"
 crc16 = "0.4.0"
 anyhow = "1.0.81"
 tokio = { version = "1.37.0", features = ["full"] }
