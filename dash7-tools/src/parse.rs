@@ -1,23 +1,10 @@
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, ValueEnum};
 use dash7::{
     app::command::Command,
     file::{File, FileId},
     link::{BackgroundFrame, ForegroundFrame},
 };
 use deku::DekuError;
-
-#[derive(Debug, Parser)]
-#[command(author, version, about, long_about = None)]
-#[command(propagate_version = true)]
-struct Cli {
-    #[clap(subcommand)]
-    command: Commands,
-}
-
-#[derive(Debug, Subcommand)]
-enum Commands {
-    Parse(ParseArgs),
-}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum ParseType {
@@ -34,7 +21,7 @@ enum ParseType {
 }
 
 #[derive(Debug, Args)]
-struct ParseArgs {
+pub struct ParseArgs {
     #[arg(value_enum, short = 't', long = "type")]
     parse_type: Option<ParseType>,
 
@@ -107,7 +94,7 @@ fn parse_any(input: &[u8]) -> Result<(), DekuError> {
     Err(DekuError::Parse("Could not parse input".to_string()))
 }
 
-fn parse(args: ParseArgs) {
+pub fn main(args: ParseArgs) {
     let input_vec = hex::decode(remove_whitespace(&args.hex)).expect("Could not parse input hex");
     let input = input_vec.as_slice();
 
@@ -129,13 +116,5 @@ fn parse(args: ParseArgs) {
             }
         }
         None => parse_any(input).expect("Could not parse input"),
-    }
-}
-
-pub fn main() {
-    let cli = Cli::parse();
-
-    match cli.command {
-        Commands::Parse(args) => parse(args),
     }
 }

@@ -13,6 +13,11 @@ env:
 
 jobs:
   publish:
+    strategy:
+      matrix:
+        crate:
+          - dash7
+          - dash7-tools
     name: Publish crate on crates.io
     runs-on: ubuntu-latest
     steps:
@@ -22,6 +27,6 @@ jobs:
     - name: Install stable toolchain
       uses: dtolnay/rust-toolchain@stable
 
-    - run: cargo publish --token ${CRATES_TOKEN}
+    - run: cargo publish -p ${{ matrix.crate }} --token ${CRATES_TOKEN}
       env:
         CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}

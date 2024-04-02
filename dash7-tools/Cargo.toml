@@ -1,0 +1,41 @@
+[package]
+name = "dash7-tools"
+description = "Tools for working with dash7"
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+keywords.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "dash7"
+path = "src/main.rs"
+
+[dependencies]
+deku = { version = "0.16.0" }
+dash7 = { path = "../dash7", default-features = false, features = ["std"]}
+clap = { version = "4.4.11", features = ["derive", "string", "cargo"] }
+hex = "0.4.3"
+log = "0.4.20"
+env_logger = "0.11.3"
+clap-verbosity-flag = "2.1.0"
+crc16 = "0.4.0"
+anyhow = "1.0.75"
+tokio = { version = "*", features = ["full"] }
+serialport = {package = "tokio-serial", version = "5.4.4" }
+quit = "2.0.0"
+
+[features]
+# specific supported version
+spec_v1_2 = ["dash7/spec_v1_2"]
+subiot_v0_0 = ["dash7/subiot_v0_0"]
+subiot_v0_1 = ["dash7/subiot_v0_1"]
+wizzilab_v5_3 = ["dash7/wizzilab_v5_3"]
+
+# shorthand pointing at latest version
+spec = ["spec_v1_2"]
+subiot = ["subiot_v0_1"]
+wizzilab = ["wizzilab_v5_3"]
+

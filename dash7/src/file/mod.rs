@@ -54,15 +54,15 @@ pub enum FileId {
     #[deku(id = "0x0B")]
     DllStatus,
     #[deku(id = "0x0C")]
-    NwlRouting,
+    NetworkRouting,
     #[deku(id = "0x0D")]
-    NwlSecurity,
+    NetworkSecurity,
     #[deku(id = "0x0E")]
-    NwlSecurityKey,
+    NetworkSecurityKey,
     #[deku(id = "0x0F")]
-    NwlSsr,
+    NetworkSsr,
     #[deku(id = "0x10")]
-    NwlStatus,
+    NetworkStatus,
     #[deku(id = "0x11")]
     TrlStatus,
     #[deku(id = "0x12")]
@@ -131,6 +131,11 @@ impl Into<u8> for FileId {
     }
 }
 
+pub trait SystemFile {
+    const ID: u8;
+    const SIZE: u32;
+}
+
 /// File IDs 0x00-0x17 and 0x20-0x2F are reserved by the DASH7 spec.
 /// File IDs 0x18-0x1F Reserved for D7AALP.
 /// File IDs 0x20+I with I in [0, 14] are reserved for Access Profiles.
@@ -196,7 +201,7 @@ pub enum File {
     #[deku(id = "FileId::DllStatus")]
     DllStatus(DllStatus),
 
-    #[deku(id = "FileId::NwlSecurityKey")]
+    #[deku(id = "FileId::NetworkSecurityKey")]
     NwlSecurityKey(SecurityKey),
 
     #[deku(id_pat = "_")]
