@@ -23,12 +23,13 @@ env_logger = "0.11.3"
 clap-verbosity-flag = "2.1.0"
 crc16 = "0.4.0"
 anyhow = "1.0.75"
-tokio = { version = "*", features = ["full"] }
+tokio = { version = "1.37.0", features = ["full"] }
 serialport = {package = "tokio-serial", version = "5.4.4" }
 quit = "2.0.0"
 
 [features]
 # specific supported version
+default = ["spec"]
 spec_v1_2 = ["dash7/spec_v1_2"]
 subiot_v0_0 = ["dash7/subiot_v0_0"]
 subiot_v0_1 = ["dash7/subiot_v0_1"]
