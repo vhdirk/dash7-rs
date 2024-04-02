@@ -18,7 +18,7 @@ deku = { version = "0.16.0" }
 dash7 = { path = "../dash7", default-features = false, features = ["std"]}
 clap = { version = "4.4.11", features = ["derive", "string", "cargo"] }
 hex = "0.4.3"
-log = "0.4.20"
+log = "0.4.21"
 env_logger = "0.11.3"
 clap-verbosity-flag = "2.1.0"
 crc16 = "0.4.0"
