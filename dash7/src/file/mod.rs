@@ -208,7 +208,6 @@ pub enum File {
     Other(#[deku(count = "length")] Vec<u8>),
 }
 
-
 impl File {
     pub fn from_bytes<'a>(
         input: (&'a [u8], usize),

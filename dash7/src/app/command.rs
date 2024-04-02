@@ -119,7 +119,6 @@ impl Command {
         }
         false
     }
-
 }
 
 impl<'a> DekuContainerRead<'a> for Command {
