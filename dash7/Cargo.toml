@@ -17,13 +17,15 @@ path = "src/lib.rs"
 deku = { version = "0.16.0", default-features = false }
 bitvec = "1.0.1"
 mutually_exclusive_features = "0.1.0"
+binrw = { version = "0.13.3", default-features = false }
+modular-bitfield = "0.11.2"
 
 [dev-dependencies]
 hex-literal = "0.4.1"
 
 [features]
 default = ["std", "spec"]
-std = ["deku/std"]
+std = ["deku/std", "binrw/std"]
 alloc = ["deku/alloc"]
 
 # main variants, used in code
@@ -41,4 +43,3 @@ wizzilab_v5_3 = ["_wizzilab"]
 spec = ["spec_v1_2"]
 subiot = ["subiot_v0_1"]
 wizzilab = ["wizzilab_v5_3"]
-

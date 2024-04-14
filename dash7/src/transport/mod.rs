@@ -1,26 +1,26 @@
 use deku::prelude::*;
+use binrw::prelude::*;
+use modular_bitfield::prelude::*;
 
 use crate::{app::command::Command, types::VarInt};
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(bits = 2, type = "u8")]
+#[derive(BitfieldSpecifier, BinRead, BinWrite, Default, Debug, Clone, PartialEq)]
+#[bits = 2]
+#[bw(map = |&x| Self::into_bytes(x))]
+#[br(map = Self::from_bytes)]
+#[repr(u8)]
 pub enum GroupCondition {
     /// <, =, > (always true)
     #[default]
-    #[deku(id = "0")]
-    Any,
+    Any = 0,
     /// <, >
-    #[deku(id = "1")]
-    NotEqual,
+    NotEqual = 1,
     /// =
-    #[deku(id = "2")]
-    Equal,
-    /// >
-    #[deku(id = "3")]
-    GreaterThan,
+    Equal = 2,
+    /// >``
+    GreaterThan = 3,
 }
 
-// TODO: make these names more readable
 #[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
 pub struct Control {
     #[deku(bits = 1)]
