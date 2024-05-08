@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "dash7",
-    "dash7-tools"
+    "dash7-cli"
 ]
 
 [workspace.package]

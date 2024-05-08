@@ -17,7 +17,7 @@ jobs:
       matrix:
         crate:
           - dash7
-          - dash7-tools
+          - dash7-cli
     name: Publish crate on crates.io
     runs-on: ubuntu-latest
     steps:

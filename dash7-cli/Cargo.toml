@@ -1,6 +1,6 @@
 [package]
-name = "dash7-tools"
-description = "Tools for working with dash7"
+name = "dash7-cli"
+description = "Cli tools for working with dash7"
 version.workspace = true
 authors.workspace = true
 repository.workspace = true
