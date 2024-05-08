@@ -1,0 +1,2 @@
+[tools]
+"cargo:release-plz" = "latest"
