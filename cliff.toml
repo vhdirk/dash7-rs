@@ -1,0 +1,24 @@
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+split_commits = false
+# commit_preprocessors = [
+#     { pattern = '\((\w+\s)?#([0-9]+)\)', replace = "([#${2}](<REPO>/issues/${2}))"}, # replace issue numbers
+# ]
+
+commit_parsers = [
+    { message = "^feat", group = "✨ Features" },
+    { message = "^fix", group = "🤕 Fixes" },
+    { message = "^doc", group = "📖 Documentation" },
+    { message = "release", skip = true },
+    { message = ".*", group = "🛠️  Maintenance" },
+]
+protect_breaking_commits = false
+filter_commits = false
+# tag_pattern = "v[0-9].*"
+
+ignore_tags = ""
+topo_order = false
+sort_commits = "oldest"
+# limit_commits = 100
