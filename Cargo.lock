@@ -248,7 +248,7 @@ dependencies = [
 
 [[package]]
 name = "dash7"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "bitvec",
  "deku",
@@ -257,25 +257,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "dash7"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c85e03399cd7c09d3b0e2eb7891a57e67903200a262d83c0aa0c2fdca568666d"
-dependencies = [
- "bitvec",
- "deku",
- "mutually_exclusive_features",
-]
-
-[[package]]
 name = "dash7-cli"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "clap",
  "clap-verbosity-flag",
  "crc16",
- "dash7 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dash7",
  "deku",
  "env_logger",
  "hex",
