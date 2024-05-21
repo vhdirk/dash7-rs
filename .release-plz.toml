@@ -13,6 +13,7 @@ release_always = true
 publish_allow_dirty = true # add `--allow-dirty` to `cargo publish`
 publish_no_verify = true
 
+
 [[package]]
 name = "dash7"
 changelog_path = "dash7/CHANGELOG.md"
@@ -24,3 +25,7 @@ changelog_include = ["dash7"]
 
 [changelog]
 protect_breaking_commits = true
+header = "# Changelog"
+body = "Body"
+trim = true
+sort_commits = "newest"
