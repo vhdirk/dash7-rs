@@ -8,6 +8,7 @@ license.workspace = true
 categories.workspace = true
 keywords.workspace = true
 edition.workspace = true
+readme.workspace = true
 
 [[bin]]
 name = "dash7"
