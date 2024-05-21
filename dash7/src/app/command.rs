@@ -13,10 +13,7 @@ use crate::{session::InterfaceStatus, utils::pad_rest};
 
 use super::{
     action::Action,
-    operand::{
-        RequestTag, ResponseTag, Status,
-        StatusOperand,
-    },
+    operand::{RequestTag, ResponseTag, Status, StatusOperand},
 };
 
 #[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
