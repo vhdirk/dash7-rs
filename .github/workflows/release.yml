@@ -42,15 +42,22 @@ jobs:
 
           # The environment variable GITHUB_TOKEN is read by the `gh` cli
           VIEWER_JSON=$(gh api graphql -f query='query { viewer { name login databaseId }}' --jq '.data.viewer')
-          echo $VIEWER_JSON
+          echo "VIEWER_JSON" $VIEWER_JSON
           VIEWER_NAME=$(jq --raw-output '.name | values' <<< "${VIEWER_JSON}")
+          echo "VIEWER_NAME" $VIEWER_NAME
           VIEWER_LOGIN=$(jq --raw-output '.login' <<< "${VIEWER_JSON}")
+          echo "VIEWER_LOGIN" $VIEWER_LOGIN
+
           VIEWER_DATABASE_ID=$(jq --raw-output '.databaseId' <<< "${VIEWER_JSON}")
+          echo "VIEWER_DATABASE_ID" $VIEWER_DATABASE_ID
 
           # Set the variable USER_NAME to the value of VIEWER_NAME if VIEWER_NAME is set and not null.
           # Otherwise, set USER_NAME to the value of VIEWER_LOGIN.
           USER_NAME="${VIEWER_NAME:-${VIEWER_LOGIN}}"
           USER_EMAIL="${VIEWER_DATABASE_ID}+${VIEWER_LOGIN}@users.noreply.github.com"
+
+          echo "USER_NAME" $USER_NAME
+          echo "USER_EMAIL" $USER_EMAIL
 
           git config --global user.name ${USER_NAME}
           git config --global user.email ${USER_EMAIL}
