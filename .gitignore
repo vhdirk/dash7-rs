@@ -1,1 +1,28 @@
-/target
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+*.so
+.venv
+
+# Rust
+target/
+
+# Dart/Flutter
+.dart_tool
+
+# auto-generated files
+aloxide-dart/lib/src/**/*.dart
+frb_generated*
+
+# IDE
+.idea/
+*.iml
+.vscode/settings.json
+
+# Test reports
+cobertura.xml
+lcov.info

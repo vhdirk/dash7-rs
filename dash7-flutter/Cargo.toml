@@ -1,0 +1,16 @@
+[package]
+name = "dash7-flutter"
+edition.workspace = true
+version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+dash7 = { path = "../dash7" }
+anyhow = { version = "1.0.82", features = ["backtrace"] }
+flutter_rust_bridge = { version = "=2.0.0-dev.35", features = ["chrono", "uuid", "backtrace"] }
+
+[build-dependencies]
+flutter_rust_bridge_codegen = "=2.0.0-dev.35"
+anyhow = { version = "1.0.82", features = ["backtrace"] }
