@@ -249,7 +249,7 @@ dependencies = [
 
 [[package]]
 name = "dash7"
-version = "0.7.2"
+version = "0.7.3"
 dependencies = [
  "bitvec",
  "deku",
@@ -259,7 +259,7 @@ dependencies = [
 
 [[package]]
 name = "dash7-cli"
-version = "0.7.2"
+version = "0.7.3"
 dependencies = [
  "anyhow",
  "clap",

@@ -6,12 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.7.2](https://github.com/vhdirk/dash7-rs/compare/dash7-cli-v0.7.1...dash7-cli-v0.7.2) - 2024-05-22
-
-### Fixed
-- fix readme
+## [0.7.3](https://github.com/vhdirk/dash7-rs/compare/dash7-cli-v0.7.2...dash7-cli-v0.7.3) - 2024-05-22
 
 ### Other
-- try to fix release
-- release
-- changelogs
+- release test
