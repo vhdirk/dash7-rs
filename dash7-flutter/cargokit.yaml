@@ -1,0 +1,14 @@
+cargo:
+  # For smaller binaries rebuilt the standard library with panic=abort
+  release:
+    toolchain: stable
+    # extra_flags:
+    #   - -Z
+    #   - build-std=panic_abort,std
+
+precompiled_binaries:
+  # Uri prefix used when downloading prebuilt binaries.
+  url_prefix: https://github.com/superlistapp/super_native_extensions/releases/download/precompiled_
+
+  # Public key for verifying downloaded prebuilt binaries.
+  public_key: afd872dda2cde29ec7053f33f4418728ec4079424e398dff5a66bdd80ae60f3d

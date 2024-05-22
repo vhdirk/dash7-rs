@@ -2,7 +2,8 @@
 resolver = "2"
 members = [
     "dash7",
-    "dash7-cli"
+    "dash7-cli",
+    "dash7-flutter"
 ]
 
 [workspace.package]

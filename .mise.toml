@@ -1,2 +1,14 @@
+[plugins]
+flutter = "https://github.com/fejzuli/asdf-flutter.git"
+
 [tools]
 "cargo:release-plz" = "latest"
+"cargo:flutter_rust_bridge_codegen" = "2.0.0-dev.35"
+"cargo:cargo-expand" = "latest"
+# dart = "3.5.0-72.0.dev"
+flutter = "latest"
+# flutter = "3.22.0-stable"
+
+[env]
+FLUTTER_ROOT="{{exec(command='mise where flutter')}}"
+
