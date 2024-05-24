@@ -10,8 +10,8 @@ pub struct InterfaceFinalStatusOperand {
     pub interface_id: u8,
 
     #[deku(
-        reader = "InterfaceFinalStatusOperand::read(deku::rest, *interface_id)",
-        writer = "InterfaceFinalStatusOperand::write(deku::output, &self.status, self.interface_id)"
+        reader = "InterfaceFinalStatusOperand::from_reader_with_ctx(deku::reader, *interface_id)",
+        writer = "InterfaceFinalStatusOperand::write(deku::writer, &self.status, self.interface_id)"
     )]
     pub status: InterfaceFinalStatus,
 }
@@ -53,7 +53,7 @@ impl InterfaceFinalStatusOperand {
 }
 
 #[derive(DekuRead, DekuWrite, Clone, Copy, Debug, PartialEq)]
-#[deku(bits = 2, type = "u8")]
+#[deku(bits = 2, id_type = "u8")]
 pub enum TxStatusType {
     #[deku(id = "1")]
     Interface,
@@ -80,8 +80,8 @@ pub struct InterfaceTxStatusOperand {
     pub interface_id: u8,
 
     #[deku(
-        reader = "InterfaceTxStatusOperand::read(deku::rest, *interface_id)",
-        writer = "InterfaceTxStatusOperand::write(deku::output, &self.status, self.interface_id)"
+        reader = "InterfaceTxStatusOperand::from_reader_with_ctx(deku::reader, *interface_id)",
+        writer = "InterfaceTxStatusOperand::write(deku::writer, &self.status, self.interface_id)"
     )]
     pub status: InterfaceTxStatus,
 }

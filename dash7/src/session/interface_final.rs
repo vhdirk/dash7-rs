@@ -14,7 +14,7 @@ pub enum InterfaceFinalStatus {
 }
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(type = "u8")]
+#[deku(id_type= "u8")]
 pub enum InterfaceFinalStatusCode {
     /// No error
     No = 0,

@@ -1,6 +1,9 @@
+use std::borrow::Cow;
+
 use deku::{
     bitvec::{BitSlice, BitVec, Msb0},
     ctx::{BitSize, Endian},
+    no_std_io,
     prelude::*,
 };
 
@@ -15,22 +18,26 @@ pub enum VarIntError {
 impl Into<DekuError> for VarIntError {
     fn into(self) -> DekuError {
         match self {
-            VarIntError::ValueTooLarge(value) => DekuError::InvalidParam(format!(
+            VarIntError::ValueTooLarge(value) => DekuError::InvalidParam(Cow::Owned(format!(
                 "VarInt: Value too large: {:?}. Max: {:?}",
                 value,
                 VarInt::MAX
-            )),
-            VarIntError::ExponentTooLarge(exponent) => DekuError::InvalidParam(format!(
-                "VarInt: Exponent too large {:?}. Max: {:?}",
-                exponent,
-                2 ^ 3
-            )),
-            VarIntError::MantissaTooLarge(mantissa) => DekuError::InvalidParam(format!(
-                "VarInt: Mantissa too large {:?}. Max: {:?}",
-                mantissa,
-                2 ^ 5
-            )),
-            VarIntError::Unknown => DekuError::Unexpected("VarInt: Unknown error".to_string()),
+            ))),
+            VarIntError::ExponentTooLarge(exponent) => {
+                DekuError::InvalidParam(Cow::Owned(format!(
+                    "VarInt: Exponent too large {:?}. Max: {:?}",
+                    exponent,
+                    2 ^ 3
+                )))
+            }
+            VarIntError::MantissaTooLarge(mantissa) => {
+                DekuError::InvalidParam(Cow::Owned(format!(
+                    "VarInt: Mantissa too large {:?}. Max: {:?}",
+                    mantissa,
+                    2 ^ 5
+                )))
+            }
+            VarIntError::Unknown => DekuError::Parse(Cow::Borrowed("VarInt: Unknown error")),
         }
     }
 }
@@ -40,8 +47,8 @@ impl Into<DekuError> for VarIntError {
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, Copy, PartialEq)]
 pub struct VarInt {
     #[deku(
-        reader = "VarInt::read(deku::rest)",
-        writer = "VarInt::write(deku::output, &self.value, &self.ceil)"
+        reader = "VarInt::read(deku::reader)",
+        writer = "VarInt::write(deku::writer, &self.value, &self.ceil)"
     )]
     value: u32,
 
@@ -108,20 +115,26 @@ impl VarInt {
         n <= Self::MAX
     }
 
-    fn read(rest: &BitSlice<u8, Msb0>) -> Result<(&BitSlice<u8, Msb0>, u32), DekuError> {
-        let (rest, exponent) = <u8 as DekuRead<'_, _>>::read(rest, (Endian::Big, BitSize(3)))?;
-        let (rest, mantissa) = <u8 as DekuRead<'_, _>>::read(rest, (Endian::Big, BitSize(5)))?;
+    fn read<R>(reader: &mut Reader<R>) -> Result<u32, DekuError>
+    where
+        R: no_std_io::Read,
+    {
+        let exponent =
+            <u8 as DekuReader<'_, _>>::from_reader_with_ctx(reader, (Endian::Big, BitSize(3)))?;
+        let mantissa =
+            <u8 as DekuReader<'_, _>>::from_reader_with_ctx(reader, (Endian::Big, BitSize(5)))?;
 
-        Self::decompress(exponent, mantissa)
-            .map_err(Into::into)
-            .map(|value| (rest, value))
+        Self::decompress(exponent, mantissa).map_err(Into::into)
     }
 
-    fn write(output: &mut BitVec<u8, Msb0>, value: &u32, ceil: &bool) -> Result<(), DekuError> {
+    fn write<W>(writer: &mut Writer<W>, value: &u32, ceil: &bool) -> Result<(), DekuError>
+    where
+        W: no_std_io::Write,
+    {
         match Self::compress(*value, *ceil) {
             Ok((exponent, mantissa)) => {
-                DekuWrite::write(&exponent, output, (Endian::Big, BitSize(3)))?;
-                DekuWrite::write(&mantissa, output, (Endian::Big, BitSize(5)))?;
+                DekuWriter::to_writer(&exponent, writer, (Endian::Big, BitSize(3)))?;
+                DekuWriter::to_writer(&mantissa, writer, (Endian::Big, BitSize(5)))?;
                 Ok(())
             }
             Err(err) => Err(err.into()),
