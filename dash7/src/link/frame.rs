@@ -18,7 +18,7 @@ pub struct BackgroundFrame {
     subnet: u8,
     control: BackgroundFrameControl,
     payload: u16,
-    crc16: u16,
+    crc: u16,
 }
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
@@ -40,5 +40,5 @@ pub struct ForegroundFrame {
 
     #[deku(ctx = "Into::<u32>::into(*length)")]
     frame: network::Frame,
-    crc16: u16,
+    crc: u16,
 }
