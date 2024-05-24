@@ -3,7 +3,7 @@ use deku::prelude::*;
 use crate::physical::Channel;
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(type = "u8")]
+#[deku(id_type= "u8")]
 pub enum EngineeringModeMethod {
     #[deku(id = "0")]
     Off,

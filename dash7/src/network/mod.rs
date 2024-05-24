@@ -13,7 +13,7 @@ use crate::types::VarInt;
 #[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq)]
 #[cfg_attr(not(feature = "_wizzilab"), deku(bits = 4))]
 #[cfg_attr(feature = "_wizzilab", deku(bits = 3))]
-#[deku(type = "u8")]
+#[deku(id_type= "u8")]
 pub enum NlsMethod {
     /// No security
     #[default]
@@ -73,7 +73,7 @@ pub enum NlsState {
 }
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq)]
-#[deku(bits = 2, type = "u8")]
+#[deku(bits = 2, id_type = "u8")]
 pub enum AddressType {
     /// Broadcast to an estimated number of receivers, encoded in compressed format on a byte.
     #[deku(id = "0x00")]

@@ -2,7 +2,7 @@ use deku::prelude::*;
 
 /// File access type event that will trigger an ALP action.
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(bits = 3, endian = "big", type = "u8")]
+#[deku(bits = 3, endian = "big", id_type = "u8")]
 pub enum ActionCondition {
     #[default]
     #[deku(id = "0")]
@@ -16,7 +16,7 @@ pub enum ActionCondition {
 }
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(bits = 2, type = "u8")]
+#[deku(bits = 2, id_type = "u8")]
 pub enum StorageClass {
     /// The content is not kept in memory. It cannot be read back.
     #[default]

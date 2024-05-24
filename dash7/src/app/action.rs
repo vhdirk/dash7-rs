@@ -1,13 +1,14 @@
 #[cfg(feature = "std")]
 use std::fmt;
+use std::{borrow::Cow};
 
 #[cfg(not(feature = "std"))]
 use alloc::fmt;
 
-use bitvec::field::BitField;
 use deku::{
-    bitvec::{BitSlice, BitVec, BitView, Msb0},
+    bitvec::{BitVec, BitView, Msb0},
     ctx::{BitSize, Endian},
+    no_std_io,
     prelude::*,
 };
 
@@ -27,7 +28,7 @@ use super::interface_final::*;
 // ===============================================================================
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(bits = 6, type = "u8")]
+#[deku(bits = 6, id_type = "u8")]
 pub enum OpCode {
     // Nop
     #[default]
@@ -161,55 +162,58 @@ pub enum Action {
 }
 
 macro_rules! read_action {
-    ($action: ident, $operand: ty, $input: ident) => {{
-        <$operand as DekuRead<'_, _>>::read($input, ())
-            .map(|(rest, action)| (rest, Self::$action(action)))?
+    ($action: ident, $operand: ty, $reader: ident) => {{
+        <$operand as DekuReader<'_, _>>::from_reader_with_ctx($reader, ())
+            .map(|action| Self::$action(action))?
     }};
 }
 
-impl DekuRead<'_, ()> for Action {
-    fn read(
-        input: &'_ BitSlice<u8, Msb0>,
-        _: (),
-    ) -> Result<(&'_ BitSlice<u8, Msb0>, Self), DekuError> {
-        let (rest, _) = <u8 as DekuRead<'_, _>>::read(input, (Endian::Big, BitSize(2)))?;
-        let (_, code) = <OpCode as DekuRead<'_, _>>::read(rest, ())?;
+impl<'a> DekuReader<'a, ()> for Action {
+    fn from_reader_with_ctx<R>(reader: &mut Reader<R>, ctx: ()) -> Result<Self, DekuError>
+    where
+        R: no_std_io::Read,
+    {
+        let _ = <u8 as DekuReader<'_, _>>::from_reader_with_ctx(reader, (Endian::Big, BitSize(2)))?;
+        let code = <OpCode as DekuReader<'_, _>>::from_reader_with_ctx(reader, ())?;
 
-        let (rest, value) = match code {
-            OpCode::Nop => read_action!(Nop, Nop, input),
-            OpCode::ReadFileData => read_action!(ReadFileData, ReadFileData, input),
-            OpCode::ReadFileProperties => read_action!(ReadFileProperties, FileId, input),
-            OpCode::WriteFileData => read_action!(WriteFileData, FileData, input),
-            OpCode::WriteFileDataFlush => read_action!(WriteFileDataFlush, FileData, input),
-            OpCode::WriteFileProperties => read_action!(WriteFileProperties, FileProperties, input),
-            OpCode::ActionQuery => read_action!(ActionQuery, ActionQuery, input),
-            OpCode::BreakQuery => read_action!(BreakQuery, ActionQuery, input),
-            OpCode::PermissionRequest => read_action!(PermissionRequest, PermissionRequest, input),
-            OpCode::VerifyChecksum => read_action!(VerifyChecksum, ActionQuery, input),
-            OpCode::ExistFile => read_action!(ExistFile, FileId, input),
-            OpCode::CreateNewFile => read_action!(CreateNewFile, FileProperties, input),
-            OpCode::DeleteFile => read_action!(DeleteFile, FileId, input),
-            OpCode::RestoreFile => read_action!(RestoreFile, FileId, input),
-            OpCode::FlushFile => read_action!(FlushFile, FileId, input),
-            OpCode::CopyFile => read_action!(CopyFile, CopyFile, input),
-            OpCode::ExecuteFile => read_action!(ExecuteFile, FileId, input),
-            OpCode::ReturnFileData => read_action!(ReturnFileData, FileData, input),
-            OpCode::ReturnFileProperties => {
-                read_action!(ReturnFileProperties, FileProperties, input)
+        // now we have to revert for those 2 bits?
+        let value = match code {
+            OpCode::Nop => read_action!(Nop, Nop, reader),
+            OpCode::ReadFileData => read_action!(ReadFileData, ReadFileData, reader),
+            OpCode::ReadFileProperties => read_action!(ReadFileProperties, FileId, reader),
+            OpCode::WriteFileData => read_action!(WriteFileData, FileData, reader),
+            OpCode::WriteFileDataFlush => read_action!(WriteFileDataFlush, FileData, reader),
+            OpCode::WriteFileProperties => {
+                read_action!(WriteFileProperties, FileProperties, reader)
             }
-            OpCode::ResponseTag => read_action!(ResponseTag, ResponseTag, input),
+            OpCode::ActionQuery => read_action!(ActionQuery, ActionQuery, reader),
+            OpCode::BreakQuery => read_action!(BreakQuery, ActionQuery, reader),
+            OpCode::PermissionRequest => read_action!(PermissionRequest, PermissionRequest, reader),
+            OpCode::VerifyChecksum => read_action!(VerifyChecksum, ActionQuery, reader),
+            OpCode::ExistFile => read_action!(ExistFile, FileId, reader),
+            OpCode::CreateNewFile => read_action!(CreateNewFile, FileProperties, reader),
+            OpCode::DeleteFile => read_action!(DeleteFile, FileId, reader),
+            OpCode::RestoreFile => read_action!(RestoreFile, FileId, reader),
+            OpCode::FlushFile => read_action!(FlushFile, FileId, reader),
+            OpCode::CopyFile => read_action!(CopyFile, CopyFile, reader),
+            OpCode::ExecuteFile => read_action!(ExecuteFile, FileId, reader),
+            OpCode::ReturnFileData => read_action!(ReturnFileData, FileData, reader),
+            OpCode::ReturnFileProperties => {
+                read_action!(ReturnFileProperties, FileProperties, reader)
+            }
+            OpCode::ResponseTag => read_action!(ResponseTag, ResponseTag, reader),
 
             #[cfg(feature = "_wizzilab")]
-            OpCode::TxStatus => read_action!(TxStatus, TxStatusOperand, input),
-            OpCode::Chunk => read_action!(Chunk, Chunk, input),
-            OpCode::Logic => read_action!(Logic, Logic, input),
-            OpCode::RequestTag => read_action!(RequestTag, RequestTag, input),
-            OpCode::Status => read_action!(Status, StatusOperand, input),
-            OpCode::Forward => read_action!(Forward, Forward, input),
-            OpCode::IndirectForward => read_action!(IndirectForward, IndirectForward, input),
-            OpCode::Extension => read_action!(Extension, Extension, input),
+            OpCode::TxStatus => read_action!(TxStatus, TxStatusOperand, reader),
+            OpCode::Chunk => read_action!(Chunk, Chunk, reader),
+            OpCode::Logic => read_action!(Logic, Logic, reader),
+            OpCode::RequestTag => read_action!(RequestTag, RequestTag, reader),
+            OpCode::Status => read_action!(Status, StatusOperand, reader),
+            OpCode::Forward => read_action!(Forward, Forward, reader),
+            OpCode::IndirectForward => read_action!(IndirectForward, IndirectForward, reader),
+            OpCode::Extension => read_action!(Extension, Extension, reader),
         };
-        Ok((rest, value))
+        Ok(value)
     }
 }
 
@@ -220,7 +224,7 @@ impl TryFrom<&'_ [u8]> for Action {
         if !rest.0.is_empty() {
             return Err(DekuError::Parse({
                 let res = fmt::format(format_args!("Too much data"));
-                res
+                Cow::Owned(res)
             }));
         }
         Ok(res)
@@ -230,9 +234,9 @@ impl TryFrom<&'_ [u8]> for Action {
 impl DekuContainerRead<'_> for Action {
     fn from_bytes(input: (&'_ [u8], usize)) -> Result<((&'_ [u8], usize), Self), DekuError> {
         let input_bits = input.0.view_bits::<Msb0>();
-        let (rest, value) = <Self as DekuRead>::read(&input_bits[input.1..], ())?;
+        let value = <Self as DekuReader>::from_reader_with_ctx(&input_bits[input.1..], ())?;
 
-        Ok((pad_rest(input_bits, rest), value))
+        Ok((pad_rest(input_bits, input), value))
     }
 }
 
@@ -280,48 +284,51 @@ impl DekuUpdate for Action {
 
 macro_rules! write_action {
     ($action: ident, $output: ident) => {{
-        DekuWrite::write($action, $output, ())?;
+        DekuWriter::to_writer($action, $output, ())?;
     }};
 }
 
-impl DekuWrite<()> for Action {
-    fn write(&self, output: &mut BitVec<u8, Msb0>, _: ()) -> Result<(), DekuError> {
-        let offset = output.len();
+impl DekuWriter<()> for Action {
+    fn to_writer<W>(&self, writer: &mut Writer<W>, _: ()) -> Result<(), DekuError>
+    where
+        W: no_std_io::Write,
+    {
+        let offset = writer.bits_written;
         match self {
-            Action::Nop(action) => write_action!(action, output),
-            Action::ReadFileData(action) => write_action!(action, output),
-            Action::ReadFileProperties(action) => write_action!(action, output),
-            Action::WriteFileData(action) => write_action!(action, output),
-            Action::WriteFileDataFlush(action) => write_action!(action, output),
-            Action::WriteFileProperties(action) => write_action!(action, output),
-            Action::ActionQuery(action) => write_action!(action, output),
-            Action::BreakQuery(action) => write_action!(action, output),
-            Action::PermissionRequest(action) => write_action!(action, output),
-            Action::VerifyChecksum(action) => write_action!(action, output),
-            Action::ExistFile(action) => write_action!(action, output),
-            Action::CreateNewFile(action) => write_action!(action, output),
-            Action::DeleteFile(action) => write_action!(action, output),
-            Action::RestoreFile(action) => write_action!(action, output),
-            Action::FlushFile(action) => write_action!(action, output),
-            Action::CopyFile(action) => write_action!(action, output),
-            Action::ExecuteFile(action) => write_action!(action, output),
-            Action::ReturnFileData(action) => write_action!(action, output),
-            Action::ReturnFileProperties(action) => write_action!(action, output),
-            Action::ResponseTag(action) => write_action!(action, output),
+            Action::Nop(action) => write_action!(action, writer),
+            Action::ReadFileData(action) => write_action!(action, writer),
+            Action::ReadFileProperties(action) => write_action!(action, writer),
+            Action::WriteFileData(action) => write_action!(action, writer),
+            Action::WriteFileDataFlush(action) => write_action!(action, writer),
+            Action::WriteFileProperties(action) => write_action!(action, writer),
+            Action::ActionQuery(action) => write_action!(action, writer),
+            Action::BreakQuery(action) => write_action!(action, writer),
+            Action::PermissionRequest(action) => write_action!(action, writer),
+            Action::VerifyChecksum(action) => write_action!(action, writer),
+            Action::ExistFile(action) => write_action!(action, writer),
+            Action::CreateNewFile(action) => write_action!(action, writer),
+            Action::DeleteFile(action) => write_action!(action, writer),
+            Action::RestoreFile(action) => write_action!(action, writer),
+            Action::FlushFile(action) => write_action!(action, writer),
+            Action::CopyFile(action) => write_action!(action, writer),
+            Action::ExecuteFile(action) => write_action!(action, writer),
+            Action::ReturnFileData(action) => write_action!(action, writer),
+            Action::ReturnFileProperties(action) => write_action!(action, writer),
+            Action::ResponseTag(action) => write_action!(action, writer),
             #[cfg(feature = "_wizzilab")]
-            Action::TxStatus(action) => write_action!(action, output),
-            Action::Chunk(action) => write_action!(action, output),
-            Action::Logic(action) => write_action!(action, output),
-            Action::Status(action) => write_action!(action, output),
-            Action::Forward(action) => write_action!(action, output),
-            Action::IndirectForward(action) => write_action!(action, output),
-            Action::RequestTag(action) => write_action!(action, output),
-            Action::Extension(action) => write_action!(action, output),
+            Action::TxStatus(action) => write_action!(action, writer),
+            Action::Chunk(action) => write_action!(action, writer),
+            Action::Logic(action) => write_action!(action, writer),
+            Action::Status(action) => write_action!(action, writer),
+            Action::Forward(action) => write_action!(action, writer),
+            Action::IndirectForward(action) => write_action!(action, writer),
+            Action::RequestTag(action) => write_action!(action, writer),
+            Action::Extension(action) => write_action!(action, writer),
         }
 
         // now write the opcode with offset 2
         let code = self.deku_id()?.deku_id()? as u8;
-        output[offset + 2..offset + 8].store_be(code);
+        writer[offset + 2..offset + 8].store_be(code);
         Ok(())
     }
 }

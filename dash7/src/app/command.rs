@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 #[cfg(feature = "std")]
 use std::fmt::{self, Display};
 
@@ -6,6 +7,7 @@ use alloc::fmt;
 
 use deku::{
     bitvec::{BitSlice, BitVec, BitView, Msb0},
+    no_std_io,
     prelude::*,
 };
 
@@ -30,8 +32,11 @@ pub struct Command {
 }
 
 /// Stub implementation so we can implement DekuContainerRead
-impl<'a> DekuRead<'a, ()> for Command {
-    fn read(_: &'a BitSlice<u8, Msb0>, _: ()) -> Result<(&'a BitSlice<u8, Msb0>, Self), DekuError>
+impl<'a> DekuReader<'a, ()> for Command {
+    fn from_reader_with_ctx<R: no_std_io::Read>(
+        _reader: &mut Reader<R>,
+        _ctx: (),
+    ) -> Result<Self, DekuError>
     where
         Self: Sized,
     {
@@ -40,8 +45,11 @@ impl<'a> DekuRead<'a, ()> for Command {
 }
 
 /// Stub implementation so we can implement DekuContainerWrite
-impl DekuWrite<()> for Command {
-    fn write(&self, _: &mut BitVec<u8, Msb0>, _: ()) -> Result<(), DekuError> {
+impl DekuWriter<()> for Command {
+    fn to_writer<W>(&self, _writer: &mut Writer<W>, _: ()) -> Result<(), DekuError>
+    where
+        W: no_std_io::Write,
+    {
         unreachable!("This should not have been called")
     }
 }
@@ -117,29 +125,16 @@ impl Command {
     }
 }
 
-impl<'a> DekuContainerRead<'a> for Command {
-    fn from_bytes(input: (&'a [u8], usize)) -> Result<((&'a [u8], usize), Self), DekuError> {
-        let input_bits = input.0.view_bits::<Msb0>();
-        let size = (input_bits.len() - input.1) as u32 / u8::BITS;
-        let (rest, value) = Self::read(&input_bits[input.1..], size)?;
+// impl<'a> DekuContainerRead<'a> for Command {
+//     fn from_bytes(input: (&'a [u8], usize)) -> Result<((&'a [u8], usize), Self), DekuError> {
+//         let input_bits = input.0.view_bits::<Msb0>();
+//         let size = (input_bits.len() - input.1) as u32 / u8::BITS;
+//         let (rest, value) = Self::from_reader_with_ctx(&input_bits[input.1..], size)?;
 
-        Ok((pad_rest(input_bits, rest), value))
-    }
-}
+//         Ok((pad_rest(input_bits, rest), value))
+//     }
+// }
 
-/// Stub implementation so we can implement DekuContainerWrite
-impl DekuContainerWrite for Command {
-    fn to_bytes(&self) -> Result<Vec<u8>, DekuError> {
-        let output = self.to_bits()?;
-        Ok(output.into_vec())
-    }
-
-    fn to_bits(&self) -> Result<BitVec<u8, Msb0>, DekuError> {
-        let mut output: BitVec<u8, Msb0> = BitVec::new();
-        self.write(&mut output, u32::MAX)?;
-        Ok(output)
-    }
-}
 
 impl TryFrom<&'_ [u8]> for Command {
     type Error = DekuError;
@@ -148,7 +143,7 @@ impl TryFrom<&'_ [u8]> for Command {
         if !rest.0.is_empty() {
             return Err(DekuError::Parse({
                 let res = fmt::format(format_args!("Too much data"));
-                res
+                Cow::Owned(res)
             }));
         }
         Ok(res)

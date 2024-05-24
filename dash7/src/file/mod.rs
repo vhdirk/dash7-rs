@@ -29,7 +29,7 @@ use crate::{
 };
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(type = "u8", bits = "8")]
+#[deku(id_type= "u8", bits = "8")]
 pub enum FileId {
     #[deku(id = "0x00")]
     Uid,
@@ -121,7 +121,7 @@ impl TryFrom<u8> for FileId {
     type Error = DekuError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        Ok(Self::read(value.view_bits(), ())?.1)
+        Ok(Self::from_bytes((&vec![value], 0))?.1)
     }
 }
 
@@ -209,16 +209,16 @@ pub enum File {
 }
 
 impl File {
-    pub fn from_bytes<'a>(
-        input: (&'a [u8], usize),
-        file_id: FileId,
-        length: u32,
-    ) -> Result<((&'a [u8], usize), Self), DekuError> {
-        let input_bits = input.0.view_bits::<Msb0>();
-        let (rest, value) = Self::read(&input_bits[input.1..], (file_id, length))?;
+    // pub fn from_bytes<'a>(
+    //     input: (&'a [u8], usize),
+    //     file_id: FileId,
+    //     length: u32,
+    // ) -> Result<((&'a [u8], usize), Self), DekuError> {
+    //     let input_bits = input.0.view_bits::<Msb0>();
+    //     let value = Self::from_reader_with_ctx(&input_bits[input.1..], (file_id, length))?;
 
-        Ok((pad_rest(input_bits, rest), value))
-    }
+    //     Ok((pad_rest(input_bits, rest), value))
+    // }
 
     // fn to_bytes(&self) -> Result<Vec<u8>, DekuError> {
     //     let output = self.to_bits()?;

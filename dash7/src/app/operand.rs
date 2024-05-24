@@ -1,6 +1,7 @@
 use deku::{
     bitvec::{BitSlice, BitVec, Msb0},
     ctx::{BitSize, Endian},
+    no_std_io,
     prelude::*,
 };
 
@@ -20,8 +21,8 @@ pub use super::interface_final::*;
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, Copy)]
 pub struct Length(
     #[deku(
-        reader = "Length::read(deku::rest)",
-        writer = "Length::write(deku::output, &self.0)"
+        reader = "Length::read(deku::reader)",
+        writer = "Length::write(deku::writer, &self.0)"
     )]
     u32,
 );
@@ -56,16 +57,23 @@ impl Length {
         value.checked_ilog2().unwrap_or(0) + 1
     }
 
-    fn read(rest: &BitSlice<u8, Msb0>) -> Result<(&BitSlice<u8, Msb0>, u32), DekuError> {
-        let (rest, size) = <u8 as DekuRead<'_, _>>::read(rest, (Endian::Big, BitSize(2)))?;
-        let (rest, value) = <u32 as DekuRead<'_, _>>::read(
-            rest,
+    fn read<R>(reader: &mut Reader<R>) -> Result<u32, DekuError>
+    where
+        R: no_std_io::Read,
+    {
+        let size =
+            <u8 as DekuReader<'_, _>>::from_reader_with_ctx(reader, (Endian::Big, BitSize(2)))?;
+        let value = <u32 as DekuReader<'_, _>>::from_reader_with_ctx(
+            reader,
             (Endian::Big, BitSize((6 + (size * u8::BITS as u8)) as usize)),
         )?;
-        Ok((rest, value))
+        Ok(value)
     }
 
-    fn write(output: &mut BitVec<u8, Msb0>, value: &u32) -> Result<(), DekuError> {
+    fn write<W>(output: &mut Writer<W>, value: &u32) -> Result<(), DekuError>
+    where
+        W: no_std_io::Write,
+    {
         let num_extra_bits = Length::required_bits(*value).checked_sub(6).unwrap_or(0);
 
         let mut num_extra_bytes = num_extra_bits.checked_div(u8::BITS).unwrap_or(0);
@@ -73,8 +81,8 @@ impl Length {
             num_extra_bytes += 1;
         }
 
-        DekuWrite::write(&num_extra_bytes, output, (Endian::Big, BitSize(2)))?;
-        DekuWrite::write(
+        DekuWriter::to_writer(&num_extra_bytes, output, (Endian::Big, BitSize(2)))?;
+        DekuWriter::to_writer(
             value,
             output,
             (
@@ -104,7 +112,7 @@ impl FileOffset {
 }
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(type = "u8")]
+#[deku(id_type = "u8")]
 pub enum StatusCode {
     /// Status code that can be received as a result of some ALP actions.
     /// Action received and partially completed at response. To be completed after response
@@ -163,14 +171,14 @@ pub struct ActionStatus {
 
 // ALP SPEC: where is this defined? Link? Not found in either specs !
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(type = "u8")]
+#[deku(id_type = "u8")]
 pub enum Permission {
     #[deku(id = "0x42")] // ALP_SPEC Undefined
     Dash7([u8; 8]),
 }
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(type = "u8")]
+#[deku(id_type = "u8")]
 pub enum PermissionLevel {
     #[deku(id = "0")]
     User,
@@ -221,8 +229,8 @@ pub struct FileData {
     pub offset: FileOffset,
 
     #[deku(
-        reader = "FileData::read(deku::rest, offset)",
-        writer = "FileData::write(deku::output, &self.data, &self.offset)"
+        reader = "FileData::read(deku::reader, offset)",
+        writer = "FileData::write(deku::writer, &self.data, &self.offset)"
     )]
     data: File,
 }
@@ -237,26 +245,25 @@ impl FileData {
         }
     }
 
-    fn read<'a>(
-        rest: &'a BitSlice<u8, Msb0>,
-        offset: &FileOffset,
-    ) -> Result<(&'a BitSlice<u8, Msb0>, File), DekuError> {
-        let (rest, length) = <Length as DekuRead<'_, _>>::read(rest, ())?;
+    fn read<'a, R>(reader: &mut Reader<R>, offset: &FileOffset) -> Result<File, DekuError>
+    where
+        R: no_std_io::Read,
+    {
+        let length = <Length as DekuReader<'_, _>>::from_reader_with_ctx(reader, ())?;
         let file_id = offset.file_id.try_into()?;
-        File::read(rest, (file_id, Into::<u32>::into(length)))
+        File::from_reader_with_ctx(reader, (file_id, Into::<u32>::into(length)))
     }
 
-    fn write(
-        output: &mut BitVec<u8, Msb0>,
-        data: &File,
-        offset: &FileOffset,
-    ) -> Result<(), DekuError> {
+    fn write<W>(writer: &mut Writer<W>, data: &File, offset: &FileOffset) -> Result<(), DekuError>
+    where
+        W: no_std_io::Write,
+    {
         let vec_size = match data {
             File::Other(val) => val.len() as u32,
             _ => 0,
         };
 
-        write_length_prefixed(output, data, offset.file_id, vec_size)
+        write_length_prefixed(writer, data, offset.file_id, vec_size)
     }
 }
 
@@ -308,7 +315,7 @@ pub struct CopyFile {
 }
 
 #[derive(DekuRead, DekuWrite, Clone, Copy, Debug, PartialEq)]
-#[deku(bits = 2, type = "u8")]
+#[deku(bits = 2, id_type = "u8")]
 
 pub enum StatusType {
     #[deku(id = "0")]
@@ -368,8 +375,8 @@ pub struct InterfaceStatusOperand {
     pub interface_id: u8,
 
     #[deku(
-        reader = "InterfaceStatusOperand::read(deku::rest, *interface_id)",
-        writer = "InterfaceStatusOperand::write(deku::output, &self.status, self.interface_id)"
+        reader = "InterfaceStatusOperand::read(deku::reader, *interface_id)",
+        writer = "InterfaceStatusOperand::write(deku::writer, &self.status, self.interface_id)"
     )]
     pub status: InterfaceStatus,
 }
@@ -391,24 +398,30 @@ impl Into<StatusOperand> for InterfaceStatusOperand {
 
 impl InterfaceStatusOperand {
     #[cfg(not(feature = "subiot_v0_0"))]
-    pub fn read<'a>(
-        rest: &'a BitSlice<u8, Msb0>,
+    pub fn read<'a, R>(
+        reader: &mut Reader<'a, R>,
         interface_id: u8,
-    ) -> Result<(&'a BitSlice<u8, Msb0>, InterfaceStatus), DekuError> {
+    ) -> Result<InterfaceStatus, DekuError>
+    where
+        R: no_std_io::Read,
+    {
         // Subiot v0.0 was missing the length field
         #[cfg(feature = "subiot_v0_0")]
-        return InterfaceStatus::read(rest, (interface_id.try_into()?, 0));
+        return InterfaceStatus::from_reader_with_ctx(reader, (interface_id.try_into()?, 0));
 
         #[cfg(not(feature = "subiot_v0_0"))]
-        return read_length_prefixed(rest, interface_id);
+        return read_length_prefixed(reader, interface_id);
     }
 
     #[cfg(not(feature = "subiot_v0_0"))]
-    pub fn write(
-        output: &mut BitVec<u8, Msb0>,
+    pub fn write<W>(
+        writer: &mut Writer<W>,
         status: &InterfaceStatus,
         interface_id: u8,
-    ) -> Result<(), DekuError> {
+    ) -> Result<(), DekuError>
+    where
+        W: no_std_io::Write,
+    {
         let vec_size = match status {
             InterfaceStatus::Other(val) => val.len() as u32,
             _ => 0,
@@ -416,10 +429,10 @@ impl InterfaceStatusOperand {
 
         // Subiot v0.0 was missing the length field
         #[cfg(feature = "subiot_v0_0")]
-        return DekuWrite::write(status, output, (interface_id.try_into()?, vec_size));
+        return DekuWriter::to_writer(status, writer, (interface_id.try_into()?, vec_size));
 
         #[cfg(not(feature = "subiot_v0_0"))]
-        return write_length_prefixed(output, status, interface_id, vec_size);
+        return write_length_prefixed(writer, status, interface_id, vec_size);
     }
 }
 
@@ -442,7 +455,7 @@ pub struct ResponseTag {
 
 // Special
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(bits = 2, type = "u8")]
+#[deku(bits = 2, id_type = "u8")]
 pub enum ChunkStep {
     #[deku(id = "0")]
     Continue,
@@ -469,7 +482,7 @@ pub struct Chunk {
 
 /// Provide logical link of a group of queries
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(bits = 2, type = "u8")]
+#[deku(bits = 2, id_type = "u8")]
 pub enum LogicOp {
     #[deku(id = "0")]
     Or,
@@ -523,8 +536,8 @@ pub struct IndirectForward {
     pub interface_file_id: u8,
 
     #[deku(
-        reader = "IndirectForward::read(deku::rest, *overloaded)",
-        writer = "IndirectForward::write(deku::output, &self.configuration)"
+        reader = "IndirectForward::read(deku::reader, *overloaded)",
+        writer = "IndirectForward::write(deku::writer, &self.configuration)"
     )]
     pub configuration: Option<InterfaceConfiguration>,
 }
@@ -543,10 +556,13 @@ impl IndirectForward {
         }
     }
 
-    fn read(
-        rest: &BitSlice<u8, Msb0>,
+    fn read<'a, R>(
+        _reader: &mut Reader<'a, R>,
         overloaded: bool,
-    ) -> Result<(&BitSlice<u8, Msb0>, Option<InterfaceConfiguration>), DekuError> {
+    ) -> Result<Option<InterfaceConfiguration>, DekuError>
+    where
+        R: no_std_io::Read,
+    {
         // ALP_SPEC: The first byte in the interface_file defines how to parse the
         // configuration overload, or even its byte size.
         // We can not continue parsing here!
@@ -557,15 +573,18 @@ impl IndirectForward {
             Some(InterfaceConfiguration::Unknown)
         };
 
-        Ok((rest, config))
+        Ok(config)
     }
 
-    fn write(
-        output: &mut BitVec<u8, Msb0>,
+    fn write<W>(
+        writer: &mut Writer<W>,
         configuration: &Option<InterfaceConfiguration>,
-    ) -> Result<(), DekuError> {
+    ) -> Result<(), DekuError>
+    where
+        W: no_std_io::Write,
+    {
         if let Some(config) = configuration.as_ref() {
-            DekuWrite::write(config, output, config.deku_id().unwrap())?;
+            config.to_writer(writer, config.deku_id().unwrap())?;
         }
         Ok(())
     }

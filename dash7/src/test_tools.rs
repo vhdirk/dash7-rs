@@ -7,7 +7,7 @@ pub struct WithPadding<T, const B: usize = 0, const A: usize = 0>(
     #[deku(pad_bits_before = "B", pad_bits_after = "A")] pub T,
 )
 where
-    T: Clone + Debug + PartialEq + for<'a> DekuRead<'a> + DekuWrite;
+    T: Clone + Debug + PartialEq + for<'a> DekuReader<'a> + DekuWriter;
 
 pub fn test_item<'a, T>(item: T, data: &'a [u8])
 where

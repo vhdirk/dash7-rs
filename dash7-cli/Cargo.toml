@@ -15,7 +15,7 @@ name = "dash7"
 path = "src/main.rs"
 
 [dependencies]
-deku = { version = "0.16.0" }
+deku = { version = "0.17.0" }
 dash7 = { path = "../dash7", default-features = false, features = ["std"]}
 clap = { version = "4.5.4", features = ["derive", "string", "cargo"] }
 hex = "0.4.3"

@@ -45,14 +45,14 @@ pub struct AccessProfile {
     pub channel_header: ChannelHeader,
 
     #[deku(
-        reader = "read_array::<SubProfile, 4>(deku::rest)",
-        writer = "write_array::<SubProfile, 4>(deku::output, &self.sub_profiles)"
+        reader = "read_array::<_, SubProfile, 4>(deku::reader)",
+        writer = "write_array::<_, SubProfile, 4>(deku::writer, &self.sub_profiles)"
     )]
     pub sub_profiles: [SubProfile; 4],
 
     #[deku(
-        reader = "read_array::<SubBand, 8>(deku::rest)",
-        writer = "write_array::<SubBand, 8>(deku::output, &self.sub_bands)"
+        reader = "read_array::<_, SubBand, 8>(deku::reader)",
+        writer = "write_array::<_, SubBand, 8>(deku::writer, &self.sub_bands)"
     )]
     pub sub_bands: [SubBand; 8],
 }
