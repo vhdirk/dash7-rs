@@ -2,7 +2,7 @@ use clap::{Args, ValueEnum};
 use dash7::{
     app::command::Command,
     file::{File, FileId},
-    link::{BackgroundFrame, ForegroundFrame},
+    link::{BackgroundFrame, ForegroundFrame}, transport::serial::SerialFrame,
 };
 use deku::DekuError;
 
@@ -54,8 +54,10 @@ fn parse_alp_command(input: &[u8]) -> Result<(), DekuError> {
     Ok(())
 }
 
-fn parse_serial(_input: &[u8]) -> Result<(), DekuError> {
-    Err(DekuError::Assertion("Not implemented".to_string()))
+fn parse_serial(input: &[u8]) -> Result<(), DekuError> {
+    let frame = SerialFrame::try_from(input)?;
+    println!("{:?}", frame);
+    Ok(())
 }
 
 fn parse_file(input: &[u8], file_id: FileId) -> Result<(), DekuError> {
