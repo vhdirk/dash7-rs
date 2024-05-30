@@ -140,7 +140,8 @@ pub struct QoS {
 }
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "interface_id: InterfaceType, length: u32", id = "interface_id")]
+// #[deku(ctx = "interface_id: InterfaceType, length: u32", id = "interface_id")]
+#[deku(id_type = "InterfaceType", ctx="length: u32", ctx_default="0")]
 pub enum InterfaceStatus {
     #[deku(id = "InterfaceType::Host")]
     Host,
@@ -153,10 +154,11 @@ pub enum InterfaceStatus {
 
     // #[deku(id = "InterfaceType::LoRaWanOTAA")]
     // LoRaWanOTAA(LoRaWANOTAAInterfaceStatus),
+
     #[deku(id = "InterfaceType::Dash7")]
     Dash7(Dash7InterfaceStatus),
 
-    #[deku(id_pat = "_")]
+    #[deku(id = "InterfaceType::Unknown")]
     Other(#[deku(count = "length")] Vec<u8>),
 }
 

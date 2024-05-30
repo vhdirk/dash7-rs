@@ -78,21 +78,21 @@ pub struct LoRaWANABPInterfaceConfiguration {
 }
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "interface_type: InterfaceType", id = "interface_type")]
+#[deku(id_type = "u8")]
 pub enum InterfaceConfiguration {
-    #[deku(id = "InterfaceType::Host")]
+    #[deku(id = "0x00")]
     Host,
 
-    #[deku(id = "InterfaceType::Serial")]
+    #[deku(id = "0x01")]
     Serial,
 
-    #[deku(id = "InterfaceType::LoRaWanABP")]
+    #[deku(id = "0x02")]
     LoRaWanABP(LoRaWANABPInterfaceConfiguration),
 
-    #[deku(id = "InterfaceType::LoRaWanOTAA")]
+    #[deku(id = "0x03")]
     LoRaWanOTAA(LoRaWANOTAAInterfaceConfiguration),
 
-    #[deku(id = "InterfaceType::Dash7")]
+    #[deku(id = "0xD7")]
     Dash7(Dash7InterfaceConfiguration),
 
     #[deku(id_pat = "_")]

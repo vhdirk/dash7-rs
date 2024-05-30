@@ -5,17 +5,16 @@ use std::fmt::{self, Display};
 #[cfg(not(feature = "std"))]
 use alloc::fmt;
 
-use deku::{
-    bitvec::{BitSlice, BitVec, BitView, Msb0},
-    no_std_io,
-    prelude::*,
-};
+use deku::{no_std_io, prelude::*};
 
-use crate::{session::InterfaceStatus, utils::pad_rest};
+use crate::{
+    session::InterfaceStatus,
+    utils::{from_bytes, from_reader},
+};
 
 use super::{
     action::Action,
-    operand::{RequestTag, ResponseTag, Status, StatusOperand},
+    operation::{RequestTag, ResponseTag, ResponseTagHeader, Status},
 };
 
 #[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
@@ -62,7 +61,7 @@ impl Command {
 
     pub fn interface_status(&self) -> Option<&InterfaceStatus> {
         for action in self.actions.iter() {
-            if let Action::Status(StatusOperand { status, .. }) = &action {
+            if let Action::Status(status) = &action {
                 if let Status::Interface(iface_status) = status {
                     return Some(&iface_status.status);
                 }
@@ -75,7 +74,7 @@ impl Command {
     pub fn actions_without_interface_status(&self) -> Vec<&Action> {
         let mut actions = vec![];
         for action in self.actions.iter() {
-            if let Action::Status(StatusOperand { status, .. }) = &action {
+            if let Action::Status(status) = &action {
                 if let Status::Interface(_) = status {
                     continue;
                 }
@@ -87,8 +86,8 @@ impl Command {
 
     pub fn request_tag(&self) -> Option<&RequestTag> {
         for action in self.actions.iter() {
-            if let Action::RequestTag(operand) = action {
-                return Some(operand);
+            if let Action::RequestTag(operation) = action {
+                return Some(operation);
             }
         }
         None
@@ -100,8 +99,8 @@ impl Command {
 
     pub fn response_tag(&self) -> Option<&ResponseTag> {
         for action in self.actions.iter() {
-            if let Action::ResponseTag(operand) = action {
-                return Some(operand);
+            if let Action::ResponseTag(operation) = action {
+                return Some(operation);
             }
         }
         None
@@ -117,7 +116,7 @@ impl Command {
 
     pub fn is_last_response(&self) -> bool {
         for action in self.actions.iter() {
-            if let Action::ResponseTag(ResponseTag { eop, .. }) = action {
+            if let Action::ResponseTag(ResponseTag { header: ResponseTagHeader{ eop, .. }, .. }) = action {
                 return *eop;
             }
         }
@@ -125,16 +124,20 @@ impl Command {
     }
 }
 
-// impl<'a> DekuContainerRead<'a> for Command {
-//     fn from_bytes(input: (&'a [u8], usize)) -> Result<((&'a [u8], usize), Self), DekuError> {
-//         let input_bits = input.0.view_bits::<Msb0>();
-//         let size = (input_bits.len() - input.1) as u32 / u8::BITS;
-//         let (rest, value) = Self::from_reader_with_ctx(&input_bits[input.1..], size)?;
+impl DekuContainerWrite for Command {}
 
-//         Ok((pad_rest(input_bits, rest), value))
-//     }
-// }
+impl DekuContainerRead<'_> for Command {
+    fn from_reader<'a, R>(input: (&'a mut R, usize)) -> Result<(usize, Self), DekuError>
+    where
+        R: no_std_io::Read,
+    {
+        from_reader(input, ())
+    }
 
+    fn from_bytes(input: (&'_ [u8], usize)) -> Result<((&'_ [u8], usize), Self), DekuError> {
+        from_bytes(input, ())
+    }
+}
 
 impl TryFrom<&'_ [u8]> for Command {
     type Error = DekuError;
@@ -165,9 +168,9 @@ impl Display for Command {
             .map_or("".to_string(), |t| format!("with tag {} ", t));
         f.write_str(&format!("Command {}", &tag_str))?;
 
-        let status = if let Some(operand) = self.response_tag() {
-            if operand.eop {
-                if operand.error {
+        let status = if let Some(operation) = self.response_tag() {
+            if operation.header.eop {
+                if operation.header.error {
                     "completed, with error"
                 } else {
                     "completed, without error"
@@ -213,7 +216,9 @@ mod test {
     use crate::{
         app::{
             interface::InterfaceConfiguration,
-            operand::{ActionHeader, FileData, FileOffset, Forward, Nop, ReadFileData, Status},
+            operation::{
+                ActionHeader, FileData, FileOffset, Forward, Nop, ReadFileData, RequestTagHeader, ResponseTagHeader, Status
+            },
         },
         file::File,
         link::AccessClass,
@@ -227,7 +232,10 @@ mod test {
     fn test_command() {
         let cmd = Command {
             actions: vec![
-                Action::RequestTag(RequestTag { id: 66, eop: true }),
+                Action::RequestTag(RequestTag {
+                    id: 66,
+                    header: RequestTagHeader { eop: true },
+                }),
                 Action::ReadFileData(ReadFileData {
                     header: ActionHeader {
                         response: true,
@@ -268,7 +276,7 @@ mod test {
         assert_eq!(
             Command {
                 actions: vec![
-                    Action::RequestTag(RequestTag { eop: true, id: 66 }),
+                    Action::RequestTag(RequestTag { header: RequestTagHeader { eop: true }, id: 66 }),
                     Action::Nop(Nop {
                         header: ActionHeader {
                             group: true,
@@ -289,7 +297,7 @@ mod test {
                             response: false
                         }
                     }),
-                    Action::RequestTag(RequestTag { eop: true, id: 44 }),
+                    Action::RequestTag(RequestTag { header: RequestTagHeader { eop: true }, id: 44 }),
                 ]
             }
             .request_id(),
@@ -323,8 +331,8 @@ mod test {
             Command {
                 actions: vec![
                     Action::ResponseTag(ResponseTag {
-                        eop: true,
-                        error: true,
+                        header: ResponseTagHeader { eop: true,
+                        error: true, },
                         id: 66
                     }),
                     Action::Nop(Nop {
@@ -348,8 +356,8 @@ mod test {
                         }
                     }),
                     Action::ResponseTag(ResponseTag {
-                        eop: true,
-                        error: true,
+                        header: ResponseTagHeader { eop: true,
+                        error: true, },
                         id: 44
                     }),
                 ]
@@ -384,8 +392,8 @@ mod test {
         assert!(Command {
             actions: vec![
                 Action::ResponseTag(ResponseTag {
-                    eop: true,
-                    error: true,
+                    header: ResponseTagHeader { eop: true,
+                        error: true, },
                     id: 66
                 }),
                 Action::Nop(Nop {
@@ -401,8 +409,9 @@ mod test {
         assert!(!Command {
             actions: vec![
                 Action::ResponseTag(ResponseTag {
-                    eop: false,
+                    header: ResponseTagHeader { eop: false,
                     error: false,
+                    },
                     id: 66
                 }),
                 Action::Nop(Nop {
@@ -418,13 +427,14 @@ mod test {
         assert!(!Command {
             actions: vec![
                 Action::ResponseTag(ResponseTag {
-                    eop: false,
+                    header: ResponseTagHeader { eop: false,
                     error: true,
+                    },
                     id: 44
                 }),
                 Action::ResponseTag(ResponseTag {
-                    eop: true,
-                    error: true,
+                    header: ResponseTagHeader { eop: true,
+                    error: true},
                     id: 44
                 }),
             ]
@@ -544,7 +554,7 @@ mod test {
 
         let item = Command {
             actions: vec![
-                Action::RequestTag(RequestTag { eop: true, id: 25 }),
+                Action::RequestTag(RequestTag { header: RequestTagHeader { eop: true }, id: 25 }),
                 Action::Status(
                     Status::Interface(
                         InterfaceStatus::Dash7(Dash7InterfaceStatus {

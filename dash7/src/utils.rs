@@ -13,7 +13,7 @@ use deku::{
     prelude::*,
 };
 
-use crate::app::operand::Length;
+use crate::app::operation::Length;
 
 struct TransientDropper<T> {
     base_ptr: *mut T,
@@ -31,16 +31,88 @@ impl<T> Drop for TransientDropper<T> {
     }
 }
 
-pub fn pad_rest<'a>(
-    input_bits: &'a BitSlice<u8, Msb0>,
-    rest: &'a BitSlice<u8, Msb0>,
-) -> (&'a [u8], usize) {
-    let pad = 8 * ((rest.len() + 7) / 8) - rest.len();
-    let read_idx = input_bits.len() - (rest.len() + pad);
-    (input_bits[read_idx..].domain().region().unwrap().1, pad)
+pub fn pad_rest<'a>(bits_read: usize, rest: (&'a [u8], usize)) -> (&'a [u8], usize) {
+    let read_whole_byte = (bits_read % 8) == 0;
+    let idx = if read_whole_byte {
+        bits_read / 8
+    } else {
+        (bits_read - (bits_read % 8)) / 8
+    };
+    (&rest.0[idx..], bits_read % 8)
 }
 
-pub fn read_length_prefixed<'a, I, E, T, L, R>(
+pub fn from_reader<'a, R, T, Ctx>(
+    input: (&'a mut R, usize),
+    ctx: Ctx,
+) -> Result<(usize, T), DekuError>
+where
+    T: DekuReader<'a, Ctx>,
+    R: no_std_io::Read,
+{
+    let reader = &mut Reader::new(input.0);
+    if input.1 != 0 {
+        reader.skip_bits(input.1)?;
+    }
+    let value = T::from_reader_with_ctx(reader, ctx)?;
+    Ok((reader.bits_read, value))
+}
+
+pub fn from_bytes<'a, T, Ctx>(
+    input: (&'a [u8], usize),
+    ctx: Ctx,
+) -> Result<((&'a [u8], usize), T), DekuError>
+where
+    T: DekuReader<'a, Ctx>,
+{
+    let mut cursor = no_std_io::Cursor::new(input.0);
+    let mut reader = &mut Reader::new(&mut cursor);
+    if input.1 != 0 {
+        reader.skip_bits(input.1)?;
+    }
+    let value = T::from_reader_with_ctx(&mut reader, ctx)?;
+
+    Ok((pad_rest(reader.bits_read, input), value))
+}
+
+pub fn read_length_prefixed<'a, T, L, R>(
+    reader: &mut Reader<R>,
+) -> Result<T, DekuError>
+where
+    T: DekuReader<'a, L>,
+    Length: Into<L>,
+    R: no_std_io::Read,
+{
+    let length = <Length as DekuReader<'_, _>>::from_reader_with_ctx(reader, ())?;
+    T::from_reader_with_ctx(reader, Into::<L>::into(length))
+}
+
+pub fn write_length_prefixed<W, T, L>(
+    writer: &mut Writer<W>,
+    item: &T,
+    fallback_length: L,
+) -> Result<(), DekuError>
+where
+    T: DekuWriter<L>,
+    W: no_std_io::Write,
+    L: Into<Length>,
+{
+    // first write the whole item into a byte buffer
+    let mut out_buf = Vec::new();
+    let mut tmp_writer = Writer::new(&mut out_buf);
+    item.to_writer(&mut tmp_writer, fallback_length)?;
+    tmp_writer.finalize();
+
+    // get the length of it
+    let data_length: Length = out_buf.len().into();
+
+    // and then write them
+    data_length.to_writer(writer, ())?;
+    out_buf.to_writer(writer, ())?;
+
+    Ok(())
+}
+
+pub fn read_length_prefixed_ext<'a, I, E, T, L, R>(
     reader: &mut Reader<R>,
     enum_id: I,
 ) -> Result<T, DekuError>
@@ -56,7 +128,7 @@ where
     T::from_reader_with_ctx(reader, (enum_id, Into::<L>::into(length)))
 }
 
-pub fn write_length_prefixed<W, I, E, T, L>(
+pub fn write_length_prefixed_ext<W, I, E, T, L>(
     writer: &mut Writer<W>,
     item: &T,
     enum_id: I,
@@ -102,10 +174,7 @@ where
 }
 
 /// from String to [u8] and write
-pub fn write_string<W, const N: usize>(
-    writer: &mut Writer<W>,
-    value: &str,
-) -> Result<(), DekuError>
+pub fn write_string<W, const N: usize>(writer: &mut Writer<W>, value: &str) -> Result<(), DekuError>
 where
     W: no_std_io::Write,
 {

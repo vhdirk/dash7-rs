@@ -13,7 +13,7 @@ use crate::types::VarInt;
 #[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq)]
 #[cfg_attr(not(feature = "_wizzilab"), deku(bits = 4))]
 #[cfg_attr(feature = "_wizzilab", deku(bits = 3))]
-#[deku(id_type= "u8")]
+#[deku(id_type = "u8")]
 pub enum NlsMethod {
     /// No security
     #[default]
