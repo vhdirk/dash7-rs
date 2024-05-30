@@ -1,7 +1,4 @@
-use deku::{
-    bitvec::{BitView, Msb0},
-    prelude::*,
-};
+use deku::prelude::*;
 
 mod access_profile;
 mod dll_config;
@@ -25,11 +22,11 @@ pub use security_key::SecurityKey;
 
 use crate::{
     network::{Address, AddressType},
-    utils::pad_rest,
+    utils::from_bytes,
 };
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(id_type= "u8", bits = "8")]
+#[deku(id_type = "u8", bits = "8")]
 pub enum FileId {
     #[deku(id = "0x00")]
     Uid,
@@ -209,16 +206,13 @@ pub enum File {
 }
 
 impl File {
-    // pub fn from_bytes<'a>(
-    //     input: (&'a [u8], usize),
-    //     file_id: FileId,
-    //     length: u32,
-    // ) -> Result<((&'a [u8], usize), Self), DekuError> {
-    //     let input_bits = input.0.view_bits::<Msb0>();
-    //     let value = Self::from_reader_with_ctx(&input_bits[input.1..], (file_id, length))?;
-
-    //     Ok((pad_rest(input_bits, rest), value))
-    // }
+    pub fn from_bytes<'a>(
+        input: (&'a [u8], usize),
+        file_id: FileId,
+        length: u32,
+    ) -> Result<((&'a [u8], usize), Self), DekuError> {
+        from_bytes(input, (file_id, length))
+    }
 
     // fn to_bytes(&self) -> Result<Vec<u8>, DekuError> {
     //     let output = self.to_bits()?;

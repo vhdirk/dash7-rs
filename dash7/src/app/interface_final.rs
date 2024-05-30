@@ -1,22 +1,22 @@
 use deku::bitvec::{BitSlice, BitVec, Msb0};
 use deku::prelude::*;
 
-use super::operand::{Status, StatusOperand};
+use super::operation::{Status, StatusOperation};
 use crate::session::{InterfaceFinalStatus, InterfaceTxStatus};
 use crate::utils::{read_length_prefixed, write_length_prefixed};
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct InterfaceFinalStatusOperand {
+pub struct InterfaceFinalStatusOperation {
     pub interface_id: u8,
 
     #[deku(
-        reader = "InterfaceFinalStatusOperand::from_reader_with_ctx(deku::reader, *interface_id)",
-        writer = "InterfaceFinalStatusOperand::write(deku::writer, &self.status, self.interface_id)"
+        reader = "InterfaceFinalStatusOperation::from_reader_with_ctx(deku::reader, *interface_id)",
+        writer = "InterfaceFinalStatusOperation::write(deku::writer, &self.status, self.interface_id)"
     )]
     pub status: InterfaceFinalStatus,
 }
 
-impl From<InterfaceFinalStatus> for InterfaceFinalStatusOperand {
+impl From<InterfaceFinalStatus> for InterfaceFinalStatusOperation {
     fn from(status: InterfaceFinalStatus) -> Self {
         Self {
             interface_id: status.deku_id().unwrap().deku_id().unwrap(),
@@ -25,13 +25,13 @@ impl From<InterfaceFinalStatus> for InterfaceFinalStatusOperand {
     }
 }
 
-impl Into<StatusOperand> for InterfaceFinalStatusOperand {
-    fn into(self) -> StatusOperand {
+impl Into<StatusOperation> for InterfaceFinalStatusOperation {
+    fn into(self) -> StatusOperation {
         Status::InterfaceFinal(self).into()
     }
 }
 
-impl InterfaceFinalStatusOperand {
+impl InterfaceFinalStatusOperation {
     pub fn read<'a>(
         rest: &'a BitSlice<u8, Msb0>,
         interface_id: u8,
@@ -60,7 +60,7 @@ pub enum TxStatusType {
 }
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct TxStatusOperand {
+pub struct TxStatusOperation {
     #[deku(update = "self.status.deku_id().unwrap()", pad_bits_after = "6")]
     status_type: TxStatusType,
 
@@ -72,21 +72,21 @@ pub struct TxStatusOperand {
 #[deku(ctx = "status_type: TxStatusType", id = "status_type")]
 pub enum TxStatus {
     #[deku(id = "TxStatusType::Interface")]
-    Interface(InterfaceTxStatusOperand),
+    Interface(InterfaceTxStatusOperation),
 }
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct InterfaceTxStatusOperand {
+pub struct InterfaceTxStatusOperation {
     pub interface_id: u8,
 
     #[deku(
-        reader = "InterfaceTxStatusOperand::from_reader_with_ctx(deku::reader, *interface_id)",
-        writer = "InterfaceTxStatusOperand::write(deku::writer, &self.status, self.interface_id)"
+        reader = "InterfaceTxStatusOperation::from_reader_with_ctx(deku::reader, *interface_id)",
+        writer = "InterfaceTxStatusOperation::write(deku::writer, &self.status, self.interface_id)"
     )]
     pub status: InterfaceTxStatus,
 }
 
-impl From<InterfaceTxStatus> for InterfaceTxStatusOperand {
+impl From<InterfaceTxStatus> for InterfaceTxStatusOperation {
     fn from(status: InterfaceTxStatus) -> Self {
         Self {
             interface_id: status.deku_id().unwrap().deku_id().unwrap(),
@@ -95,7 +95,7 @@ impl From<InterfaceTxStatus> for InterfaceTxStatusOperand {
     }
 }
 
-impl InterfaceTxStatusOperand {
+impl InterfaceTxStatusOperation {
     pub fn read<'a>(
         rest: &'a BitSlice<u8, Msb0>,
         interface_id: u8,

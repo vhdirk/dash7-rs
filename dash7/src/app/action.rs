@@ -1,23 +1,22 @@
+use std::borrow::Cow;
 #[cfg(feature = "std")]
 use std::fmt;
-use std::{borrow::Cow};
 
 #[cfg(not(feature = "std"))]
 use alloc::fmt;
 
 use deku::{
-    bitvec::{BitVec, BitView, Msb0},
     ctx::{BitSize, Endian},
     no_std_io,
     prelude::*,
 };
 
-use crate::utils::pad_rest;
+use crate::utils::{from_bytes, from_reader};
 
-use super::operand::{
+use super::operation::{
     ActionQuery, Chunk, CopyFile, Extension, FileData, FileId, FileProperties, Forward,
-    IndirectForward, Logic, Nop, PermissionRequest, ReadFileData, RequestTag, ResponseTag,
-    StatusOperand,
+    IndirectForward, Logic, Nop, Operation, PermissionRequest, ReadFileData, RequestTag, ResponseTag,
+    Status,
 };
 
 #[cfg(feature = "_wizzilab")]
@@ -146,11 +145,11 @@ pub enum Action {
     // Response
     ReturnFileData(FileData),
     ReturnFileProperties(FileProperties),
-    Status(StatusOperand),
+    Status(Status),
     ResponseTag(ResponseTag),
 
     #[cfg(feature = "_wizzilab")]
-    TxStatus(TxStatusOperand),
+    TxStatus(TxStatusOperation),
 
     // Special
     Chunk(Chunk),
@@ -162,56 +161,76 @@ pub enum Action {
 }
 
 macro_rules! read_action {
-    ($action: ident, $operand: ty, $reader: ident) => {{
-        <$operand as DekuReader<'_, _>>::from_reader_with_ctx($reader, ())
+    ($action: ident, $operation: ty, $reader: ident, $preamble_reader: ident) => {{
+        let header = <$operation as Operation>::Header::from_reader_with_ctx(&mut $preamble_reader, ())?;
+
+        <$operation as DekuReader<'_, _>>::from_reader_with_ctx($reader, header)
             .map(|action| Self::$action(action))?
     }};
 }
 
 impl<'a> DekuReader<'a, ()> for Action {
-    fn from_reader_with_ctx<R>(reader: &mut Reader<R>, ctx: ()) -> Result<Self, DekuError>
+    fn from_reader_with_ctx<R>(reader: &mut Reader<R>, _: ()) -> Result<Self, DekuError>
     where
         R: no_std_io::Read,
     {
-        let _ = <u8 as DekuReader<'_, _>>::from_reader_with_ctx(reader, (Endian::Big, BitSize(2)))?;
+        // Read the preamble and pass it on as context values
+        let preamble = (<u8 as DekuReader<'_, _>>::from_reader_with_ctx(
+            reader,
+            (Endian::Big, BitSize(2)),
+        )?,)
+            .0;
+
+        let mut cursor = no_std_io::Cursor::new([preamble]);
+        let mut preamble_reader = Reader::new(&mut cursor);
+        preamble_reader.skip_bits(6)?;
+
         let code = <OpCode as DekuReader<'_, _>>::from_reader_with_ctx(reader, ())?;
 
         // now we have to revert for those 2 bits?
         let value = match code {
-            OpCode::Nop => read_action!(Nop, Nop, reader),
-            OpCode::ReadFileData => read_action!(ReadFileData, ReadFileData, reader),
-            OpCode::ReadFileProperties => read_action!(ReadFileProperties, FileId, reader),
-            OpCode::WriteFileData => read_action!(WriteFileData, FileData, reader),
-            OpCode::WriteFileDataFlush => read_action!(WriteFileDataFlush, FileData, reader),
+            OpCode::Nop => read_action!(Nop, Nop, reader, preamble_reader),
+            OpCode::ReadFileData => read_action!(ReadFileData, ReadFileData, reader, preamble_reader),
+            OpCode::ReadFileProperties => {
+                read_action!(ReadFileProperties, FileId, reader, preamble_reader)
+            }
+            OpCode::WriteFileData => read_action!(WriteFileData, FileData, reader, preamble_reader),
+            OpCode::WriteFileDataFlush => {
+                read_action!(WriteFileDataFlush, FileData, reader, preamble_reader)
+            }
             OpCode::WriteFileProperties => {
-                read_action!(WriteFileProperties, FileProperties, reader)
+                read_action!(WriteFileProperties, FileProperties, reader, preamble_reader)
             }
-            OpCode::ActionQuery => read_action!(ActionQuery, ActionQuery, reader),
-            OpCode::BreakQuery => read_action!(BreakQuery, ActionQuery, reader),
-            OpCode::PermissionRequest => read_action!(PermissionRequest, PermissionRequest, reader),
-            OpCode::VerifyChecksum => read_action!(VerifyChecksum, ActionQuery, reader),
-            OpCode::ExistFile => read_action!(ExistFile, FileId, reader),
-            OpCode::CreateNewFile => read_action!(CreateNewFile, FileProperties, reader),
-            OpCode::DeleteFile => read_action!(DeleteFile, FileId, reader),
-            OpCode::RestoreFile => read_action!(RestoreFile, FileId, reader),
-            OpCode::FlushFile => read_action!(FlushFile, FileId, reader),
-            OpCode::CopyFile => read_action!(CopyFile, CopyFile, reader),
-            OpCode::ExecuteFile => read_action!(ExecuteFile, FileId, reader),
-            OpCode::ReturnFileData => read_action!(ReturnFileData, FileData, reader),
+            OpCode::ActionQuery => read_action!(ActionQuery, ActionQuery, reader, preamble_reader),
+            OpCode::BreakQuery => read_action!(BreakQuery, ActionQuery, reader, preamble_reader),
+            OpCode::PermissionRequest => {
+                read_action!(PermissionRequest, PermissionRequest, reader, preamble_reader)
+            }
+            OpCode::VerifyChecksum => read_action!(VerifyChecksum, ActionQuery, reader, preamble_reader),
+            OpCode::ExistFile => read_action!(ExistFile, FileId, reader, preamble_reader),
+            OpCode::CreateNewFile => read_action!(CreateNewFile, FileProperties, reader, preamble_reader),
+            OpCode::DeleteFile => read_action!(DeleteFile, FileId, reader, preamble_reader),
+            OpCode::RestoreFile => read_action!(RestoreFile, FileId, reader, preamble_reader),
+            OpCode::FlushFile => read_action!(FlushFile, FileId, reader, preamble_reader),
+            OpCode::CopyFile => read_action!(CopyFile, CopyFile, reader, preamble_reader),
+            OpCode::ExecuteFile => read_action!(ExecuteFile, FileId, reader, preamble_reader),
+            OpCode::ReturnFileData => read_action!(ReturnFileData, FileData, reader, preamble_reader),
             OpCode::ReturnFileProperties => {
-                read_action!(ReturnFileProperties, FileProperties, reader)
+                read_action!(ReturnFileProperties, FileProperties, reader, preamble_reader)
             }
-            OpCode::ResponseTag => read_action!(ResponseTag, ResponseTag, reader),
+            OpCode::ResponseTag => read_action!(ResponseTag, ResponseTag, reader, preamble_reader),
 
             #[cfg(feature = "_wizzilab")]
-            OpCode::TxStatus => read_action!(TxStatus, TxStatusOperand, reader),
-            OpCode::Chunk => read_action!(Chunk, Chunk, reader),
-            OpCode::Logic => read_action!(Logic, Logic, reader),
-            OpCode::RequestTag => read_action!(RequestTag, RequestTag, reader),
-            OpCode::Status => read_action!(Status, StatusOperand, reader),
-            OpCode::Forward => read_action!(Forward, Forward, reader),
-            OpCode::IndirectForward => read_action!(IndirectForward, IndirectForward, reader),
-            OpCode::Extension => read_action!(Extension, Extension, reader),
+            OpCode::TxStatus => read_action!(TxStatus, TxStatusOperation, reader, preamble_reader),
+            OpCode::Chunk => read_action!(Chunk, Chunk, reader, preamble_reader),
+            OpCode::Logic => read_action!(Logic, Logic, reader, preamble_reader),
+            OpCode::RequestTag => read_action!(RequestTag, RequestTag, reader, preamble_reader),
+            OpCode::Status => read_action!(Status, Status, reader, preamble_reader),
+            OpCode::Forward => read_action!(Forward, Forward, reader, preamble_reader),
+            OpCode::IndirectForward => {
+                read_action!(IndirectForward, IndirectForward, reader, preamble_reader)
+            }
+            OpCode::Extension => read_action!(Extension, Extension, reader, preamble_reader),
         };
         Ok(value)
     }
@@ -232,11 +251,15 @@ impl TryFrom<&'_ [u8]> for Action {
 }
 
 impl DekuContainerRead<'_> for Action {
-    fn from_bytes(input: (&'_ [u8], usize)) -> Result<((&'_ [u8], usize), Self), DekuError> {
-        let input_bits = input.0.view_bits::<Msb0>();
-        let value = <Self as DekuReader>::from_reader_with_ctx(&input_bits[input.1..], ())?;
+    fn from_reader<'a, R>(input: (&'a mut R, usize)) -> Result<(usize, Self), DekuError>
+    where
+        R: no_std_io::Read,
+    {
+        from_reader(input, ())
+    }
 
-        Ok((pad_rest(input_bits, input), value))
+    fn from_bytes(input: (&'_ [u8], usize)) -> Result<((&'_ [u8], usize), Self), DekuError> {
+        from_bytes(input, ())
     }
 }
 
@@ -283,8 +306,11 @@ impl DekuUpdate for Action {
 }
 
 macro_rules! write_action {
-    ($action: ident, $output: ident) => {{
-        DekuWriter::to_writer($action, $output, ())?;
+    ($self: ident, $action: ident, $output: ident) => {{
+        let header = $action.header()?;
+        header.to_writer($output, ())?;
+        $self.deku_id()?.to_writer($output, ())?;
+        $action.to_writer($output, ())?;
     }};
 }
 
@@ -293,42 +319,39 @@ impl DekuWriter<()> for Action {
     where
         W: no_std_io::Write,
     {
-        let offset = writer.bits_written;
+
         match self {
-            Action::Nop(action) => write_action!(action, writer),
-            Action::ReadFileData(action) => write_action!(action, writer),
-            Action::ReadFileProperties(action) => write_action!(action, writer),
-            Action::WriteFileData(action) => write_action!(action, writer),
-            Action::WriteFileDataFlush(action) => write_action!(action, writer),
-            Action::WriteFileProperties(action) => write_action!(action, writer),
-            Action::ActionQuery(action) => write_action!(action, writer),
-            Action::BreakQuery(action) => write_action!(action, writer),
-            Action::PermissionRequest(action) => write_action!(action, writer),
-            Action::VerifyChecksum(action) => write_action!(action, writer),
-            Action::ExistFile(action) => write_action!(action, writer),
-            Action::CreateNewFile(action) => write_action!(action, writer),
-            Action::DeleteFile(action) => write_action!(action, writer),
-            Action::RestoreFile(action) => write_action!(action, writer),
-            Action::FlushFile(action) => write_action!(action, writer),
-            Action::CopyFile(action) => write_action!(action, writer),
-            Action::ExecuteFile(action) => write_action!(action, writer),
-            Action::ReturnFileData(action) => write_action!(action, writer),
-            Action::ReturnFileProperties(action) => write_action!(action, writer),
-            Action::ResponseTag(action) => write_action!(action, writer),
+            Action::Nop(action) => write_action!(self, action, writer),
+            Action::ReadFileData(action) => write_action!(self, action, writer),
+            Action::ReadFileProperties(action) => write_action!(self, action, writer),
+            Action::WriteFileData(action) => write_action!(self, action, writer),
+            Action::WriteFileDataFlush(action) => write_action!(self, action, writer),
+            Action::WriteFileProperties(action) => write_action!(self, action, writer),
+            Action::ActionQuery(action) => write_action!(self, action, writer),
+            Action::BreakQuery(action) => write_action!(self, action, writer),
+            Action::PermissionRequest(action) => write_action!(self, action, writer),
+            Action::VerifyChecksum(action) => write_action!(self, action, writer),
+            Action::ExistFile(action) => write_action!(self, action, writer),
+            Action::CreateNewFile(action) => write_action!(self, action, writer),
+            Action::DeleteFile(action) => write_action!(self, action, writer),
+            Action::RestoreFile(action) => write_action!(self, action, writer),
+            Action::FlushFile(action) => write_action!(self, action, writer),
+            Action::CopyFile(action) => write_action!(self, action, writer),
+            Action::ExecuteFile(action) => write_action!(self, action, writer),
+            Action::ReturnFileData(action) => write_action!(self, action, writer),
+            Action::ReturnFileProperties(action) => write_action!(self, action, writer),
+            Action::ResponseTag(action) => write_action!(self, action, writer),
             #[cfg(feature = "_wizzilab")]
-            Action::TxStatus(action) => write_action!(action, writer),
-            Action::Chunk(action) => write_action!(action, writer),
-            Action::Logic(action) => write_action!(action, writer),
-            Action::Status(action) => write_action!(action, writer),
-            Action::Forward(action) => write_action!(action, writer),
-            Action::IndirectForward(action) => write_action!(action, writer),
-            Action::RequestTag(action) => write_action!(action, writer),
-            Action::Extension(action) => write_action!(action, writer),
+            Action::TxStatus(action) => write_action!(self, action, writer),
+            Action::Chunk(action) => write_action!(self, action, writer),
+            Action::Logic(action) => write_action!(self, action, writer),
+            Action::Status(action) => write_action!(self, action, writer),
+            Action::Forward(action) => write_action!(self, action, writer),
+            Action::IndirectForward(action) => write_action!(self, action, writer),
+            Action::RequestTag(action) => write_action!(self, action, writer),
+            Action::Extension(action) => write_action!(self, action, writer),
         }
 
-        // now write the opcode with offset 2
-        let code = self.deku_id()?.deku_id()? as u8;
-        writer[offset + 2..offset + 8].store_be(code);
         Ok(())
     }
 }
@@ -339,18 +362,7 @@ impl TryFrom<Action> for Vec<u8> {
         DekuContainerWrite::to_bytes(&input)
     }
 }
-impl DekuContainerWrite for Action {
-    fn to_bytes(&self) -> Result<Vec<u8>, DekuError> {
-        let output = self.to_bits()?;
-        Ok(output.into_vec())
-    }
-
-    fn to_bits(&self) -> Result<BitVec<u8, Msb0>, DekuError> {
-        let mut output: BitVec<u8, Msb0> = BitVec::new();
-        self.write(&mut output, ())?;
-        Ok(output)
-    }
-}
+impl DekuContainerWrite for Action {}
 
 #[cfg(test)]
 mod test {
@@ -362,9 +374,8 @@ mod test {
     use crate::{
         app::{
             interface::{Dash7InterfaceConfiguration, InterfaceConfiguration},
-            operand::{
-                ActionHeader, ActionStatus, ChunkStep, FileOffset, LogicOp, Permission,
-                PermissionLevel, Status, StatusCode,
+            operation::{
+                ActionHeader, ActionStatus, ChunkStep, FileOffset, LogicOp, Permission, PermissionLevel, RequestTagHeader, ResponseTagHeader, Status, StatusCode
             },
             query::{NonVoid, Query},
         },
@@ -905,7 +916,7 @@ mod test {
     #[test]
     fn test_request_tag() {
         test_item(
-            Action::RequestTag(RequestTag { eop: true, id: 8 }),
+            Action::RequestTag(RequestTag { header: RequestTagHeader{ eop: true }, id: 8 }),
             &hex!("B4 08"),
         )
     }
@@ -934,8 +945,10 @@ mod test {
     fn test_response_tag() {
         test_item(
             Action::ResponseTag(ResponseTag {
-                eop: true,
-                error: false,
+                header: ResponseTagHeader{
+                    eop: true,
+                    error: false,
+                },
                 id: 8,
             }),
             &hex!("A3 08"),

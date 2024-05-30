@@ -9,6 +9,7 @@ pub struct WithPadding<T, const B: usize = 0, const A: usize = 0>(
 where
     T: Clone + Debug + PartialEq + for<'a> DekuReader<'a> + DekuWriter;
 
+#[track_caller]
 pub fn test_item<'a, T>(item: T, data: &'a [u8])
 where
     T: Clone + Debug + PartialEq + TryFrom<&'a [u8]> + TryInto<Vec<u8>>,
