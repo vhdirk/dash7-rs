@@ -1,5 +1,9 @@
 use deku::prelude::*;
 
+/// Serial interface helper
+#[cfg(feature = "_subiot")]
+pub mod serial;
+
 use crate::{app::command::Command, types::VarInt};
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
