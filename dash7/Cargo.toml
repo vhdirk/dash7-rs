@@ -15,7 +15,7 @@ name = "dash7"
 path = "src/lib.rs"
 
 [dependencies]
-deku = { version = "0.16.0", default-features = false }
+deku = { version = "0.18.0", default-features = false }
 bitvec = "1.0.1"
 mutually_exclusive_features = "0.1.0"
 
