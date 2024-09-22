@@ -42,7 +42,7 @@ impl Length {
 
     fn read<R>(reader: &mut Reader<R>) -> Result<u32, DekuError>
     where
-        R: no_std_io::Read,
+        R: no_std_io::Read + no_std_io::Seek
     {
         let size =
             <u8 as DekuReader<'_, _>>::from_reader_with_ctx(reader, (Endian::Big, BitSize(2)))?;
@@ -55,7 +55,7 @@ impl Length {
 
     fn write<W>(output: &mut Writer<W>, value: &u32) -> Result<(), DekuError>
     where
-        W: no_std_io::Write,
+        W: no_std_io::Write + no_std_io::Seek,
     {
         let num_extra_bits = Length::required_bits(*value).checked_sub(6).unwrap_or(0);
 

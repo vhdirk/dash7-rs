@@ -15,7 +15,7 @@ name = "dash7"
 path = "src/lib.rs"
 
 [dependencies]
-deku = { version = "0.17.0", default-features = false }
+deku = { workspace = true, default-features = false }
 enum_dispatch = "0.3.13"
 mutually_exclusive_features = "0.1.0"
 

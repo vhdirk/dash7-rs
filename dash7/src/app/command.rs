@@ -32,11 +32,12 @@ pub struct Command {
 
 /// Stub implementation so we can implement DekuContainerRead
 impl<'a> DekuReader<'a, ()> for Command {
-    fn from_reader_with_ctx<R: no_std_io::Read>(
+    fn from_reader_with_ctx<R>(
         _reader: &mut Reader<R>,
         _ctx: (),
     ) -> Result<Self, DekuError>
     where
+        R: no_std_io::Read + no_std_io::Seek,
         Self: Sized,
     {
         unreachable!("This should not have been called")
@@ -47,7 +48,7 @@ impl<'a> DekuReader<'a, ()> for Command {
 impl DekuWriter<()> for Command {
     fn to_writer<W>(&self, _writer: &mut Writer<W>, _: ()) -> Result<(), DekuError>
     where
-        W: no_std_io::Write,
+        W: no_std_io::Write + no_std_io::Seek
     {
         unreachable!("This should not have been called")
     }
@@ -129,7 +130,7 @@ impl DekuContainerWrite for Command {}
 impl DekuContainerRead<'_> for Command {
     fn from_reader<'a, R>(input: (&'a mut R, usize)) -> Result<(usize, Self), DekuError>
     where
-        R: no_std_io::Read,
+        R: no_std_io::Read + no_std_io::Seek,
     {
         from_reader(input, ())
     }

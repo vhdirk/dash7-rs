@@ -47,7 +47,7 @@ pub fn from_reader<'a, R, T, Ctx>(
 ) -> Result<(usize, T), DekuError>
 where
     T: DekuReader<'a, Ctx>,
-    R: no_std_io::Read,
+    R: no_std_io::Read + no_std_io::Seek,
 {
     let reader = &mut Reader::new(input.0);
     if input.1 != 0 {
@@ -80,7 +80,7 @@ pub fn read_length_prefixed<'a, T, L, R>(
 where
     T: DekuReader<'a, L>,
     Length: Into<L>,
-    R: no_std_io::Read,
+    R: no_std_io::Read + no_std_io::Seek,
 {
     let length = <Length as DekuReader<'_, _>>::from_reader_with_ctx(reader, ())?;
     T::from_reader_with_ctx(reader, Into::<L>::into(length))
@@ -93,16 +93,17 @@ pub fn write_length_prefixed<W, T, L>(
 ) -> Result<(), DekuError>
 where
     T: DekuWriter<L>,
-    W: no_std_io::Write,
+    W: no_std_io::Write + no_std_io::Seek,
     L: Into<Length>,
 {
     // first write the whole item into a byte buffer
-    let mut out_buf = Vec::new();
-    let mut tmp_writer = Writer::new(&mut out_buf);
+    let mut out_buf_cur = no_std_io::Cursor::new(Vec::new());
+    let mut tmp_writer = Writer::new(&mut out_buf_cur);
     item.to_writer(&mut tmp_writer, fallback_length)?;
     tmp_writer.finalize();
 
     // get the length of it
+    let out_buf = out_buf_cur.get_mut();
     let data_length: Length = out_buf.len().into();
 
     // and then write them
@@ -121,7 +122,7 @@ where
     E: TryFrom<I>,
     DekuError: From<<E as TryFrom<I>>::Error>,
     Length: Into<L>,
-    R: no_std_io::Read,
+    R: no_std_io::Read + no_std_io::Seek,
 {
     let length = <Length as DekuReader<'_, _>>::from_reader_with_ctx(reader, ())?;
     let enum_id = enum_id.try_into()?;
@@ -136,7 +137,7 @@ pub fn write_length_prefixed_ext<W, I, E, T, L>(
 ) -> Result<(), DekuError>
 where
     T: DekuWriter<(E, L)>,
-    W: no_std_io::Write,
+    W: no_std_io::Write + no_std_io::Seek,
     E: TryFrom<I>,
     DekuError: From<<E as TryFrom<I>>::Error>,
     L: Into<Length>,
@@ -144,12 +145,13 @@ where
     let enum_id = enum_id.try_into()?;
 
     // first write the whole item into a byte buffer
-    let mut out_buf = Vec::new();
-    let mut tmp_writer = Writer::new(&mut out_buf);
+    let mut out_buf_cur = no_std_io::Cursor::new(Vec::new());
+    let mut tmp_writer = Writer::new(&mut out_buf_cur);
     item.to_writer(&mut tmp_writer, (enum_id, fallback_length))?;
     tmp_writer.finalize();
 
     // get the length of it
+    let out_buf = out_buf_cur.get_mut();
     let data_length: Length = out_buf.len().into();
 
     // and then write them
@@ -162,7 +164,7 @@ where
 /// Read and convert to String
 pub fn read_string<R, const N: usize>(reader: &mut Reader<R>) -> Result<String, DekuError>
 where
-    R: no_std_io::Read,
+    R: no_std_io::Read + no_std_io::Seek,
 {
     let value = Vec::<u8>::from_reader_with_ctx(reader, Limit::new_byte_size(ByteSize(N)))?;
 
@@ -176,7 +178,7 @@ where
 /// from String to [u8] and write
 pub fn write_string<W, const N: usize>(writer: &mut Writer<W>, value: &str) -> Result<(), DekuError>
 where
-    W: no_std_io::Write,
+    W: no_std_io::Write + no_std_io::Seek,
 {
     let mut bytes = [0u8; N];
 
@@ -189,7 +191,7 @@ where
 pub fn read_array<'a, R, T, const N: usize>(reader: &mut Reader<R>) -> Result<[T; N], DekuError>
 where
     T: DekuReader<'a>,
-    R: no_std_io::Read,
+    R: no_std_io::Read + no_std_io::Seek,
 {
     // Potentially unsafe operations here, but deemed safe anyway.
     // We create an array of MaybeUninit. If deserializing an element would
@@ -224,7 +226,7 @@ pub fn write_array<W, T, const N: usize>(
 ) -> Result<(), DekuError>
 where
     T: DekuWriter,
-    W: no_std_io::Write,
+    W: no_std_io::Write + no_std_io::Seek,
 {
     for elem in value.iter() {
         DekuWriter::to_writer(elem, writer, ())?;

@@ -117,7 +117,7 @@ impl VarInt {
 
     fn read<R>(reader: &mut Reader<R>) -> Result<u32, DekuError>
     where
-        R: no_std_io::Read,
+        R: no_std_io::Read + no_std_io::Seek,
     {
         let exponent =
             <u8 as DekuReader<'_, _>>::from_reader_with_ctx(reader, (Endian::Big, BitSize(3)))?;
@@ -129,7 +129,7 @@ impl VarInt {
 
     fn write<W>(writer: &mut Writer<W>, value: &u32, ceil: &bool) -> Result<(), DekuError>
     where
-        W: no_std_io::Write,
+        W: no_std_io::Write + no_std_io::Seek,
     {
         match Self::compress(*value, *ceil) {
             Ok((exponent, mantissa)) => {

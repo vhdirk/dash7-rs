@@ -200,7 +200,7 @@ impl FileData {
 
     fn read<'a, R>(reader: &mut Reader<R>, offset: &FileOffset) -> Result<File, DekuError>
     where
-        R: no_std_io::Read,
+        R: no_std_io::Read + no_std_io::Seek,
     {
         let length = <Length as DekuReader<'_, _>>::from_reader_with_ctx(reader, ())?;
         let file_id = offset.file_id.try_into()?;
@@ -209,7 +209,7 @@ impl FileData {
 
     fn write<W>(writer: &mut Writer<W>, data: &File, offset: &FileOffset) -> Result<(), DekuError>
     where
-        W: no_std_io::Write,
+        W: no_std_io::Write + no_std_io::Seek,
     {
         let vec_size = match data {
             File::Other(val) => val.len() as u32,
@@ -392,7 +392,7 @@ impl InterfaceStatusOperation {
         reader: &mut Reader<'a, R>,
     ) -> Result<InterfaceStatus, DekuError>
     where
-        R: no_std_io::Read,
+        R: no_std_io::Read + no_std_io::Seek,
     {
         // Subiot v0.0 was missing the length field
         #[cfg(feature = "subiot_v0_0")]
@@ -408,7 +408,7 @@ impl InterfaceStatusOperation {
         status: &InterfaceStatus,
     ) -> Result<(), DekuError>
     where
-        W: no_std_io::Write,
+        W: no_std_io::Write + no_std_io::Seek,
     {
         let vec_size = match status {
             InterfaceStatus::Other(val) => val.len() as u32,

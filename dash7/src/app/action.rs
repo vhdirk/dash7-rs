@@ -160,6 +160,19 @@ pub enum Action {
     Extension(Extension),
 }
 
+
+// macro_rules! read_action {
+//     ($action: ident, $operation: ty, $reader: ident) => {{
+//         let header = <$operation as Operation>::Header::from_reader_with_ctx($reader, ())?;
+
+//         // now skip the opcode
+//         $reader.skip_bits(6)?;
+
+//         <$operation as DekuReader<'_, _>>::from_reader_with_ctx($reader, header)
+//             .map(|action| Self::$action(action))?
+//     }};
+// }
+
 macro_rules! read_action {
     ($action: ident, $operation: ty, $reader: ident, $preamble_reader: ident) => {{
         let header = <$operation as Operation>::Header::from_reader_with_ctx(&mut $preamble_reader, ())?;
@@ -172,8 +185,17 @@ macro_rules! read_action {
 impl<'a> DekuReader<'a, ()> for Action {
     fn from_reader_with_ctx<R>(reader: &mut Reader<R>, _: ()) -> Result<Self, DekuError>
     where
-        R: no_std_io::Read,
+        R: no_std_io::Read + no_std_io::Seek,
     {
+        // // first, skip the 2 preamble bits
+        // reader.skip_bits(2)?;
+
+        // // read the opcode
+        // let code = <OpCode as DekuReader<'_, _>>::from_reader_with_ctx(reader, ())?;
+
+        // // seek back to the beginning (1 byte)
+        // reader.seek_relative(-1); // TODO process err
+
         // Read the preamble and pass it on as context values
         let preamble = (<u8 as DekuReader<'_, _>>::from_reader_with_ctx(
             reader,
@@ -253,7 +275,7 @@ impl TryFrom<&'_ [u8]> for Action {
 impl DekuContainerRead<'_> for Action {
     fn from_reader<'a, R>(input: (&'a mut R, usize)) -> Result<(usize, Self), DekuError>
     where
-        R: no_std_io::Read,
+        R: no_std_io::Read + no_std_io::Seek,
     {
         from_reader(input, ())
     }
@@ -317,7 +339,7 @@ macro_rules! write_action {
 impl DekuWriter<()> for Action {
     fn to_writer<W>(&self, writer: &mut Writer<W>, _: ()) -> Result<(), DekuError>
     where
-        W: no_std_io::Write,
+        W: no_std_io::Write + no_std_io::Seek,
     {
 
         match self {
