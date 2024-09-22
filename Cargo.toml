@@ -14,3 +14,6 @@ repository = "https://github.com/vhdirk/dash7-rs"
 license = "MIT"
 keywords = ["dash7", "alp", "parser", "protocol"]
 categories = ["encoding", "parser-implementations"]
+
+[workspace.dependencies]
+deku = { version = "0.18.1" }

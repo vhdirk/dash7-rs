@@ -1,7 +1,7 @@
 use deku::prelude::*;
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(bits = 2, endian = "big", type = "u8")]
+#[deku(bits = 2, endian = "big", id_type = "u8")]
 pub enum Bandwidth {
     #[default]
     KHz200 = 0x00,
@@ -10,7 +10,7 @@ pub enum Bandwidth {
 
 /// D7A channel bands indexes
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(bits = 3, endian = "big", type = "u8")]
+#[deku(bits = 3, endian = "big", id_type = "u8")]
 pub enum ChannelBand {
     #[default]
     Rfu0 = 0x00,
@@ -21,7 +21,7 @@ pub enum ChannelBand {
 }
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(bits = 2, endian = "big", type = "u8")]
+#[deku(bits = 2, endian = "big", id_type = "u8")]
 pub enum ChannelClass {
     #[default]
     LoRate = 0,
@@ -31,7 +31,7 @@ pub enum ChannelClass {
 }
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(bits = 2, endian = "big", type = "u8")]
+#[deku(bits = 2, endian = "big", id_type = "u8")]
 pub enum ChannelCoding {
     #[default]
     Pn9 = 0,
@@ -41,7 +41,7 @@ pub enum ChannelCoding {
 }
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(bits = 4, type = "u8")]
+#[deku(bits = 4, id_type = "u8")]
 pub enum CsmaCaMode {
     #[default]
     #[deku(id = "0")]
@@ -55,7 +55,7 @@ pub enum CsmaCaMode {
 }
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(bits = 4, type = "u8")]
+#[deku(bits = 4, id_type = "u8")]
 pub enum NoiseFloor {
     /// Noise floor (in dBm). Use the default channel CCA threshold (5.4).
     /// Eccao is set to 0 dB.

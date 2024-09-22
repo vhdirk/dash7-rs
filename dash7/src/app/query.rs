@@ -1,9 +1,9 @@
 use deku::prelude::*;
 
-use super::operand::{FileOffset, Length};
+use super::operation::{FileOffset, Length};
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(bits = 3, type = "u8")]
+#[deku(bits = 3, id_type = "u8")]
 pub enum ArithmeticComparisonType {
     #[deku(id = "0")]
     Inequal,
@@ -27,7 +27,7 @@ pub struct ArithmeticQueryParams {
 }
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(bits = 3, type = "u8")]
+#[deku(bits = 3, id_type = "u8")]
 pub enum RangeComparisonType {
     #[deku(id = "0")]
     NotInRange,
@@ -43,7 +43,7 @@ pub struct RangeQueryParams {
 }
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(bits = 3, type = "u8")]
+#[deku(bits = 3, id_type = "u8")]
 pub enum Query {
     #[deku(id = "0x00")]
     NonVoid(NonVoid),

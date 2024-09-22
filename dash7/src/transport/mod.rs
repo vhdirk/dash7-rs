@@ -3,7 +3,7 @@ use deku::prelude::*;
 use crate::{app::command::Command, types::VarInt};
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(bits = 2, type = "u8")]
+#[deku(bits = 2, id_type = "u8")]
 pub enum GroupCondition {
     /// <, =, > (always true)
     #[default]

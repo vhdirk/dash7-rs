@@ -1,5 +1,5 @@
-/// Operands used to build the ALP Actions
-pub mod operand;
+/// Operations used to build the ALP Actions
+pub mod operation;
 
 pub mod interface;
 

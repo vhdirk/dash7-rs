@@ -1,7 +1,4 @@
-use deku::{
-    bitvec::{BitView, Msb0},
-    prelude::*,
-};
+use deku::prelude::*;
 
 mod access_profile;
 mod dll_config;
@@ -25,11 +22,11 @@ pub use security_key::SecurityKey;
 
 use crate::{
     network::{Address, AddressType},
-    utils::pad_rest,
+    utils::from_bytes,
 };
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(type = "u8", bits = "8")]
+#[deku(id_type = "u8", bits = "8")]
 pub enum FileId {
     #[deku(id = "0x00")]
     Uid,
@@ -121,7 +118,7 @@ impl TryFrom<u8> for FileId {
     type Error = DekuError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        Ok(Self::read(value.view_bits(), ())?.1)
+        Ok(Self::from_bytes((&vec![value], 0))?.1)
     }
 }
 
@@ -214,10 +211,7 @@ impl File {
         file_id: FileId,
         length: u32,
     ) -> Result<((&'a [u8], usize), Self), DekuError> {
-        let input_bits = input.0.view_bits::<Msb0>();
-        let (rest, value) = Self::read(&input_bits[input.1..], (file_id, length))?;
-
-        Ok((pad_rest(input_bits, rest), value))
+        from_bytes(input, (file_id, length))
     }
 
     // fn to_bytes(&self) -> Result<Vec<u8>, DekuError> {
