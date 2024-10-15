@@ -10,9 +10,10 @@ mod interface_final;
 #[cfg(feature = "_wizzilab")]
 pub use interface_final::{InterfaceFinalStatus, InterfaceFinalStatusCode, InterfaceTxStatus};
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, Copy, PartialEq)]
-#[deku(bits = 8, type = "u8")]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, Copy, PartialEq)]
+#[deku(bits = 8, id_type = "u8")]
 pub enum InterfaceType {
+    #[default]
     #[deku(id = "0x00")]
     Host,
 
@@ -36,8 +37,7 @@ impl TryFrom<u8> for InterfaceType {
     type Error = DekuError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        use bitvec::view::BitView;
-        Ok(Self::read(value.view_bits(), ())?.1)
+        Ok(Self::from_bytes((&vec![value], 0))?.1)
     }
 }
 
@@ -49,7 +49,7 @@ impl Into<u8> for InterfaceType {
 
 /// The Response Modes define the condition for termination on success of a Request
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(bits = 3, type = "u8")]
+#[deku(bits = 3, id_type = "u8")]
 pub enum ResponseMode {
     /// A Request is acknowledged if the DLL CSMA-CA routine succeeds. No
     /// responses are expected.
@@ -108,7 +108,7 @@ pub enum ResponseMode {
 ///
 /// In other words, what is the retry policy when sending your payload.
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(bits = 3, type = "u8")]
+#[deku(bits = 3, id_type = "u8")]
 pub enum RetryMode {
     #[default]
     #[deku(id = "0")]
@@ -136,13 +136,15 @@ pub struct QoS {
     pub stop_on_error: bool,
     #[deku(bits = 1)]
     pub record: bool,
+
     pub retry_mode: RetryMode,
     pub response_mode: ResponseMode,
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(ctx = "interface_id: InterfaceType, length: u32", id = "interface_id")]
 pub enum InterfaceStatus {
+    #[default]
     #[deku(id = "InterfaceType::Host")]
     Host,
 
@@ -157,7 +159,7 @@ pub enum InterfaceStatus {
     #[deku(id = "InterfaceType::Dash7")]
     Dash7(Dash7InterfaceStatus),
 
-    #[deku(id_pat = "_")]
+    #[deku(id = "InterfaceType::Unknown")]
     Other(#[deku(count = "length")] Vec<u8>),
 }
 

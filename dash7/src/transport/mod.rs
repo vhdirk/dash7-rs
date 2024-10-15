@@ -3,7 +3,7 @@ use deku::prelude::*;
 use crate::{app::command::Command, types::VarInt};
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(bits = 2, type = "u8")]
+#[deku(bits = 2, id_type = "u8")]
 pub enum GroupCondition {
     /// <, =, > (always true)
     #[default]
@@ -46,7 +46,7 @@ pub struct AckTemplate {
 }
 
 #[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
-#[deku(ctx = "command_length: u32", ctx_default = "u32::MAX")]
+#[deku(ctx = "command_length: u32", ctx_default = "0")]
 pub struct Frame {
     pub control: Control,
 

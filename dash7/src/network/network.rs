@@ -28,7 +28,7 @@ pub struct HoppingControl {
 }
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(ctx = "command_length: u32", ctx_default = "u32::MAX")]
+#[deku(ctx = "command_length: u32", ctx_default = "0")]
 pub struct Frame {
     control: Control,
 

@@ -13,7 +13,7 @@ use crate::types::VarInt;
 #[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq)]
 #[cfg_attr(not(feature = "_wizzilab"), deku(bits = 4))]
 #[cfg_attr(feature = "_wizzilab", deku(bits = 3))]
-#[deku(type = "u8")]
+#[deku(id_type = "u8")]
 pub enum NlsMethod {
     /// No security
     #[default]
@@ -73,7 +73,7 @@ pub enum NlsState {
 }
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq)]
-#[deku(bits = 2, type = "u8")]
+#[deku(bits = 2, id_type = "u8")]
 pub enum AddressType {
     /// Broadcast to an estimated number of receivers, encoded in compressed format on a byte.
     #[deku(id = "0x00")]
@@ -84,33 +84,28 @@ pub enum AddressType {
     NoId,
     /// Unicast to target via its UID (Unique Dash7 ID)
     #[deku(id = "0x02")]
-    Uid,
+    UId,
     /// Unicast to target via its VID (Virtual ID)
     #[deku(id = "0x03")]
-    Vid,
+    VId,
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(ctx = "address_type: AddressType", id = "address_type")]
 pub enum Address {
     /// Broadcast to an estimated number of receivers, encoded in compressed format on a byte.
     #[deku(id = "AddressType::NbId")]
     NbId(VarInt),
     /// Broadcast to everyone
+    #[default]
     #[deku(id = "AddressType::NoId")]
     NoId,
     /// Unicast to target via its UID (Unique Dash7 ID)
-    #[deku(id = "AddressType::Uid")]
-    Uid(#[deku(endian = "big")] u64),
+    #[deku(id = "AddressType::UId")]
+    UId(#[deku(endian = "big")] u64),
     /// Unicast to target via its VID (Virtual ID)
-    #[deku(id = "AddressType::Vid")]
-    Vid(#[deku(endian = "big")] u16),
-}
-
-impl Default for Address {
-    fn default() -> Self {
-        Self::NoId
-    }
+    #[deku(id = "AddressType::VId")]
+    VId(#[deku(endian = "big")] u16),
 }
 
 #[cfg(test)]
@@ -129,7 +124,7 @@ mod tests {
                 false,
                 #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
-                Address::Vid(0xABCD),
+                Address::VId(0xABCD),
                 NlsState::AesCcm32(hex!("00 11 22 33 44")),
                 AccessClass::new(0x0F, 0x0F),
             ),
@@ -177,7 +172,7 @@ mod tests {
                 false,
                 #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
-                Address::Uid(0),
+                Address::UId(0),
                 NlsState::None,
                 AccessClass::default(),
             ),
@@ -209,7 +204,7 @@ mod tests {
                 false,
                 #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
-                Address::Vid(0x1234),
+                Address::VId(0x1234),
                 NlsState::None,
                 AccessClass::new(0, 5),
             ),
@@ -225,7 +220,7 @@ mod tests {
                 false,
                 #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
-                Address::Uid(0x1234567890123456),
+                Address::UId(0x1234567890123456),
                 NlsState::None,
                 AccessClass::new(0x06, 0x09),
             ),

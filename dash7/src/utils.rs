@@ -3,14 +3,16 @@ use core::{
     mem::{self, MaybeUninit},
     ptr, slice,
 };
+use std::borrow::Cow;
+use std::fmt::Debug;
 
 use deku::{
-    bitvec::{BitSlice, BitVec, Msb0},
     ctx::{ByteSize, Limit},
+    no_std_io::{Cursor, Read, Seek, Write},
     prelude::*,
 };
 
-use crate::app::operand::Length;
+use crate::app::operation::Length;
 
 struct TransientDropper<T> {
     base_ptr: *mut T,
@@ -28,88 +30,146 @@ impl<T> Drop for TransientDropper<T> {
     }
 }
 
-pub fn pad_rest<'a>(
-    input_bits: &'a BitSlice<u8, Msb0>,
-    rest: &'a BitSlice<u8, Msb0>,
-) -> (&'a [u8], usize) {
-    let pad = 8 * ((rest.len() + 7) / 8) - rest.len();
-    let read_idx = input_bits.len() - (rest.len() + pad);
-    (input_bits[read_idx..].domain().region().unwrap().1, pad)
+pub fn pad_rest<'a>(rest: (&'a [u8], usize), bits_read: usize) -> (&'a [u8], usize) {
+    if (rest.0.len() * 8 + rest.1) <= bits_read {
+        return (&[], bits_read % 8);
+    }
+
+    let read_whole_byte = (bits_read % 8) == 0;
+    let idx = if read_whole_byte {
+        bits_read / 8
+    } else {
+        (bits_read - (bits_read % 8)) / 8
+    };
+    (&rest.0[idx..], bits_read % 8)
 }
 
-pub fn read_length_prefixed<'a, I, E, T, L>(
-    rest: &'a BitSlice<u8, Msb0>,
-    enum_id: I,
-) -> Result<(&'a BitSlice<u8, Msb0>, T), DekuError>
+pub fn from_reader<'a, R, T, Ctx>(
+    input: (&'a mut R, usize),
+    ctx: Ctx,
+) -> Result<(usize, T), DekuError>
 where
-    T: DekuRead<'a, (E, L)>,
-    E: TryFrom<I>,
-    DekuError: From<<E as TryFrom<I>>::Error>,
-    Length: Into<L>,
+    T: DekuReader<'a, Ctx>,
+    R: Read + Seek,
 {
-    let (rest, length) = <Length as DekuRead<'_, _>>::read(rest, ())?;
-    let enum_id = enum_id.try_into()?;
-    T::read(rest, (enum_id, Into::<L>::into(length)))
+    let reader = &mut Reader::new(input.0);
+    if input.1 != 0 {
+        reader.skip_bits(input.1)?;
+    }
+    let value = T::from_reader_with_ctx(reader, ctx)?;
+    Ok((reader.bits_read, value))
 }
 
-pub fn write_length_prefixed<I, E, T, L>(
-    output: &mut BitVec<u8, Msb0>,
+pub fn from_bytes<'a, T, Ctx>(
+    input: (&'a [u8], usize),
+    ctx: Ctx,
+) -> Result<((&'a [u8], usize), T), DekuError>
+where
+    T: DekuReader<'a, Ctx> + Debug,
+{
+    let mut cursor = Cursor::new(input.0);
+    let mut reader = &mut Reader::new(&mut cursor);
+    if input.1 != 0 {
+        reader.skip_bits(input.1)?;
+    }
+    let value = T::from_reader_with_ctx(&mut reader, ctx)?;
+    println!(
+        "value {:?}, reader.bits_read {:?}  {:?}",
+        value, reader.bits_read, input
+    );
+
+    Ok((pad_rest(input, reader.bits_read), value))
+}
+
+pub fn write_length_prefixed<W, T, Ctx>(
+    writer: &mut Writer<W>,
+    item: &T,
+    ctx: Ctx,
+) -> Result<(), DekuError>
+where
+    T: DekuWriter<Ctx>,
+    W: Write + Seek,
+{
+    // first write the whole item into a byte buffer
+    let mut out_buf_cur = Cursor::new(Vec::new());
+    let mut tmp_writer = Writer::new(&mut out_buf_cur);
+    let _ = item.to_writer(&mut tmp_writer, ctx)?;
+    let _ = tmp_writer.finalize();
+
+    // get the length of it
+    let out_buf = out_buf_cur.get_mut();
+    let data_length: Length = out_buf.len().into();
+
+    // and then write them
+    data_length.to_writer(writer, ())?;
+    out_buf.to_writer(writer, ())?;
+
+    Ok(())
+}
+
+pub fn write_length_prefixed_ext<W, I, E, T, L>(
+    writer: &mut Writer<W>,
     item: &T,
     enum_id: I,
     fallback_length: L,
 ) -> Result<(), DekuError>
 where
-    T: DekuWrite<(E, L)>,
+    T: DekuWriter<(E, L)>,
+    W: Write + Seek,
     E: TryFrom<I>,
     DekuError: From<<E as TryFrom<I>>::Error>,
     L: Into<Length>,
 {
     let enum_id = enum_id.try_into()?;
 
-    // write a stub size
-    let length_offset = output.len();
-    DekuWrite::write(&0u8, output, ())?;
+    // first write the whole item into a byte buffer
+    let mut out_buf_cur = Cursor::new(Vec::new());
+    let mut tmp_writer = Writer::new(&mut out_buf_cur);
+    item.to_writer(&mut tmp_writer, (enum_id, fallback_length))?;
+    let _ = tmp_writer.finalize();
 
-    // write the file
-    let output_offset = output.len();
-    DekuWrite::write(item, output, (enum_id, fallback_length))?;
+    // get the length of it
+    let out_buf = out_buf_cur.get_mut();
+    let data_length: Length = out_buf.len().into();
 
-    // now overwrite the length again
-    let data_length: Length = ((output.len() - output_offset) as u32 / u8::BITS).into();
-    output[length_offset..length_offset + 8].clone_from_bitslice(&data_length.to_bits()?);
+    // and then write them
+    data_length.to_writer(writer, ())?;
+    out_buf.to_writer(writer, ())?;
 
     Ok(())
 }
 
 /// Read and convert to String
-pub fn read_string<const N: usize>(
-    rest: &BitSlice<u8, Msb0>,
-) -> Result<(&BitSlice<u8, Msb0>, String), DekuError> {
-    let (rest, value) = Vec::<u8>::read(rest, Limit::new_byte_size(ByteSize(N)))?;
+pub fn read_string<R, const N: usize>(reader: &mut Reader<R>) -> Result<String, DekuError>
+where
+    R: Read + Seek,
+{
+    let value = Vec::<u8>::from_reader_with_ctx(reader, Limit::new_byte_size(ByteSize(N)))?;
 
-    String::from_utf8(value)
-        .map_err(|err| DekuError::Parse(format!("Could not parse bytes into string {:?}", err)))
-        .map(|value| (rest, value))
+    String::from_utf8(value).map_err(|err| {
+        DekuError::Parse(Cow::Owned(
+            format!("Could not parse bytes into string {:?}", err).to_owned(),
+        ))
+    })
 }
 
 /// from String to [u8] and write
-pub fn write_string<const N: usize>(
-    output: &mut BitVec<u8, Msb0>,
-    value: &str,
-) -> Result<(), DekuError> {
+pub fn write_string<W, const N: usize>(writer: &mut Writer<W>, value: &str) -> Result<(), DekuError>
+where
+    W: Write + Seek,
+{
     let mut bytes = [0u8; N];
 
     let max_index = cmp::min(value.len(), N);
     bytes[0..max_index].clone_from_slice(&value.as_bytes()[0..max_index]);
 
-    DekuWrite::write(&bytes.as_slice(), output, ())
+    DekuWriter::to_writer(&bytes.as_slice(), writer, ())
 }
 
-pub fn read_array<'a, T, const N: usize>(
-    rest: &'a BitSlice<u8, Msb0>,
-) -> Result<(&'a BitSlice<u8, Msb0>, [T; N]), DekuError>
+pub fn read_array<'a, R, T, const N: usize>(reader: &mut Reader<R>) -> Result<[T; N], DekuError>
 where
-    T: DekuRead<'a>,
+    T: DekuReader<'a>,
+    R: Read + Seek,
 {
     // Potentially unsafe operations here, but deemed safe anyway.
     // We create an array of MaybeUninit. If deserializing an element would
@@ -126,11 +186,8 @@ where
         initialized_count: 0,
     };
 
-    let mut rest = rest;
-
     for i in 0..N {
-        let (new_rest, value) = <T as DekuRead<'_, _>>::read(rest, ())?;
-        rest = new_rest;
+        let value = <T as DekuReader<'_, _>>::from_reader_with_ctx(reader, ())?;
         data[i].write(value);
         unsafe { transient_dropper.base_ptr = transient_dropper.base_ptr.add(1) };
         transient_dropper.initialized_count += 1;
@@ -138,21 +195,19 @@ where
 
     mem::forget(transient_dropper);
 
-    Ok((
-        rest,
-        data.map(|elem: MaybeUninit<T>| unsafe { elem.assume_init() }),
-    ))
+    Ok(data.map(|elem: MaybeUninit<T>| unsafe { elem.assume_init() }))
 }
 
-pub fn write_array<T, const N: usize>(
-    output: &mut BitVec<u8, Msb0>,
+pub fn write_array<W, T, const N: usize>(
+    writer: &mut Writer<W>,
     value: &[T; N],
 ) -> Result<(), DekuError>
 where
-    T: DekuWrite,
+    T: DekuWriter,
+    W: Write + Seek,
 {
     for elem in value.iter() {
-        DekuWrite::write(elem, output, ())?;
+        DekuWriter::to_writer(elem, writer, ())?;
     }
     Ok(())
 }

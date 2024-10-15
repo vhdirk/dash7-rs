@@ -1,7 +1,7 @@
 use deku::prelude::*;
 
 use crate::{
-    app::operand::Length,
+    app::operation::Length,
     network::{self, Address, AddressType},
 };
 

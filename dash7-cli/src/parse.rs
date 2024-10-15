@@ -55,7 +55,7 @@ fn parse_alp_command(input: &[u8]) -> Result<(), DekuError> {
 }
 
 fn parse_serial(_input: &[u8]) -> Result<(), DekuError> {
-    Err(DekuError::Assertion("Not implemented".to_string()))
+    Err(DekuError::Assertion("Not implemented".into()))
 }
 
 fn parse_file(input: &[u8], file_id: FileId) -> Result<(), DekuError> {
@@ -91,7 +91,7 @@ fn parse_any(input: &[u8]) -> Result<(), DekuError> {
         return Ok(());
     }
 
-    Err(DekuError::Parse("Could not parse input".to_string()))
+    Err(DekuError::Parse("Could not parse input".into()))
 }
 
 pub fn main(args: ParseArgs) {
