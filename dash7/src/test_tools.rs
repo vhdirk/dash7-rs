@@ -25,8 +25,20 @@ where
         BitVec::<u8, Msb0>::from_slice(data)
     );
 
-    assert_eq!(result.as_slice(), data, "Serialize {:?} == {:?}", &item, data);
+    assert_eq!(
+        result.as_slice(),
+        data,
+        "Serialize {:?} == {:?}",
+        &item,
+        data
+    );
 
     let result = T::try_from(data).expect("should be parsed without error");
-    assert_eq!(result, item.clone(), "Deserialize {:?} == {:?}", data, &item);
+    assert_eq!(
+        result,
+        item.clone(),
+        "Deserialize {:?} == {:?}",
+        data,
+        &item
+    );
 }

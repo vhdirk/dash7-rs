@@ -156,7 +156,6 @@ pub enum InterfaceStatus {
 
     // #[deku(id = "InterfaceType::LoRaWanOTAA")]
     // LoRaWanOTAA(LoRaWANOTAAInterfaceStatus),
-
     #[deku(id = "InterfaceType::Dash7")]
     Dash7(Dash7InterfaceStatus),
 

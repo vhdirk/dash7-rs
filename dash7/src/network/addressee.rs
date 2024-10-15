@@ -13,7 +13,7 @@ pub struct Addressee {
     #[cfg(feature = "_wizzilab")]
     pub group_condition: GroupCondition,
 
-    #[cfg_attr(not(feature = "_wizzilab"), deku(pad_bits_before="2"))]
+    #[cfg_attr(not(feature = "_wizzilab"), deku(pad_bits_before = "2"))]
     #[deku(update = "self.address.deku_id().unwrap()")]
     address_type: AddressType,
 
@@ -35,11 +35,8 @@ pub struct Addressee {
 }
 
 impl Addressee {
-    pub fn new(
-        address: Address,
-        nls_state: NlsState,
-        access_class: AccessClass,
-    ) -> Self {
+    #[cfg(not(feature = "_wizzilab"))]
+    pub fn new(address: Address, nls_state: NlsState, access_class: AccessClass) -> Self {
         Self {
             address_type: address.deku_id().unwrap(),
             nls_method: nls_state.deku_id().unwrap(),
@@ -67,5 +64,4 @@ impl Addressee {
             nls_state,
         }
     }
-
 }

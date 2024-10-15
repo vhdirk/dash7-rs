@@ -1,6 +1,4 @@
-use deku::prelude::*;
-
-use crate::{app::interface, session::InterfaceType};
+use crate::app::interface;
 
 pub use interface::InterfaceConfiguration;
 

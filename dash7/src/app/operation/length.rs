@@ -1,5 +1,8 @@
-
-use deku::{ctx::{BitSize, Endian}, no_std_io, prelude::*};
+use deku::{
+    ctx::{BitSize, Endian},
+    no_std_io,
+    prelude::*,
+};
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, Copy)]
 pub struct Length(
@@ -42,7 +45,7 @@ impl Length {
 
     fn read<R>(reader: &mut Reader<R>) -> Result<u32, DekuError>
     where
-        R: no_std_io::Read + no_std_io::Seek
+        R: no_std_io::Read + no_std_io::Seek,
     {
         let size =
             <u8 as DekuReader<'_, _>>::from_reader_with_ctx(reader, (Endian::Big, BitSize(2)))?;

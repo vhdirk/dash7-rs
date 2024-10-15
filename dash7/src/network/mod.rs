@@ -90,13 +90,14 @@ pub enum AddressType {
     VId,
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(ctx = "address_type: AddressType", id = "address_type")]
 pub enum Address {
     /// Broadcast to an estimated number of receivers, encoded in compressed format on a byte.
     #[deku(id = "AddressType::NbId")]
     NbId(VarInt),
     /// Broadcast to everyone
+    #[default]
     #[deku(id = "AddressType::NoId")]
     NoId,
     /// Unicast to target via its UID (Unique Dash7 ID)
@@ -105,12 +106,6 @@ pub enum Address {
     /// Unicast to target via its VID (Virtual ID)
     #[deku(id = "AddressType::VId")]
     VId(#[deku(endian = "big")] u16),
-}
-
-impl Default for Address {
-    fn default() -> Self {
-        Self::NoId
-    }
 }
 
 #[cfg(test)]

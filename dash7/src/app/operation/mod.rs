@@ -1,14 +1,11 @@
-use std::{borrow::Cow, default};
-
-use deku::{
-    ctx::{BitSize, Endian},
-    no_std_io,
-    prelude::*,
-};
+use deku::{no_std_io, prelude::*};
 
 pub use super::query::Query;
-use super::{action::OpCode, interface::InterfaceConfiguration};
-use crate::utils::{read_length_prefixed, write_length_prefixed};
+use super::{
+    action::OpCode,
+    interface::{IndirectInterface, InterfaceConfiguration},
+};
+use crate::utils::write_length_prefixed;
 use crate::{data::FileHeader, file::File, session::InterfaceStatus};
 use crate::{session::InterfaceType, utils::write_length_prefixed_ext};
 
@@ -322,7 +319,6 @@ pub struct StatusOperand {
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct InterfaceStatusOperation {
-
     pub interface_type: InterfaceType,
 
     #[deku(
@@ -349,11 +345,15 @@ impl Into<Status> for InterfaceStatusOperation {
 
 impl InterfaceStatusOperation {
     #[cfg(not(feature = "subiot_v0_0"))]
-    pub fn read<'a, R>(reader: &mut Reader<'a, R>, interface_type: InterfaceType) -> Result<InterfaceStatus, DekuError>
+    pub fn read<'a, R>(
+        reader: &mut Reader<'a, R>,
+        interface_type: InterfaceType,
+    ) -> Result<InterfaceStatus, DekuError>
     where
         R: no_std_io::Read + no_std_io::Seek,
     {
         // Subiot v0.0 was missing the length field
+        #[allow(unused_assignments)]
         let mut length = Length(0);
 
         #[cfg(not(feature = "subiot_v0_0"))]
@@ -532,25 +532,18 @@ pub struct IndirectForward {
     #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
     pub opcode: OpCode,
 
-    pub interface_file_id: u8,
-
     #[deku(cond = "header.overloaded")]
-    pub configuration: Option<InterfaceConfiguration>,
+    pub configuration: Option<IndirectInterface>,
 }
 
 impl IndirectForward {
-    pub fn new(
-        response: bool,
-        interface_file_id: u8,
-        configuration: Option<InterfaceConfiguration>,
-    ) -> Self {
+    pub fn new(response: bool, configuration: Option<IndirectInterface>) -> Self {
         Self {
             header: IndirectForwardHeader {
                 overloaded: configuration.is_some(),
                 response,
             },
             opcode: OpCode::INDIRECT_FORWARD,
-            interface_file_id,
             configuration,
         }
     }

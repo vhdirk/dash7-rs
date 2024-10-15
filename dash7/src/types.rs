@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 
 use deku::{
-    bitvec::{BitSlice, BitVec, Msb0},
     ctx::{BitSize, Endian},
     no_std_io,
     prelude::*,

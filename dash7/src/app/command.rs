@@ -5,7 +5,10 @@ use std::fmt::{self, Display};
 #[cfg(not(feature = "std"))]
 use alloc::fmt;
 
-use deku::{no_std_io, prelude::*};
+use deku::{
+    no_std_io::{self, Cursor, Seek},
+    prelude::*,
+};
 
 use crate::{
     session::InterfaceStatus,
@@ -17,40 +20,79 @@ use super::{
     operation::{RequestTag, ResponseTag, ResponseTagHeader, Status},
 };
 
-#[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
-#[deku(ctx = "length: u32")]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct Command {
     // we cannot process an indirect forward without knowing the interface type, which is stored in the interface file
     // as identified by the indirectforward itself
     // As such, we HAVE to bail here
     // Hopefully this will be addressed in SPEC 1.3
-    #[deku(until = "|action: &Action| { action.deku_id().unwrap() == OpCode::IndirectForward }")]
     // Always stop reading when length is reached
-    #[deku(bytes_read = "length")]
+    // #[deku(bytes_read = "length", until = "|action: &Action| { action.deku_id().unwrap() == OpCode::INDIRECT_FORWARD }")]
     pub actions: Vec<Action>,
 }
 
-/// Stub implementation so we can implement DekuContainerRead
-impl<'a> DekuReader<'a, ()> for Command {
-    fn from_reader_with_ctx<R>(
-        _reader: &mut Reader<R>,
-        _ctx: (),
-    ) -> Result<Self, DekuError>
+impl<'a> DekuReader<'a, u32> for Command {
+    fn from_reader_with_ctx<R>(reader: &mut Reader<R>, length: u32) -> Result<Self, DekuError>
     where
         R: no_std_io::Read + no_std_io::Seek,
         Self: Sized,
     {
-        unreachable!("This should not have been called")
+        let mut command = Command { actions: vec![] };
+
+        let valid_length = |r: &mut Reader<R>, l: u32| -> Result<bool, DekuError> {
+            Ok(match l {
+                0 => true,
+                _ => {
+                    r.stream_position()
+                        .map_err(|err| DekuError::Io(err.kind()))?
+                        < (l as u64)
+                }
+            })
+        };
+
+        while valid_length(reader, length)? && !reader.end() {
+            if let Some(Action::IndirectForward(_)) = command.actions.last() {
+                return Ok(command);
+            }
+            let action = Action::from_reader_with_ctx(reader, ())?;
+            command.actions.push(action);
+        }
+        return Ok(command);
+    }
+}
+
+impl Command {
+    pub fn from_reader<'a, R>(input: (&'a mut R, usize)) -> Result<(usize, Self), DekuError>
+    where
+        R: no_std_io::Read + no_std_io::Seek,
+    {
+        from_reader(input, 0)
+    }
+
+    pub fn from_bytes(input: (&'_ [u8], usize)) -> Result<((&'_ [u8], usize), Self), DekuError> {
+        from_bytes(input, 0)
+    }
+
+    pub fn to_bytes(&self) -> Result<Vec<u8>, DekuError> {
+        let mut out_buf = Vec::new();
+        let mut cursor = Cursor::new(&mut out_buf);
+        let mut writer = Writer::new(&mut cursor);
+        DekuWriter::to_writer(self, &mut writer, 0)?;
+        writer.finalize()?;
+        Ok(out_buf)
     }
 }
 
 /// Stub implementation so we can implement DekuContainerWrite
-impl DekuWriter<()> for Command {
-    fn to_writer<W>(&self, _writer: &mut Writer<W>, _: ()) -> Result<(), DekuError>
+impl DekuWriter<u32> for Command {
+    fn to_writer<W>(&self, writer: &mut Writer<W>, _: u32) -> Result<(), DekuError>
     where
-        W: no_std_io::Write + no_std_io::Seek
+        W: no_std_io::Write + no_std_io::Seek,
     {
-        unreachable!("This should not have been called")
+        for action in self.actions.iter() {
+            action.to_writer(writer, ())?;
+        }
+        Ok(())
     }
 }
 
@@ -117,7 +159,11 @@ impl Command {
 
     pub fn is_last_response(&self) -> bool {
         for action in self.actions.iter() {
-            if let Action::ResponseTag(ResponseTag { header: ResponseTagHeader{ end_of_packet, .. }, .. }) = action {
+            if let Action::ResponseTag(ResponseTag {
+                header: ResponseTagHeader { end_of_packet, .. },
+                ..
+            }) = action
+            {
                 return *end_of_packet;
             }
         }
@@ -125,25 +171,10 @@ impl Command {
     }
 }
 
-impl DekuContainerWrite for Command {}
-
-impl DekuContainerRead<'_> for Command {
-    fn from_reader<'a, R>(input: (&'a mut R, usize)) -> Result<(usize, Self), DekuError>
-    where
-        R: no_std_io::Read + no_std_io::Seek,
-    {
-        from_reader(input, ())
-    }
-
-    fn from_bytes(input: (&'_ [u8], usize)) -> Result<((&'_ [u8], usize), Self), DekuError> {
-        from_bytes(input, ())
-    }
-}
-
 impl TryFrom<&'_ [u8]> for Command {
     type Error = DekuError;
     fn try_from(input: &'_ [u8]) -> Result<Self, Self::Error> {
-        let (rest, res) = <Self as DekuContainerRead>::from_bytes((input, 0))?;
+        let (rest, res) = Self::from_bytes((input, 0))?;
         if !rest.0.is_empty() {
             return Err(DekuError::Parse({
                 let res = fmt::format(format_args!("Too much data"));
@@ -157,7 +188,7 @@ impl TryFrom<&'_ [u8]> for Command {
 impl TryFrom<Command> for Vec<u8> {
     type Error = DekuError;
     fn try_from(input: Command) -> Result<Self, Self::Error> {
-        DekuContainerWrite::to_bytes(&input)
+        input.to_bytes()
     }
 }
 
@@ -216,9 +247,12 @@ mod test {
     use crate::transport::GroupCondition;
     use crate::{
         app::{
-            action::OpCode, interface::InterfaceConfiguration, operation::{
-                ActionHeader, FileData, FileOffset, Forward, Nop, ReadFileData, RequestTagHeader, ResponseTagHeader, Status
-            }
+            action::OpCode,
+            interface::InterfaceConfiguration,
+            operation::{
+                ActionHeader, FileData, FileOffset, Forward, Nop, ReadFileData, RequestTagHeader,
+                ResponseTagHeader, Status,
+            },
         },
         file::File,
         link::AccessClass,
@@ -234,8 +268,10 @@ mod test {
             actions: vec![
                 Action::RequestTag(RequestTag {
                     id: 66,
-                    header: RequestTagHeader { end_of_packet: true },
-                    opcode: OpCode::REQUEST_TAG
+                    header: RequestTagHeader {
+                        end_of_packet: true,
+                    },
+                    opcode: OpCode::REQUEST_TAG,
                 }),
                 Action::ReadFileData(ReadFileData {
                     header: ActionHeader {
@@ -247,7 +283,7 @@ mod test {
                         offset: 0u32.into(),
                     },
                     length: 8u32.into(),
-                    opcode: OpCode::READ_FILE_DATA
+                    opcode: OpCode::READ_FILE_DATA,
                 }),
                 Action::ReadFileData(ReadFileData {
                     header: ActionHeader {
@@ -259,7 +295,7 @@ mod test {
                         offset: 2u32.into(),
                     },
                     length: 3u32.into(),
-                    opcode: OpCode::READ_FILE_DATA
+                    opcode: OpCode::READ_FILE_DATA,
                 }),
                 Action::Nop(Nop {
                     header: ActionHeader {
@@ -280,12 +316,19 @@ mod test {
         assert_eq!(
             Command {
                 actions: vec![
-                    Action::RequestTag(RequestTag { header: RequestTagHeader { end_of_packet: true }, id: 66 , opcode: OpCode::REQUEST_TAG}),
+                    Action::RequestTag(RequestTag {
+                        header: RequestTagHeader {
+                            end_of_packet: true
+                        },
+                        id: 66,
+                        opcode: OpCode::REQUEST_TAG
+                    }),
                     Action::Nop(Nop {
                         header: ActionHeader {
                             group: true,
                             response: true
-                        }, opcode: OpCode::NOP
+                        },
+                        opcode: OpCode::NOP
                     })
                 ]
             }
@@ -299,9 +342,16 @@ mod test {
                         header: ActionHeader {
                             group: true,
                             response: false
-                        }, opcode: OpCode::NOP
+                        },
+                        opcode: OpCode::NOP
                     }),
-                    Action::RequestTag(RequestTag { header: RequestTagHeader { end_of_packet: true }, id: 44, opcode: OpCode::REQUEST_TAG }),
+                    Action::RequestTag(RequestTag {
+                        header: RequestTagHeader {
+                            end_of_packet: true
+                        },
+                        id: 44,
+                        opcode: OpCode::REQUEST_TAG
+                    }),
                 ]
             }
             .request_id(),
@@ -314,13 +364,15 @@ mod test {
                         header: ActionHeader {
                             group: true,
                             response: false
-                        }, opcode: OpCode::NOP
+                        },
+                        opcode: OpCode::NOP
                     }),
                     Action::Nop(Nop {
                         header: ActionHeader {
                             group: true,
                             response: false
-                        }, opcode: OpCode::NOP
+                        },
+                        opcode: OpCode::NOP
                     })
                 ]
             }
@@ -335,15 +387,19 @@ mod test {
             Command {
                 actions: vec![
                     Action::ResponseTag(ResponseTag {
-                        header: ResponseTagHeader { end_of_packet: true,
-                        error: true, },
-                        id: 66, opcode: OpCode::RESPONSE_TAG
+                        header: ResponseTagHeader {
+                            end_of_packet: true,
+                            error: true,
+                        },
+                        id: 66,
+                        opcode: OpCode::RESPONSE_TAG
                     }),
                     Action::Nop(Nop {
                         header: ActionHeader {
                             group: true,
                             response: true
-                        }, opcode: OpCode::NOP
+                        },
+                        opcode: OpCode::NOP
                     })
                 ]
             }
@@ -357,14 +413,16 @@ mod test {
                         header: ActionHeader {
                             group: true,
                             response: false
-                        }
-                        , opcode: OpCode::NOP
+                        },
+                        opcode: OpCode::NOP
                     }),
                     Action::ResponseTag(ResponseTag {
-                        header: ResponseTagHeader { end_of_packet: true,
-                        error: true, },
-                        id: 44
-                        , opcode: OpCode::RESPONSE_TAG
+                        header: ResponseTagHeader {
+                            end_of_packet: true,
+                            error: true,
+                        },
+                        id: 44,
+                        opcode: OpCode::RESPONSE_TAG
                     }),
                 ]
             }
@@ -378,13 +436,15 @@ mod test {
                         header: ActionHeader {
                             group: true,
                             response: false
-                        }, opcode: OpCode::NOP
+                        },
+                        opcode: OpCode::NOP
                     }),
                     Action::Nop(Nop {
                         header: ActionHeader {
                             group: true,
                             response: false
-                        }, opcode: OpCode::NOP
+                        },
+                        opcode: OpCode::NOP
                     })
                 ]
             }
@@ -398,15 +458,19 @@ mod test {
         assert!(Command {
             actions: vec![
                 Action::ResponseTag(ResponseTag {
-                    header: ResponseTagHeader { end_of_packet: true,
-                        error: true, },
-                    id: 66, opcode: OpCode::RESPONSE_TAG
+                    header: ResponseTagHeader {
+                        end_of_packet: true,
+                        error: true,
+                    },
+                    id: 66,
+                    opcode: OpCode::RESPONSE_TAG
                 }),
                 Action::Nop(Nop {
                     header: ActionHeader {
                         group: true,
                         response: true
-                    }, opcode: OpCode::NOP
+                    },
+                    opcode: OpCode::NOP
                 })
             ]
         }
@@ -415,16 +479,19 @@ mod test {
         assert!(!Command {
             actions: vec![
                 Action::ResponseTag(ResponseTag {
-                    header: ResponseTagHeader { end_of_packet: false,
-                    error: false,
+                    header: ResponseTagHeader {
+                        end_of_packet: false,
+                        error: false,
                     },
-                    id: 66, opcode: OpCode::RESPONSE_TAG
+                    id: 66,
+                    opcode: OpCode::RESPONSE_TAG
                 }),
                 Action::Nop(Nop {
                     header: ActionHeader {
                         group: true,
                         response: true
-                    }, opcode: OpCode::NOP
+                    },
+                    opcode: OpCode::NOP
                 })
             ]
         }
@@ -433,15 +500,20 @@ mod test {
         assert!(!Command {
             actions: vec![
                 Action::ResponseTag(ResponseTag {
-                    header: ResponseTagHeader { end_of_packet: false,
-                    error: true,
+                    header: ResponseTagHeader {
+                        end_of_packet: false,
+                        error: true,
                     },
-                    id: 44, opcode: OpCode::RESPONSE_TAG
+                    id: 44,
+                    opcode: OpCode::RESPONSE_TAG
                 }),
                 Action::ResponseTag(ResponseTag {
-                    header: ResponseTagHeader { end_of_packet: true,
-                    error: true},
-                    id: 44, opcode: OpCode::RESPONSE_TAG
+                    header: ResponseTagHeader {
+                        end_of_packet: true,
+                        error: true
+                    },
+                    id: 44,
+                    opcode: OpCode::RESPONSE_TAG
                 }),
             ]
         }
@@ -453,13 +525,15 @@ mod test {
                     header: ActionHeader {
                         group: true,
                         response: false
-                    }, opcode: OpCode::NOP
+                    },
+                    opcode: OpCode::NOP
                 }),
                 Action::Nop(Nop {
                     header: ActionHeader {
                         group: true,
                         response: false
-                    }, opcode: OpCode::NOP
+                    },
+                    opcode: OpCode::NOP
                 })
             ]
         }
@@ -560,7 +634,12 @@ mod test {
 
         let item = Command {
             actions: vec![
-                Action::RequestTag(RequestTag { header: RequestTagHeader { end_of_packet: true }, id: 25 }),
+                Action::RequestTag(RequestTag {
+                    header: RequestTagHeader {
+                        end_of_packet: true,
+                    },
+                    id: 25,
+                }),
                 Action::Status(
                     Status::Interface(
                         InterfaceStatus::Dash7(Dash7InterfaceStatus {
@@ -664,7 +743,7 @@ mod test {
                         )
                         .to_vec(),
                     ),
-                    OpCode::WRITE_FILE_DATA
+                    OpCode::WRITE_FILE_DATA,
                 )),
             ],
         };

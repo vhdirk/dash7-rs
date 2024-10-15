@@ -6,7 +6,6 @@ use std::fmt;
 use alloc::fmt;
 
 use deku::{
-    ctx::{BitSize, Endian},
     no_std_io::{self, Seek, Write},
     prelude::*,
 };
@@ -15,7 +14,7 @@ use crate::utils::{from_bytes, from_reader};
 
 use super::operation::{
     ActionQuery, Chunk, CopyFile, Extension, FileData, FileId, FileProperties, Forward,
-    IndirectForward, Logic, Nop, PermissionRequest, ReadFileData, RequestTag, ResponseTag, Status,
+    IndirectForward, Logic, Nop, PermissionRequest, ReadFileData, RequestTag, ResponseTag,
     StatusOperand,
 };
 
@@ -77,7 +76,6 @@ impl OpCode {
         opcode.to_writer(writer, ())
     }
 }
-
 
 // ===============================================================================
 // Actions
@@ -371,7 +369,7 @@ mod test {
     use crate::transport::GroupCondition;
     use crate::{
         app::{
-            interface::{Dash7InterfaceConfiguration, InterfaceConfiguration},
+            interface::{IndirectInterface, InterfaceConfiguration},
             operation::{
                 ActionHeader, ActionStatus, ChunkStep, FileOffset, LogicOp, Permission,
                 PermissionLevel, RequestTagHeader, ResponseTagHeader, Status, StatusCode,
@@ -383,16 +381,14 @@ mod test {
         link::AccessClass,
         network::{Address, Addressee, NlsState},
         physical::{Channel, ChannelBand, ChannelClass, ChannelCoding, ChannelHeader},
-        session::{Dash7InterfaceStatus, InterfaceStatus, QoS},
+        session::{Dash7InterfaceStatus, InterfaceStatus},
         test_tools::{test_item, WithPadding},
-        types::VarInt,
     };
 
     #[test]
     fn test_header() {
         test_item(
-            WithPadding::<ActionHeader, 0, 6>(
-                ActionHeader {
+            WithPadding::<ActionHeader, 0, 6>(ActionHeader {
                 group: true,
                 response: false,
             }),
@@ -502,7 +498,7 @@ mod test {
                     file_size: 0xDEAD_BEEF,
                     allocated_size: 0xBAAD_FACE,
                 },
-                opcode: OpCode::READ_FILE_PROPERTIES,
+                opcode: OpCode::RETURN_FILE_PROPERTIES,
             }),
             &hex!("21 09  B8 13 01 02 DEADBEEF BAADFACE"),
         )
@@ -754,7 +750,7 @@ mod test {
                 }),
                 opcode: OpCode::BREAK_QUERY,
             }),
-            &hex!("C9   00 04  05 06"),
+            &hex!("C9 00 04  05 06"),
         )
     }
 
@@ -775,7 +771,7 @@ mod test {
                 }),
                 opcode: OpCode::VERIFY_CHECKSUM,
             }),
-            &hex!("0B   00 04  05 06"),
+            &hex!("0B 00 04  05 06"),
         )
     }
 
@@ -801,60 +797,7 @@ mod test {
 
         let item = Action::IndirectForward(IndirectForward::new(
             true,
-            9,
-            Some(InterfaceConfiguration::Dash7(Dash7InterfaceConfiguration {
-                qos: QoS::default(),
-                dormant_session_timeout: VarInt::default(),
-                #[cfg(not(feature = "_subiot"))]
-                execution_delay_timeout: VarInt::default(),
-                addressee: Addressee::new(
-                    #[cfg(feature = "_wizzilab")]
-                    false,
-                    #[cfg(feature = "_wizzilab")]
-                    GroupCondition::Any,
-                    Address::VId(0xABCD),
-                    NlsState::AesCcm32([1, 2, 3, 4, 5]),
-                    AccessClass::unavailable(),
-                ),
-            })),
-        ));
-
-        #[cfg(not(feature = "_subiot"))]
-        let data = &hex!("F3 09 00 00 00 37 FF ABCD 01 02 03 04 05");
-
-        #[cfg(feature = "_subiot")]
-        let data = &hex!("F3 09 00 00 37 FF ABCD 01 02 03 04 05");
-
-        let result = item.to_bytes().unwrap();
-
-        assert_eq!(result.as_slice(), data, "{:?} == {:?}", &item, data);
-    }
-
-    #[test]
-    fn test_indirect_forward_dash7_deserialization() {
-        #[cfg(not(feature = "_subiot"))]
-        let input = &hex!("F3 09 00 00 00 37 FF ABCD 01 02 03 04 05");
-
-        #[cfg(feature = "_subiot")]
-        let input = &hex!("F3 09 00 00 37 FF ABCD 01 02 03 04 05");
-
-        let expected = Action::IndirectForward(IndirectForward::new(
-            true,
-            9,
-            Some(InterfaceConfiguration::Unknown),
-        ));
-
-        let ((rest, offset), result) =
-            Action::from_bytes((input, 0)).expect("should be parsed without error");
-
-        assert_eq!(result, expected.clone(), "{:?} == {:?}", result, &expected);
-
-        let expected_config = Dash7InterfaceConfiguration {
-            qos: QoS::default(),
-            dormant_session_timeout: VarInt::default(),
-            #[cfg(not(feature = "_subiot"))]
-            execution_delay_timeout: VarInt::default(),
-            addressee: Addressee::new(
+            Some(IndirectInterface::Dash7(Addressee::new(
                 #[cfg(feature = "_wizzilab")]
                 false,
                 #[cfg(feature = "_wizzilab")]
@@ -862,27 +805,41 @@ mod test {
                 Address::VId(0xABCD),
                 NlsState::AesCcm32([1, 2, 3, 4, 5]),
                 AccessClass::unavailable(),
-            ),
-        };
+            ))),
+        ));
 
-        // now continue parsing the config itself
-        let (_, config_result) = Dash7InterfaceConfiguration::from_bytes((rest, offset))
-            .expect("should be parsed without error");
+        let data = &hex!("F3 D7 37 FF ABCD 01 02 03 04 05");
 
-        assert_eq!(
-            config_result,
-            expected_config.clone(),
-            "{:?} == {:?}",
-            config_result,
-            &expected_config
-        );
+        test_item(item, data);
+    }
+
+    #[test]
+    fn test_indirect_forward_dash7_deserialization() {
+        let input = &hex!("F3 D7 37 FF ABCD 01 02 03 04 05");
+
+        let expected = Action::IndirectForward(IndirectForward::new(
+            true,
+            Some(IndirectInterface::Dash7(Addressee::new(
+                #[cfg(feature = "_wizzilab")]
+                false,
+                #[cfg(feature = "_wizzilab")]
+                GroupCondition::Any,
+                Address::VId(0xABCD),
+                NlsState::AesCcm32([1, 2, 3, 4, 5]),
+                AccessClass::unavailable(),
+            ))),
+        ));
+
+        test_item(expected, input);
     }
 
     #[test]
     fn test_request_tag() {
         test_item(
             Action::RequestTag(RequestTag {
-                header: RequestTagHeader { end_of_packet: true },
+                header: RequestTagHeader {
+                    end_of_packet: true,
+                },
                 id: 8,
                 opcode: OpCode::REQUEST_TAG,
             }),

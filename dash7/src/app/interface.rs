@@ -1,10 +1,6 @@
 use deku::prelude::*;
 
-use crate::{
-    network::Addressee,
-    session::{InterfaceType, QoS},
-    types::VarInt,
-};
+use crate::{network::Addressee, session::QoS, types::VarInt};
 
 /// Section 9.2.1
 ///
@@ -38,7 +34,6 @@ pub struct Dash7InterfaceConfiguration {
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct LoRaWANInterfaceConfiguration {
-
     /// Automatic data rate enabled
     #[deku(pad_bits_before = "5", bits = 1)]
     pub adr_enabled: bool,
@@ -99,7 +94,24 @@ pub enum InterfaceConfiguration {
     Dash7(Dash7InterfaceConfiguration),
 
     #[deku(id_pat = "_")]
-    Unknown,
+    Unknown(u8),
+}
+
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(id_type = "u8")]
+pub enum IndirectInterface {
+    #[default]
+    #[deku(id = "0x00")]
+    Host,
+
+    #[deku(id = "0x01")]
+    Serial,
+
+    #[deku(id = "0xD7")]
+    Dash7(Addressee),
+
+    #[deku(id_pat = "_")]
+    Unknown(u8),
 }
 
 #[cfg(test)]

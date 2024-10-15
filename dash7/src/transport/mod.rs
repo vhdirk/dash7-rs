@@ -46,7 +46,7 @@ pub struct AckTemplate {
 }
 
 #[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
-#[deku(ctx = "command_length: u32", ctx_default = "u32::MAX")]
+#[deku(ctx = "command_length: u32", ctx_default = "0")]
 pub struct Frame {
     pub control: Control,
 

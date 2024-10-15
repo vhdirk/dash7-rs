@@ -1,12 +1,11 @@
 use deku::prelude::*;
 
-use super::InterfaceType;
 use crate::{network::Addressee, physical::Channel};
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "interface_id: InterfaceType, length: u32", id = "interface_id")]
+#[deku(ctx = "interface_id: u8, length: u32", id = "interface_id")]
 pub enum InterfaceFinalStatus {
-    #[deku(id = "InterfaceType::Dash7")]
+    #[deku(id = "0xD7")]
     Dash7(InterfaceFinalStatusCode),
 
     #[deku(id_pat = "_")]
@@ -65,9 +64,9 @@ pub enum InterfaceFinalStatusCode {
 }
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "interface_id: InterfaceType, length: u32", id = "interface_id")]
+#[deku(ctx = "interface_id: u8, length: u32", id = "interface_id")]
 pub enum InterfaceTxStatus {
-    #[deku(id = "InterfaceType::Dash7")]
+    #[deku(id = "0xD7")]
     Dash7(Dash7InterfaceTxStatus),
 
     #[deku(id_pat = "_")]
@@ -121,7 +120,7 @@ mod test {
                 addressee: Addressee::new(
                     false,
                     GroupCondition::Any,
-                    Address::Vid(0x0011),
+                    Address::VId(0x0011),
                     NlsState::AesCcm64([0; 5]),
                     AccessClass::new(0x0F, 0x0F),
                 ),
