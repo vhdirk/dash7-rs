@@ -63,7 +63,7 @@ impl Command {
     pub fn interface_status(&self) -> Option<&InterfaceStatus> {
         for action in self.actions.iter() {
             if let Action::Status(status) = &action {
-                if let Status::Interface(iface_status) = status {
+                if let Status::Interface(iface_status) = &status.status {
                     return Some(&iface_status.status);
                 }
             }
@@ -76,7 +76,7 @@ impl Command {
         let mut actions = vec![];
         for action in self.actions.iter() {
             if let Action::Status(status) = &action {
-                if let Status::Interface(_) = status {
+                if let Status::Interface(_) = &status.status {
                     continue;
                 }
             }
@@ -117,8 +117,8 @@ impl Command {
 
     pub fn is_last_response(&self) -> bool {
         for action in self.actions.iter() {
-            if let Action::ResponseTag(ResponseTag { header: ResponseTagHeader{ eop, .. }, .. }) = action {
-                return *eop;
+            if let Action::ResponseTag(ResponseTag { header: ResponseTagHeader{ end_of_packet, .. }, .. }) = action {
+                return *end_of_packet;
             }
         }
         false
@@ -170,7 +170,7 @@ impl Display for Command {
         f.write_str(&format!("Command {}", &tag_str))?;
 
         let status = if let Some(operation) = self.response_tag() {
-            if operation.header.eop {
+            if operation.header.end_of_packet {
                 if operation.header.error {
                     "completed, with error"
                 } else {
@@ -216,10 +216,9 @@ mod test {
     use crate::transport::GroupCondition;
     use crate::{
         app::{
-            interface::InterfaceConfiguration,
-            operation::{
+            action::OpCode, interface::InterfaceConfiguration, operation::{
                 ActionHeader, FileData, FileOffset, Forward, Nop, ReadFileData, RequestTagHeader, ResponseTagHeader, Status
-            },
+            }
         },
         file::File,
         link::AccessClass,
@@ -235,7 +234,8 @@ mod test {
             actions: vec![
                 Action::RequestTag(RequestTag {
                     id: 66,
-                    header: RequestTagHeader { eop: true },
+                    header: RequestTagHeader { end_of_packet: true },
+                    opcode: OpCode::REQUEST_TAG
                 }),
                 Action::ReadFileData(ReadFileData {
                     header: ActionHeader {
@@ -247,6 +247,7 @@ mod test {
                         offset: 0u32.into(),
                     },
                     length: 8u32.into(),
+                    opcode: OpCode::READ_FILE_DATA
                 }),
                 Action::ReadFileData(ReadFileData {
                     header: ActionHeader {
@@ -258,12 +259,14 @@ mod test {
                         offset: 2u32.into(),
                     },
                     length: 3u32.into(),
+                    opcode: OpCode::READ_FILE_DATA
                 }),
                 Action::Nop(Nop {
                     header: ActionHeader {
                         response: true,
                         group: true,
                     },
+                    opcode: OpCode::NOP,
                 }),
             ],
         };
@@ -277,12 +280,12 @@ mod test {
         assert_eq!(
             Command {
                 actions: vec![
-                    Action::RequestTag(RequestTag { header: RequestTagHeader { eop: true }, id: 66 }),
+                    Action::RequestTag(RequestTag { header: RequestTagHeader { end_of_packet: true }, id: 66 , opcode: OpCode::REQUEST_TAG}),
                     Action::Nop(Nop {
                         header: ActionHeader {
                             group: true,
                             response: true
-                        }
+                        }, opcode: OpCode::NOP
                     })
                 ]
             }
@@ -296,9 +299,9 @@ mod test {
                         header: ActionHeader {
                             group: true,
                             response: false
-                        }
+                        }, opcode: OpCode::NOP
                     }),
-                    Action::RequestTag(RequestTag { header: RequestTagHeader { eop: true }, id: 44 }),
+                    Action::RequestTag(RequestTag { header: RequestTagHeader { end_of_packet: true }, id: 44, opcode: OpCode::REQUEST_TAG }),
                 ]
             }
             .request_id(),
@@ -311,13 +314,13 @@ mod test {
                         header: ActionHeader {
                             group: true,
                             response: false
-                        }
+                        }, opcode: OpCode::NOP
                     }),
                     Action::Nop(Nop {
                         header: ActionHeader {
                             group: true,
                             response: false
-                        }
+                        }, opcode: OpCode::NOP
                     })
                 ]
             }
@@ -332,15 +335,15 @@ mod test {
             Command {
                 actions: vec![
                     Action::ResponseTag(ResponseTag {
-                        header: ResponseTagHeader { eop: true,
+                        header: ResponseTagHeader { end_of_packet: true,
                         error: true, },
-                        id: 66
+                        id: 66, opcode: OpCode::RESPONSE_TAG
                     }),
                     Action::Nop(Nop {
                         header: ActionHeader {
                             group: true,
                             response: true
-                        }
+                        }, opcode: OpCode::NOP
                     })
                 ]
             }
@@ -355,11 +358,13 @@ mod test {
                             group: true,
                             response: false
                         }
+                        , opcode: OpCode::NOP
                     }),
                     Action::ResponseTag(ResponseTag {
-                        header: ResponseTagHeader { eop: true,
+                        header: ResponseTagHeader { end_of_packet: true,
                         error: true, },
                         id: 44
+                        , opcode: OpCode::RESPONSE_TAG
                     }),
                 ]
             }
@@ -373,13 +378,13 @@ mod test {
                         header: ActionHeader {
                             group: true,
                             response: false
-                        }
+                        }, opcode: OpCode::NOP
                     }),
                     Action::Nop(Nop {
                         header: ActionHeader {
                             group: true,
                             response: false
-                        }
+                        }, opcode: OpCode::NOP
                     })
                 ]
             }
@@ -393,15 +398,15 @@ mod test {
         assert!(Command {
             actions: vec![
                 Action::ResponseTag(ResponseTag {
-                    header: ResponseTagHeader { eop: true,
+                    header: ResponseTagHeader { end_of_packet: true,
                         error: true, },
-                    id: 66
+                    id: 66, opcode: OpCode::RESPONSE_TAG
                 }),
                 Action::Nop(Nop {
                     header: ActionHeader {
                         group: true,
                         response: true
-                    }
+                    }, opcode: OpCode::NOP
                 })
             ]
         }
@@ -410,16 +415,16 @@ mod test {
         assert!(!Command {
             actions: vec![
                 Action::ResponseTag(ResponseTag {
-                    header: ResponseTagHeader { eop: false,
+                    header: ResponseTagHeader { end_of_packet: false,
                     error: false,
                     },
-                    id: 66
+                    id: 66, opcode: OpCode::RESPONSE_TAG
                 }),
                 Action::Nop(Nop {
                     header: ActionHeader {
                         group: true,
                         response: true
-                    }
+                    }, opcode: OpCode::NOP
                 })
             ]
         }
@@ -428,15 +433,15 @@ mod test {
         assert!(!Command {
             actions: vec![
                 Action::ResponseTag(ResponseTag {
-                    header: ResponseTagHeader { eop: false,
+                    header: ResponseTagHeader { end_of_packet: false,
                     error: true,
                     },
-                    id: 44
+                    id: 44, opcode: OpCode::RESPONSE_TAG
                 }),
                 Action::ResponseTag(ResponseTag {
-                    header: ResponseTagHeader { eop: true,
+                    header: ResponseTagHeader { end_of_packet: true,
                     error: true},
-                    id: 44
+                    id: 44, opcode: OpCode::RESPONSE_TAG
                 }),
             ]
         }
@@ -448,13 +453,13 @@ mod test {
                     header: ActionHeader {
                         group: true,
                         response: false
-                    }
+                    }, opcode: OpCode::NOP
                 }),
                 Action::Nop(Nop {
                     header: ActionHeader {
                         group: true,
                         response: false
-                    }
+                    }, opcode: OpCode::NOP
                 })
             ]
         }
@@ -555,7 +560,7 @@ mod test {
 
         let item = Command {
             actions: vec![
-                Action::RequestTag(RequestTag { header: RequestTagHeader { eop: true }, id: 25 }),
+                Action::RequestTag(RequestTag { header: RequestTagHeader { end_of_packet: true }, id: 25 }),
                 Action::Status(
                     Status::Interface(
                         InterfaceStatus::Dash7(Dash7InterfaceStatus {
@@ -632,7 +637,7 @@ mod test {
                                 false,
                                 #[cfg(feature = "_wizzilab")]
                                 GroupCondition::Any,
-                                Address::Uid(4123107267735781422u64),
+                                Address::UId(4123107267735781422u64),
                                 NlsState::None,
                                 AccessClass::new(0, 1),
                             ),
@@ -659,6 +664,7 @@ mod test {
                         )
                         .to_vec(),
                     ),
+                    OpCode::WRITE_FILE_DATA
                 )),
             ],
         };

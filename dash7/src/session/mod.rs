@@ -10,9 +10,10 @@ mod interface_final;
 #[cfg(feature = "_wizzilab")]
 pub use interface_final::{InterfaceFinalStatus, InterfaceFinalStatusCode, InterfaceTxStatus};
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, Copy, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, Copy, PartialEq)]
 #[deku(bits = 8, id_type = "u8")]
 pub enum InterfaceType {
+    #[default]
     #[deku(id = "0x00")]
     Host,
 
@@ -135,14 +136,15 @@ pub struct QoS {
     pub stop_on_error: bool,
     #[deku(bits = 1)]
     pub record: bool,
+
     pub retry_mode: RetryMode,
     pub response_mode: ResponseMode,
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-// #[deku(ctx = "interface_id: InterfaceType, length: u32", id = "interface_id")]
-#[deku(id_type = "InterfaceType", ctx="length: u32", ctx_default="0")]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(ctx = "interface_id: InterfaceType, length: u32", id = "interface_id")]
 pub enum InterfaceStatus {
+    #[default]
     #[deku(id = "InterfaceType::Host")]
     Host,
 

@@ -29,7 +29,7 @@ use crate::{
 #[deku(id_type = "u8", bits = "8")]
 pub enum FileId {
     #[deku(id = "0x00")]
-    Uid,
+    UId,
     #[deku(id = "0x01")]
     FactorySettings,
     #[deku(id = "0x02")]
@@ -41,7 +41,7 @@ pub enum FileId {
     #[deku(id = "0x05")]
     EngineeringMode,
     #[deku(id = "0x06")]
-    Vid,
+    VId,
     #[deku(id = "0x08")]
     PhyConfig,
     #[deku(id = "0x09")]
@@ -174,8 +174,8 @@ pub enum File {
     #[deku(id = "FileId::AccessProfile14")]
     AccessProfile14(AccessProfile<14>),
 
-    #[deku(id = "FileId::Uid")]
-    Uid(#[deku(ctx = "AddressType::Uid")] Address),
+    #[deku(id = "FileId::UId")]
+    UId(#[deku(ctx = "AddressType::UId")] Address),
 
     #[deku(id = "FileId::FactorySettings")]
     FactorySettings(FactorySettings),
@@ -186,8 +186,8 @@ pub enum File {
     #[deku(id = "FileId::EngineeringMode")]
     EngineeringMode(EngineeringMode),
 
-    #[deku(id = "FileId::Vid")]
-    Vid(#[deku(ctx = "AddressType::Vid")] Address),
+    #[deku(id = "FileId::VId")]
+    VId(#[deku(ctx = "AddressType::VId")] Address),
 
     #[deku(id = "FileId::PhyStatus")]
     PhyStatus(PhyStatus),
@@ -203,6 +203,12 @@ pub enum File {
 
     #[deku(id_pat = "_")]
     Other(#[deku(count = "length")] Vec<u8>),
+}
+
+impl Default for File {
+    fn default() -> Self {
+        Self::Other(vec![])
+    }
 }
 
 impl File {

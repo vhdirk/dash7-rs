@@ -6,76 +6,51 @@ use deku::{
     prelude::*,
 };
 
-use super::interface::InterfaceConfiguration;
 pub use super::query::Query;
-use crate::{session::InterfaceType, utils::write_length_prefixed_ext};
+use super::{action::OpCode, interface::InterfaceConfiguration};
 use crate::utils::{read_length_prefixed, write_length_prefixed};
 use crate::{data::FileHeader, file::File, session::InterfaceStatus};
+use crate::{session::InterfaceType, utils::write_length_prefixed_ext};
 
-mod length;
 mod file_offset;
-pub use length::*;
+mod length;
 pub use file_offset::*;
+pub use length::*;
 
 #[cfg(feature = "_wizzilab")]
 pub use super::interface_final::*;
-
-pub trait Operation {
-    type Header;
-
-    fn header(&self) -> Result<Cow<Self::Header>, DekuError>
-    where
-        Self::Header: Clone;
-}
 
 // ===============================================================================
 // Operations
 // ===============================================================================
 
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
+pub struct StatusCode(#[deku(bits = 8)] pub u8);
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(id_type = "u8")]
-pub enum StatusCode {
+impl StatusCode {
     /// Status code that can be received as a result of some ALP actions.
     /// Action received and partially completed at response. To be completed after response
-    #[default]
-    #[deku(id = "0x00")]
-    Ok,
-    #[deku(id = "0x01")]
-    Received,
-    #[deku(id = "0x02")]
-    ItfFull,
-    #[deku(id = "0xFF")]
-    FileIdMissing,
-    #[deku(id = "0xFE")]
-    CreateFileIdAlreadyExist,
-    #[deku(id = "0xFD")]
-    FileIsNotRestorable,
-    #[deku(id = "0xFC")]
-    InsufficientPermission,
-    #[deku(id = "0xFB")]
-    CreateFileLengthOverflow,
-    #[deku(id = "0xFA")]
-    CreateFileAllocationOverflow, // ALP_SPEC: ??? Difference with the previous one?;
-    #[deku(id = "0xF9")]
-    WriteOffsetOverflow,
-    #[deku(id = "0xF8")]
-    WriteDataOverflow,
-    #[deku(id = "0xF7")]
-    WriteStorageUnavailable,
-    #[deku(id = "0xF6")]
-    UnknownOperation,
-    #[deku(id = "0xF5")]
-    OperationIncomplete,
-    #[deku(id = "0xF4")]
-    OperationWrongFormat,
-    #[deku(id = "0x80")]
-    UnknownError,
+    pub const OK: StatusCode = StatusCode(0x00);
+    pub const RECEIVED: StatusCode = StatusCode(0x01);
+    pub const ITF_FULL: StatusCode = StatusCode(0x02);
+    pub const FILE_ID_MISSING: StatusCode = StatusCode(0xFF);
+    pub const CREATE_FILE_ID_ALREADY_EXIST: StatusCode = StatusCode(0xFE);
+    pub const FILE_IS_NOT_RESTORABLE: StatusCode = StatusCode(0xFD);
+    pub const INSUFFICIENT_PERMISSION: StatusCode = StatusCode(0xFC);
+    pub const CREATE_FILE_LENGTH_OVERFLOW: StatusCode = StatusCode(0xFB);
+    pub const CREATE_FILE_ALLOCATION_OVERFLOW: StatusCode = StatusCode(0xFA); // ALP_SPEC: ??? Difference with the previous one
+    pub const WRITE_OFFSET_OVERFLOW: StatusCode = StatusCode(0xF9);
+    pub const WRITE_DATA_OVERFLOW: StatusCode = StatusCode(0xF8);
+    pub const WRITE_STORAGE_UNAVAILABLE: StatusCode = StatusCode(0xF7);
+    pub const UNKNOWN_OPERATION: StatusCode = StatusCode(0xF6);
+    pub const OPERATION_INCOMPLETE: StatusCode = StatusCode(0xF5);
+    pub const OPERATION_WRONG_FORMAT: StatusCode = StatusCode(0xF4);
+    pub const UNKNOWN_ERROR: StatusCode = StatusCode(0x80);
 }
 
 impl StatusCode {
     pub fn is_err(&self) -> bool {
-        self.deku_id().unwrap() > 0x80
+        *self > StatusCode(0x80)
     }
 }
 
@@ -100,9 +75,16 @@ pub enum Permission {
     Dash7([u8; 8]),
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+impl Default for Permission {
+    fn default() -> Self {
+        Self::Dash7([0; 8])
+    }
+}
+
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(id_type = "u8")]
 pub enum PermissionLevel {
+    #[default]
     #[deku(id = "0")]
     User,
     #[deku(id = "1")]
@@ -129,47 +111,38 @@ impl ActionHeader {
 
 // Nop
 /// Does nothing
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "header: <Self as Operation>::Header", ctx_default="Default::default()")]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(ctx = "_opcode: OpCode")]
 pub struct Nop {
-    #[deku(skip, default = "header")]
-    pub header: <Self as Operation>::Header,
-}
+    pub header: ActionHeader,
 
-impl Operation for Nop {
-    type Header = ActionHeader;
-
-    fn header(&self) -> Result<Cow<Self::Header>, DekuError> {
-        Ok(Cow::Borrowed(&self.header))
-    }
+    #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
+    pub opcode: OpCode,
 }
 
 /// Checks whether a file exists
 // ALP_SPEC: How is the result of this command different from a read file of size 0?
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "header: <Self as Operation>::Header", ctx_default="Default::default()")]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(ctx = "_opcode: OpCode")]
 pub struct FileId {
-    #[deku(skip, default = "header")]
-    pub header: <Self as Operation>::Header,
+    pub header: ActionHeader,
+
+    #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
+    pub opcode: OpCode,
+
     pub file_id: u8,
-}
-
-impl Operation for FileId {
-    type Header = ActionHeader;
-
-    fn header(&self) -> Result<Cow<Self::Header>, DekuError> {
-        Ok(Cow::Borrowed(&self.header))
-    }
 }
 
 /// Write data to a file
 // TODO: figure out a way to immediately decode the file
 // This will probably invole
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "header: <Self as Operation>::Header", ctx_default="Default::default()")]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(ctx = "_opcode: OpCode")]
 pub struct FileData {
-    #[deku(skip, default = "header")]
-    pub header: <Self as Operation>::Header,
+    pub header: ActionHeader,
+
+    #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
+    pub opcode: OpCode,
 
     pub offset: FileOffset,
 
@@ -180,21 +153,14 @@ pub struct FileData {
     data: File,
 }
 
-impl Operation for FileData {
-    type Header = ActionHeader;
-
-    fn header(&self) -> Result<Cow<Self::Header>, DekuError> {
-        Ok(Cow::Borrowed(&self.header))
-    }
-}
-
 impl FileData {
-    pub fn new(header: ActionHeader, offset: FileOffset, data: File) -> Self {
+    pub fn new(header: ActionHeader, offset: FileOffset, data: File, opcode: OpCode) -> Self {
         // TODO file id has to match data!
         Self {
             header,
             offset,
             data,
+            opcode,
         }
     }
 
@@ -220,75 +186,55 @@ impl FileData {
     }
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "header: <Self as Operation>::Header", ctx_default="Default::default()")]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(ctx = "_opcode: OpCode")]
 pub struct FileProperties {
-    #[deku(skip, default = "header")]
-    pub header: <Self as Operation>::Header,
+    pub header: ActionHeader,
+
+    #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
+    pub opcode: OpCode,
 
     pub file_id: u8,
     pub file_header: FileHeader,
 }
 
-impl Operation for FileProperties {
-    type Header = ActionHeader;
-
-    fn header(&self) -> Result<Cow<Self::Header>, DekuError> {
-        Ok(Cow::Borrowed(&self.header))
-    }
-}
-
 // Read
 /// Read data from a file
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "header: <Self as Operation>::Header", ctx_default="Default::default()")]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(ctx = "_opcode: OpCode")]
 pub struct ReadFileData {
-    #[deku(skip, default = "header")]
-    pub header: <Self as Operation>::Header,
+    pub header: ActionHeader,
+
+    #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
+    pub opcode: OpCode,
 
     pub offset: FileOffset,
     pub length: Length,
 }
 
-impl Operation for ReadFileData {
-    type Header = ActionHeader;
-    fn header(&self) -> Result<Cow<Self::Header>, DekuError> {
-        Ok(Cow::Borrowed(&self.header))
-    }
-}
-
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "header: <Self as Operation>::Header", ctx_default="Default::default()")]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(ctx = "_opcode: OpCode")]
 pub struct ActionQuery {
-    #[deku(skip, default = "header")]
-    pub header: <Self as Operation>::Header,
+    pub header: ActionHeader,
+
+    #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
+    pub opcode: OpCode,
 
     pub query: Query,
 }
 
-impl Operation for ActionQuery {
-    type Header = ActionHeader;
-    fn header(&self) -> Result<Cow<Self::Header>, DekuError> {
-        Ok(Cow::Borrowed(&self.header))
-    }
-}
-
 /// Request a level of permission using some permission type
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "header: <Self as Operation>::Header", ctx_default="Default::default()")]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(ctx = "_opcode: OpCode")]
 pub struct PermissionRequest {
-    #[deku(skip, default = "header")]
-    pub header: <Self as Operation>::Header,
+    pub header: ActionHeader,
+
+    #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
+    pub opcode: OpCode,
+
     /// See operation::permission_level
     pub level: PermissionLevel,
     pub permission: Permission,
-}
-
-impl Operation for PermissionRequest {
-    type Header = ActionHeader;
-    fn header(&self) -> Result<Cow<Self::Header>, DekuError> {
-        Ok(Cow::Borrowed(&self.header))
-    }
 }
 
 /// Copy a file to another file
@@ -297,20 +243,17 @@ impl Operation for PermissionRequest {
 // overwrite the first part of the destination file?
 //
 // Wouldn't it be more appropriate to have 1 size and 2 file offsets?
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "header: <Self as Operation>::Header", ctx_default="Default::default()")]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(ctx = "_opcode: OpCode")]
 pub struct CopyFile {
-    #[deku(skip, default = "header")]
-    pub header: <Self as Operation>::Header,
-    pub src_file_id: u8,
-    pub dst_file_id: u8,
-}
+    pub header: ActionHeader,
 
-impl Operation for CopyFile {
-    type Header = ActionHeader;
-    fn header(&self) -> Result<Cow<Self::Header>, DekuError> {
-        Ok(Cow::Borrowed(&self.header))
-    }
+    #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
+    pub opcode: OpCode,
+
+    pub src_file_id: u8,
+
+    pub dst_file_id: u8,
 }
 
 #[derive(DekuRead, DekuWrite, Default, Clone, Copy, Debug, PartialEq)]
@@ -330,7 +273,11 @@ pub enum StatusType {
 
 /// Statuses regarding actions sent in a request
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "status_type: StatusType", id = "status_type", ctx_default="Default::default()")]
+#[deku(
+    ctx = "status_type: StatusType",
+    id = "status_type",
+    ctx_default = "Default::default()"
+)]
 pub enum Status {
     // ALP SPEC: This is named status, but it should be named action status compared to the '2'
     // other statuses.
@@ -351,21 +298,35 @@ impl Default for Status {
     }
 }
 
-
-
-impl Operation for Status {
-    type Header = StatusType;
-    fn header(&self) -> Result<Cow<Self::Header>, DekuError> {
-        self.deku_id().map(|x| Cow::Owned(x))
+impl Into<StatusOperand> for Status {
+    fn into(self) -> StatusOperand {
+        StatusOperand {
+            status_type: self.deku_id().unwrap(),
+            opcode: OpCode::STATUS,
+            status: self,
+        }
     }
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(ctx = "_opcode: OpCode")]
+pub struct StatusOperand {
+    pub status_type: StatusType,
+
+    #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
+    pub opcode: OpCode,
+
+    #[deku(ctx = "*status_type")]
+    pub status: Status,
+}
+
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct InterfaceStatusOperation {
-    pub interface_id: u8,
+
+    pub interface_type: InterfaceType,
 
     #[deku(
-        reader = "InterfaceStatusOperation::read(deku::reader)",
+        reader = "InterfaceStatusOperation::read(deku::reader, *interface_type)",
         writer = "InterfaceStatusOperation::write(deku::writer, &self.status)"
     )]
     pub status: InterfaceStatus,
@@ -374,7 +335,7 @@ pub struct InterfaceStatusOperation {
 impl From<InterfaceStatus> for InterfaceStatusOperation {
     fn from(status: InterfaceStatus) -> Self {
         Self {
-            interface_id: status.deku_id().unwrap().deku_id().unwrap(),
+            interface_type: status.deku_id().unwrap(),
             status,
         }
     }
@@ -388,25 +349,23 @@ impl Into<Status> for InterfaceStatusOperation {
 
 impl InterfaceStatusOperation {
     #[cfg(not(feature = "subiot_v0_0"))]
-    pub fn read<'a, R>(
-        reader: &mut Reader<'a, R>,
-    ) -> Result<InterfaceStatus, DekuError>
+    pub fn read<'a, R>(reader: &mut Reader<'a, R>, interface_type: InterfaceType) -> Result<InterfaceStatus, DekuError>
     where
         R: no_std_io::Read + no_std_io::Seek,
     {
         // Subiot v0.0 was missing the length field
-        #[cfg(feature = "subiot_v0_0")]
-        return InterfaceStatus::from_reader_with_ctx(reader, (interface_id.try_into()?, 0));
+        let mut length = Length(0);
 
         #[cfg(not(feature = "subiot_v0_0"))]
-        return read_length_prefixed::< _, u32, _>(reader);
+        {
+            length = Length::from_reader_with_ctx(reader, ())?;
+        }
+
+        InterfaceStatus::from_reader_with_ctx(reader, (interface_type, length.into()))
     }
 
     #[cfg(not(feature = "subiot_v0_0"))]
-    pub fn write<W>(
-        writer: &mut Writer<W>,
-        status: &InterfaceStatus,
-    ) -> Result<(), DekuError>
+    pub fn write<W>(writer: &mut Writer<W>, status: &InterfaceStatus) -> Result<(), DekuError>
     where
         W: no_std_io::Write + no_std_io::Seek,
     {
@@ -417,10 +376,10 @@ impl InterfaceStatusOperation {
 
         // Subiot v0.0 was missing the length field
         #[cfg(feature = "subiot_v0_0")]
-        return DekuWriter::to_writer(status, writer, (interface_id.try_into()?, vec_size));
+        return DekuWriter::to_writer(status, writer, (interface_type.try_into()?, vec_size));
 
         #[cfg(not(feature = "subiot_v0_0"))]
-        return write_length_prefixed(writer, status, vec_size);
+        return write_length_prefixed(writer, status, (status.deku_id().unwrap(), vec_size));
     }
 }
 
@@ -431,7 +390,7 @@ pub struct ResponseTagHeader {
     ///
     /// Signal the last response packet for the request `id`
     #[deku(bits = 1)]
-    pub eop: bool,
+    pub end_of_packet: bool,
     /// An error occured
     #[deku(bits = 1)]
     pub error: bool,
@@ -440,24 +399,19 @@ pub struct ResponseTagHeader {
 /// Action received before any responses to a request that contained a RequestTag
 ///
 /// This allows matching responses to requests when doing multiple requests in parallel.
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "header: <Self as Operation>::Header", ctx_default="Default::default()")]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(ctx = "_opcode: OpCode")]
 pub struct ResponseTag {
-    #[deku(skip, default = "header")]
-    pub header: <Self as Operation>::Header,
+    pub header: ResponseTagHeader,
+
+    #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
+    pub opcode: OpCode,
 
     pub id: u8,
 }
 
-impl Operation for ResponseTag {
-    type Header = ResponseTagHeader;
-    fn header(&self) -> Result<Cow<Self::Header>, DekuError> {
-        Ok(Cow::Borrowed(&self.header))
-    }
-}
-
 // Special
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, Default)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(bits = 2, id_type = "u8")]
 pub enum ChunkStep {
     #[default]
@@ -471,6 +425,15 @@ pub enum ChunkStep {
     StartEnd,
 }
 
+impl Into<Chunk> for ChunkStep {
+    fn into(self) -> Chunk {
+        Chunk {
+            step: self,
+            opcode: OpCode::CHUNK,
+        }
+    }
+}
+
 /// Provide chunk information and therefore allows to send an ALP command by chunks.
 ///
 /// Specification:
@@ -478,22 +441,17 @@ pub enum ChunkStep {
 /// ALP Command Chunk to define its chunk state: START, CONTINUE or END (see 6.2.2.1). If the Chunk Action is not
 /// present, the ALP Command is not chunked (implicit START/END). The Group (11.5.3) and Break Query conditions are
 /// extended over all chunks of the ALP Command.
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "header: <Self as Operation>::Header", ctx_default="Default::default()")]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(ctx = "_opcode: OpCode")]
 pub struct Chunk {
-    #[deku(skip, default = "header")]
-    pub step: <Self as Operation>::Header,
-}
+    pub step: ChunkStep,
 
-impl Operation for Chunk {
-    type Header = ChunkStep;
-    fn header(&self) -> Result<Cow<Self::Header>, DekuError> {
-        Ok(Cow::Borrowed(&self.step))
-    }
+    #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
+    pub opcode: OpCode,
 }
 
 /// Provide logical link of a group of queries
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, Default)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(bits = 2, id_type = "u8")]
 pub enum LogicOp {
     #[default]
@@ -507,42 +465,31 @@ pub enum LogicOp {
     Nand,
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "header: <Self as Operation>::Header", ctx_default="Default::default()")]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(ctx = "_opcode: OpCode")]
 pub struct Logic {
-    #[deku(skip, default = "header")]
     pub logic: LogicOp,
-}
 
-impl Operation for Logic {
-    type Header = LogicOp;
-    fn header(&self) -> Result<Cow<Self::Header>, DekuError> {
-        Ok(Cow::Borrowed(&self.logic))
-    }
+    #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
+    pub opcode: OpCode,
 }
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct ForwardHeader {
-    #[deku(bits = 1, pad_bits_before = "1", pad_bits_after = "6")]
+    #[deku(bits = 1, pad_bits_before = "1")]
     pub response: bool,
 }
 
 /// Forward rest of the command over the interface
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "header: <Self as Operation>::Header", ctx_default="Default::default()")]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(ctx = "_opcode: OpCode")]
 pub struct Forward {
-    #[deku(skip, default = "header")]
-    pub header: <Self as Operation>::Header,
+    pub header: ForwardHeader,
+
+    #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
+    pub opcode: OpCode,
 
     pub configuration: InterfaceConfiguration,
-}
-
-impl Operation for Forward {
-    type Header = ForwardHeader;
-
-    fn header(&self) -> Result<Cow<Self::Header>, DekuError> {
-        Ok(Cow::Borrowed(&self.header))
-    }
 }
 
 impl Forward {
@@ -550,6 +497,7 @@ impl Forward {
         Self {
             header: ForwardHeader { response },
             configuration,
+            opcode: OpCode::FORWARD,
         }
     }
 }
@@ -573,30 +521,21 @@ impl IndirectForwardHeader {
 }
 
 /// Forward rest of the command over the interface
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "header: <Self as Operation>::Header", ctx_default="Default::default()")]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(ctx = "_opcode: OpCode")]
 pub struct IndirectForward {
     #[deku(
-        skip,
-        default = "header",
         update = "IndirectForwardHeader::new(self.configuration.is_some(), self.header.response)"
     )]
     pub header: IndirectForwardHeader,
 
+    #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
+    pub opcode: OpCode,
+
     pub interface_file_id: u8,
 
-    #[deku(
-        cond = "header.overloaded",
-    )]
+    #[deku(cond = "header.overloaded")]
     pub configuration: Option<InterfaceConfiguration>,
-}
-
-impl Operation for IndirectForward {
-    type Header = IndirectForwardHeader;
-
-    fn header(&self) -> Result<Cow<Self::Header>, DekuError> {
-        Ok(Cow::Borrowed(&self.header))
-    }
 }
 
 impl IndirectForward {
@@ -610,6 +549,7 @@ impl IndirectForward {
                 overloaded: configuration.is_some(),
                 response,
             },
+            opcode: OpCode::INDIRECT_FORWARD,
             interface_file_id,
             configuration,
         }
@@ -619,40 +559,28 @@ impl IndirectForward {
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 pub struct RequestTagHeader {
     #[deku(bits = 1, pad_bits_after = "1")]
-    pub eop: bool,
+    pub end_of_packet: bool,
 }
 
 /// Provide command payload identifier
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "header: <Self as Operation>::Header", ctx_default="Default::default()")]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(ctx = "_opcode: OpCode")]
 pub struct RequestTag {
-    #[deku(skip, default = "header")]
-    pub header: <Self as Operation>::Header,
+    pub header: RequestTagHeader,
+
+    #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
+    pub opcode: OpCode,
 
     pub id: u8,
 }
 
-impl Operation for RequestTag {
-    type Header = RequestTagHeader;
-
-    fn header(&self) -> Result<Cow<Self::Header>, DekuError> {
-        Ok(Cow::Borrowed(&self.header))
-    }
-}
-
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(ctx = "header: <Self as Operation>::Header", ctx_default="Default::default()")]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[deku(ctx = "_opcode: OpCode")]
 pub struct Extension {
-    #[deku(skip, default = "header")]
     pub header: ActionHeader,
-}
 
-impl Operation for Extension {
-    type Header = ActionHeader;
-
-    fn header(&self) -> Result<Cow<Self::Header>, DekuError> {
-        Ok(Cow::Borrowed(&self.header))
-    }
+    #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
+    pub opcode: OpCode,
 }
 
 #[cfg(test)]
@@ -693,7 +621,7 @@ mod test {
         test_item(
             ActionStatus {
                 action_id: 2,
-                status: StatusCode::UnknownOperation,
+                status: StatusCode::UNKNOWN_OPERATION,
             },
             &hex!("02 F6"),
         )
@@ -727,7 +655,7 @@ mod test {
                 false,
                 #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
-                Address::Uid(4123107267735781422u64),
+                Address::UId(4123107267735781422u64),
                 NlsState::None,
                 AccessClass::new(0, 1),
             ),

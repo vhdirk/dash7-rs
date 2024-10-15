@@ -7,7 +7,7 @@ use alloc::fmt;
 
 use deku::{
     ctx::{BitSize, Endian},
-    no_std_io,
+    no_std_io::{self, Seek, Write},
     prelude::*,
 };
 
@@ -15,8 +15,8 @@ use crate::utils::{from_bytes, from_reader};
 
 use super::operation::{
     ActionQuery, Chunk, CopyFile, Extension, FileData, FileId, FileProperties, Forward,
-    IndirectForward, Logic, Nop, Operation, PermissionRequest, ReadFileData, RequestTag, ResponseTag,
-    Status,
+    IndirectForward, Logic, Nop, PermissionRequest, ReadFileData, RequestTag, ResponseTag, Status,
+    StatusOperand,
 };
 
 #[cfg(feature = "_wizzilab")]
@@ -26,79 +26,58 @@ use super::interface_final::*;
 // OpCodes
 // ===============================================================================
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(bits = 6, id_type = "u8")]
-pub enum OpCode {
-    // Nop
-    #[default]
-    #[deku(id = "0")]
-    Nop,
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct OpCode(#[deku(bits = 6)] pub u8);
+
+impl OpCode {
+    pub const NOP: OpCode = OpCode(0u8);
+
     // Read
-    #[deku(id = "1")]
-    ReadFileData,
-    #[deku(id = "2")]
-    ReadFileProperties,
+    pub const READ_FILE_DATA: OpCode = OpCode(0x01u8);
+    pub const READ_FILE_PROPERTIES: OpCode = OpCode(0x02u8);
 
     // Write
-    #[deku(id = "4")]
-    WriteFileData,
-    #[deku(id = "5")]
-    WriteFileDataFlush,
-    #[deku(id = "6")]
-    WriteFileProperties,
-    #[deku(id = "8")]
-    ActionQuery,
-    #[deku(id = "9")]
-    BreakQuery,
-    #[deku(id = "10")]
-    PermissionRequest,
-    #[deku(id = "11")]
-    VerifyChecksum,
+    pub const WRITE_FILE_DATA: OpCode = OpCode(0x04u8);
+    pub const WRITE_FILE_DATA_FLUSH: OpCode = OpCode(0x05u8);
+    pub const WRITE_FILE_PROPERTIES: OpCode = OpCode(0x06u8);
+    pub const ACTION_QUERY: OpCode = OpCode(0x08u8);
+    pub const BREAK_QUERY: OpCode = OpCode(0x09u8);
+    pub const PERMISSION_REQUEST: OpCode = OpCode(0x0au8);
+    pub const VERIFY_CHECKSUM: OpCode = OpCode(0x0bu8);
 
     // Management
-    #[deku(id = "16")]
-    ExistFile,
-    #[deku(id = "17")]
-    CreateNewFile,
-    #[deku(id = "18")]
-    DeleteFile,
-    #[deku(id = "19")]
-    RestoreFile,
-    #[deku(id = "20")]
-    FlushFile,
-    #[deku(id = "23")]
-    CopyFile,
-    #[deku(id = "31")]
-    ExecuteFile,
+    pub const EXIST_FILE: OpCode = OpCode(16u8);
+    pub const CREATE_NEW_FILE: OpCode = OpCode(17u8);
+    pub const DELETE_FILE: OpCode = OpCode(18u8);
+    pub const RESTORE_FILE: OpCode = OpCode(19u8);
+    pub const FLUSH_FILE: OpCode = OpCode(20u8);
+    pub const COPY_FILE: OpCode = OpCode(23u8);
+    pub const EXECUTE_FILE: OpCode = OpCode(31u8);
 
     // Response
-    #[deku(id = "32")]
-    ReturnFileData,
-    #[deku(id = "33")]
-    ReturnFileProperties,
-    #[deku(id = "34")]
-    Status,
-    #[deku(id = "35")]
-    ResponseTag,
+    pub const RETURN_FILE_DATA: OpCode = OpCode(32u8);
+    pub const RETURN_FILE_PROPERTIES: OpCode = OpCode(33u8);
+    pub const STATUS: OpCode = OpCode(34u8);
+    pub const RESPONSE_TAG: OpCode = OpCode(35u8);
 
     #[cfg(feature = "_wizzilab")]
-    #[deku(id = "38")]
-    TxStatus,
+    pub const TX_STATUS: OpCode = OpCode(38u8);
 
     // Special
-    #[deku(id = "48")]
-    Chunk,
-    #[deku(id = "49")]
-    Logic,
-    #[deku(id = "50")]
-    Forward,
-    #[deku(id = "51")]
-    IndirectForward,
-    #[deku(id = "52")]
-    RequestTag,
-    #[deku(id = "63")]
-    Extension,
+    pub const CHUNK: OpCode = OpCode(48u8);
+    pub const LOGIC: OpCode = OpCode(49u8);
+    pub const FORWARD: OpCode = OpCode(50u8);
+    pub const INDIRECT_FORWARD: OpCode = OpCode(51u8);
+    pub const REQUEST_TAG: OpCode = OpCode(52u8);
+    pub const EXTENSION: OpCode = OpCode(63u8);
 }
+
+impl OpCode {
+    pub fn write<W: Write + Seek>(writer: &mut Writer<W>, opcode: OpCode) -> Result<(), DekuError> {
+        opcode.to_writer(writer, ())
+    }
+}
+
 
 // ===============================================================================
 // Actions
@@ -145,7 +124,7 @@ pub enum Action {
     // Response
     ReturnFileData(FileData),
     ReturnFileProperties(FileProperties),
-    Status(Status),
+    Status(StatusOperand),
     ResponseTag(ResponseTag),
 
     #[cfg(feature = "_wizzilab")]
@@ -160,7 +139,6 @@ pub enum Action {
     Extension(Extension),
 }
 
-
 // macro_rules! read_action {
 //     ($action: ident, $operation: ty, $reader: ident) => {{
 //         let header = <$operation as Operation>::Header::from_reader_with_ctx($reader, ())?;
@@ -174,10 +152,8 @@ pub enum Action {
 // }
 
 macro_rules! read_action {
-    ($action: ident, $operation: ty, $reader: ident, $preamble_reader: ident) => {{
-        let header = <$operation as Operation>::Header::from_reader_with_ctx(&mut $preamble_reader, ())?;
-
-        <$operation as DekuReader<'_, _>>::from_reader_with_ctx($reader, header)
+    ($action: ident, $operation: ty, $reader: ident, $opcode: ident) => {{
+        <$operation as DekuReader<'_, _>>::from_reader_with_ctx($reader, $opcode)
             .map(|action| Self::$action(action))?
     }};
 }
@@ -187,72 +163,80 @@ impl<'a> DekuReader<'a, ()> for Action {
     where
         R: no_std_io::Read + no_std_io::Seek,
     {
-        // // first, skip the 2 preamble bits
-        // reader.skip_bits(2)?;
+        // skip the 2 preamble bits
+        reader.skip_bits(2)?;
 
-        // // read the opcode
-        // let code = <OpCode as DekuReader<'_, _>>::from_reader_with_ctx(reader, ())?;
-
-        // // seek back to the beginning (1 byte)
-        // reader.seek_relative(-1); // TODO process err
-
-        // Read the preamble and pass it on as context values
-        let preamble = (<u8 as DekuReader<'_, _>>::from_reader_with_ctx(
-            reader,
-            (Endian::Big, BitSize(2)),
-        )?,)
-            .0;
-
-        let mut cursor = no_std_io::Cursor::new([preamble]);
-        let mut preamble_reader = Reader::new(&mut cursor);
-        preamble_reader.skip_bits(6)?;
-
+        // read the opcode
         let code = <OpCode as DekuReader<'_, _>>::from_reader_with_ctx(reader, ())?;
+
+        // seek back to the beginning (1 byte)
+        let _ = reader.seek_relative(-1); // TODO process err
+
+        // // Read the preamble and pass it on as context values
+        // let preamble = (<u8 as DekuReader<'_, _>>::from_reader_with_ctx(
+        //     reader,
+        //     (Endian::Big, BitSize(2)),
+        // )?,)
+        //     .0;
+
+        // let mut cursor = no_std_io::Cursor::new([preamble]);
+
+        // let mut preamble_reader = Reader::new(&mut cursor);
+        // preamble_reader.skip_bits(6)?;
 
         // now we have to revert for those 2 bits?
         let value = match code {
-            OpCode::Nop => read_action!(Nop, Nop, reader, preamble_reader),
-            OpCode::ReadFileData => read_action!(ReadFileData, ReadFileData, reader, preamble_reader),
-            OpCode::ReadFileProperties => {
-                read_action!(ReadFileProperties, FileId, reader, preamble_reader)
+            OpCode::NOP => read_action!(Nop, Nop, reader, code),
+            OpCode::READ_FILE_DATA => {
+                read_action!(ReadFileData, ReadFileData, reader, code)
             }
-            OpCode::WriteFileData => read_action!(WriteFileData, FileData, reader, preamble_reader),
-            OpCode::WriteFileDataFlush => {
-                read_action!(WriteFileDataFlush, FileData, reader, preamble_reader)
+            OpCode::READ_FILE_PROPERTIES => {
+                read_action!(ReadFileProperties, FileId, reader, code)
             }
-            OpCode::WriteFileProperties => {
-                read_action!(WriteFileProperties, FileProperties, reader, preamble_reader)
+            OpCode::WRITE_FILE_DATA => read_action!(WriteFileData, FileData, reader, code),
+            OpCode::WRITE_FILE_DATA_FLUSH => {
+                read_action!(WriteFileDataFlush, FileData, reader, code)
             }
-            OpCode::ActionQuery => read_action!(ActionQuery, ActionQuery, reader, preamble_reader),
-            OpCode::BreakQuery => read_action!(BreakQuery, ActionQuery, reader, preamble_reader),
-            OpCode::PermissionRequest => {
-                read_action!(PermissionRequest, PermissionRequest, reader, preamble_reader)
+            OpCode::WRITE_FILE_PROPERTIES => {
+                read_action!(WriteFileProperties, FileProperties, reader, code)
             }
-            OpCode::VerifyChecksum => read_action!(VerifyChecksum, ActionQuery, reader, preamble_reader),
-            OpCode::ExistFile => read_action!(ExistFile, FileId, reader, preamble_reader),
-            OpCode::CreateNewFile => read_action!(CreateNewFile, FileProperties, reader, preamble_reader),
-            OpCode::DeleteFile => read_action!(DeleteFile, FileId, reader, preamble_reader),
-            OpCode::RestoreFile => read_action!(RestoreFile, FileId, reader, preamble_reader),
-            OpCode::FlushFile => read_action!(FlushFile, FileId, reader, preamble_reader),
-            OpCode::CopyFile => read_action!(CopyFile, CopyFile, reader, preamble_reader),
-            OpCode::ExecuteFile => read_action!(ExecuteFile, FileId, reader, preamble_reader),
-            OpCode::ReturnFileData => read_action!(ReturnFileData, FileData, reader, preamble_reader),
-            OpCode::ReturnFileProperties => {
-                read_action!(ReturnFileProperties, FileProperties, reader, preamble_reader)
+            OpCode::ACTION_QUERY => read_action!(ActionQuery, ActionQuery, reader, code),
+            OpCode::BREAK_QUERY => read_action!(BreakQuery, ActionQuery, reader, code),
+            OpCode::PERMISSION_REQUEST => {
+                read_action!(PermissionRequest, PermissionRequest, reader, code)
             }
-            OpCode::ResponseTag => read_action!(ResponseTag, ResponseTag, reader, preamble_reader),
+            OpCode::VERIFY_CHECKSUM => {
+                read_action!(VerifyChecksum, ActionQuery, reader, code)
+            }
+            OpCode::EXIST_FILE => read_action!(ExistFile, FileId, reader, code),
+            OpCode::CREATE_NEW_FILE => {
+                read_action!(CreateNewFile, FileProperties, reader, code)
+            }
+            OpCode::DELETE_FILE => read_action!(DeleteFile, FileId, reader, code),
+            OpCode::RESTORE_FILE => read_action!(RestoreFile, FileId, reader, code),
+            OpCode::FLUSH_FILE => read_action!(FlushFile, FileId, reader, code),
+            OpCode::COPY_FILE => read_action!(CopyFile, CopyFile, reader, code),
+            OpCode::EXECUTE_FILE => read_action!(ExecuteFile, FileId, reader, code),
+            OpCode::RETURN_FILE_DATA => {
+                read_action!(ReturnFileData, FileData, reader, code)
+            }
+            OpCode::RETURN_FILE_PROPERTIES => {
+                read_action!(ReturnFileProperties, FileProperties, reader, code)
+            }
+            OpCode::RESPONSE_TAG => read_action!(ResponseTag, ResponseTag, reader, code),
 
             #[cfg(feature = "_wizzilab")]
-            OpCode::TxStatus => read_action!(TxStatus, TxStatusOperation, reader, preamble_reader),
-            OpCode::Chunk => read_action!(Chunk, Chunk, reader, preamble_reader),
-            OpCode::Logic => read_action!(Logic, Logic, reader, preamble_reader),
-            OpCode::RequestTag => read_action!(RequestTag, RequestTag, reader, preamble_reader),
-            OpCode::Status => read_action!(Status, Status, reader, preamble_reader),
-            OpCode::Forward => read_action!(Forward, Forward, reader, preamble_reader),
-            OpCode::IndirectForward => {
-                read_action!(IndirectForward, IndirectForward, reader, preamble_reader)
+            OpCode::TX_STATUS => read_action!(TxStatus, TxStatusOperation, reader, code),
+            OpCode::CHUNK => read_action!(Chunk, Chunk, reader, code),
+            OpCode::LOGIC => read_action!(Logic, Logic, reader, code),
+            OpCode::REQUEST_TAG => read_action!(RequestTag, RequestTag, reader, code),
+            OpCode::STATUS => read_action!(Status, StatusOperand, reader, code),
+            OpCode::FORWARD => read_action!(Forward, Forward, reader, code),
+            OpCode::INDIRECT_FORWARD => {
+                read_action!(IndirectForward, IndirectForward, reader, code)
             }
-            OpCode::Extension => read_action!(Extension, Extension, reader, preamble_reader),
+            OpCode::EXTENSION => read_action!(Extension, Extension, reader, code),
+            _ => return Err(DekuError::InvalidParam("opcode".into())),
         };
         Ok(value)
     }
@@ -288,35 +272,35 @@ impl DekuContainerRead<'_> for Action {
 impl DekuEnumExt<'_, OpCode> for Action {
     fn deku_id(&self) -> Result<OpCode, DekuError> {
         match self {
-            Action::Nop(_) => Ok(OpCode::Nop),
-            Action::ReadFileData(_) => Ok(OpCode::ReadFileData),
-            Action::ReadFileProperties(_) => Ok(OpCode::ReadFileProperties),
-            Action::WriteFileData(_) => Ok(OpCode::WriteFileData),
-            Action::WriteFileDataFlush(_) => Ok(OpCode::WriteFileDataFlush),
-            Action::WriteFileProperties(_) => Ok(OpCode::WriteFileProperties),
-            Action::ActionQuery(_) => Ok(OpCode::ActionQuery),
-            Action::BreakQuery(_) => Ok(OpCode::BreakQuery),
-            Action::PermissionRequest(_) => Ok(OpCode::PermissionRequest),
-            Action::VerifyChecksum(_) => Ok(OpCode::VerifyChecksum),
-            Action::ExistFile(_) => Ok(OpCode::ExistFile),
-            Action::CreateNewFile(_) => Ok(OpCode::CreateNewFile),
-            Action::DeleteFile(_) => Ok(OpCode::DeleteFile),
-            Action::RestoreFile(_) => Ok(OpCode::RestoreFile),
-            Action::FlushFile(_) => Ok(OpCode::FlushFile),
-            Action::CopyFile(_) => Ok(OpCode::CopyFile),
-            Action::ExecuteFile(_) => Ok(OpCode::ExecuteFile),
-            Action::ReturnFileData(_) => Ok(OpCode::ReturnFileData),
-            Action::ReturnFileProperties(_) => Ok(OpCode::ReturnFileProperties),
-            Action::ResponseTag(_) => Ok(OpCode::ResponseTag),
+            Action::Nop(_) => Ok(OpCode::NOP),
+            Action::ReadFileData(_) => Ok(OpCode::READ_FILE_DATA),
+            Action::ReadFileProperties(_) => Ok(OpCode::READ_FILE_PROPERTIES),
+            Action::WriteFileData(_) => Ok(OpCode::WRITE_FILE_DATA),
+            Action::WriteFileDataFlush(_) => Ok(OpCode::WRITE_FILE_DATA_FLUSH),
+            Action::WriteFileProperties(_) => Ok(OpCode::WRITE_FILE_PROPERTIES),
+            Action::ActionQuery(_) => Ok(OpCode::ACTION_QUERY),
+            Action::BreakQuery(_) => Ok(OpCode::BREAK_QUERY),
+            Action::PermissionRequest(_) => Ok(OpCode::PERMISSION_REQUEST),
+            Action::VerifyChecksum(_) => Ok(OpCode::VERIFY_CHECKSUM),
+            Action::ExistFile(_) => Ok(OpCode::EXIST_FILE),
+            Action::CreateNewFile(_) => Ok(OpCode::CREATE_NEW_FILE),
+            Action::DeleteFile(_) => Ok(OpCode::DELETE_FILE),
+            Action::RestoreFile(_) => Ok(OpCode::RESTORE_FILE),
+            Action::FlushFile(_) => Ok(OpCode::FLUSH_FILE),
+            Action::CopyFile(_) => Ok(OpCode::COPY_FILE),
+            Action::ExecuteFile(_) => Ok(OpCode::EXECUTE_FILE),
+            Action::ReturnFileData(_) => Ok(OpCode::RETURN_FILE_DATA),
+            Action::ReturnFileProperties(_) => Ok(OpCode::RETURN_FILE_PROPERTIES),
+            Action::ResponseTag(_) => Ok(OpCode::RESPONSE_TAG),
             #[cfg(feature = "_wizzilab")]
-            Action::TxStatus(_) => Ok(OpCode::TxStatus),
-            Action::Chunk(_) => Ok(OpCode::Chunk),
-            Action::Logic(_) => Ok(OpCode::Logic),
-            Action::Status(_) => Ok(OpCode::Status),
-            Action::Forward(_) => Ok(OpCode::Forward),
-            Action::IndirectForward(_) => Ok(OpCode::IndirectForward),
-            Action::RequestTag(_) => Ok(OpCode::RequestTag),
-            Action::Extension(_) => Ok(OpCode::Extension),
+            Action::TxStatus(_) => Ok(OpCode::TX_STATUS),
+            Action::Chunk(_) => Ok(OpCode::CHUNK),
+            Action::Logic(_) => Ok(OpCode::LOGIC),
+            Action::Status(_) => Ok(OpCode::STATUS),
+            Action::Forward(_) => Ok(OpCode::FORWARD),
+            Action::IndirectForward(_) => Ok(OpCode::INDIRECT_FORWARD),
+            Action::RequestTag(_) => Ok(OpCode::REQUEST_TAG),
+            Action::Extension(_) => Ok(OpCode::EXTENSION),
         }
     }
 }
@@ -327,51 +311,43 @@ impl DekuUpdate for Action {
     }
 }
 
-macro_rules! write_action {
-    ($self: ident, $action: ident, $output: ident) => {{
-        let header = $action.header()?;
-        header.to_writer($output, ())?;
-        $self.deku_id()?.to_writer($output, ())?;
-        $action.to_writer($output, ())?;
-    }};
-}
-
 impl DekuWriter<()> for Action {
     fn to_writer<W>(&self, writer: &mut Writer<W>, _: ()) -> Result<(), DekuError>
     where
         W: no_std_io::Write + no_std_io::Seek,
     {
+        let opcode = self.deku_id()?;
 
         match self {
-            Action::Nop(action) => write_action!(self, action, writer),
-            Action::ReadFileData(action) => write_action!(self, action, writer),
-            Action::ReadFileProperties(action) => write_action!(self, action, writer),
-            Action::WriteFileData(action) => write_action!(self, action, writer),
-            Action::WriteFileDataFlush(action) => write_action!(self, action, writer),
-            Action::WriteFileProperties(action) => write_action!(self, action, writer),
-            Action::ActionQuery(action) => write_action!(self, action, writer),
-            Action::BreakQuery(action) => write_action!(self, action, writer),
-            Action::PermissionRequest(action) => write_action!(self, action, writer),
-            Action::VerifyChecksum(action) => write_action!(self, action, writer),
-            Action::ExistFile(action) => write_action!(self, action, writer),
-            Action::CreateNewFile(action) => write_action!(self, action, writer),
-            Action::DeleteFile(action) => write_action!(self, action, writer),
-            Action::RestoreFile(action) => write_action!(self, action, writer),
-            Action::FlushFile(action) => write_action!(self, action, writer),
-            Action::CopyFile(action) => write_action!(self, action, writer),
-            Action::ExecuteFile(action) => write_action!(self, action, writer),
-            Action::ReturnFileData(action) => write_action!(self, action, writer),
-            Action::ReturnFileProperties(action) => write_action!(self, action, writer),
-            Action::ResponseTag(action) => write_action!(self, action, writer),
+            Action::Nop(action) => action.to_writer(writer, opcode)?,
+            Action::ReadFileData(action) => action.to_writer(writer, opcode)?,
+            Action::ReadFileProperties(action) => action.to_writer(writer, opcode)?,
+            Action::WriteFileData(action) => action.to_writer(writer, opcode)?,
+            Action::WriteFileDataFlush(action) => action.to_writer(writer, opcode)?,
+            Action::WriteFileProperties(action) => action.to_writer(writer, opcode)?,
+            Action::ActionQuery(action) => action.to_writer(writer, opcode)?,
+            Action::BreakQuery(action) => action.to_writer(writer, opcode)?,
+            Action::PermissionRequest(action) => action.to_writer(writer, opcode)?,
+            Action::VerifyChecksum(action) => action.to_writer(writer, opcode)?,
+            Action::ExistFile(action) => action.to_writer(writer, opcode)?,
+            Action::CreateNewFile(action) => action.to_writer(writer, opcode)?,
+            Action::DeleteFile(action) => action.to_writer(writer, opcode)?,
+            Action::RestoreFile(action) => action.to_writer(writer, opcode)?,
+            Action::FlushFile(action) => action.to_writer(writer, opcode)?,
+            Action::CopyFile(action) => action.to_writer(writer, opcode)?,
+            Action::ExecuteFile(action) => action.to_writer(writer, opcode)?,
+            Action::ReturnFileData(action) => action.to_writer(writer, opcode)?,
+            Action::ReturnFileProperties(action) => action.to_writer(writer, opcode)?,
+            Action::ResponseTag(action) => action.to_writer(writer, opcode)?,
             #[cfg(feature = "_wizzilab")]
-            Action::TxStatus(action) => write_action!(self, action, writer),
-            Action::Chunk(action) => write_action!(self, action, writer),
-            Action::Logic(action) => write_action!(self, action, writer),
-            Action::Status(action) => write_action!(self, action, writer),
-            Action::Forward(action) => write_action!(self, action, writer),
-            Action::IndirectForward(action) => write_action!(self, action, writer),
-            Action::RequestTag(action) => write_action!(self, action, writer),
-            Action::Extension(action) => write_action!(self, action, writer),
+            Action::TxStatus(action) => action.to_writer(writer, opcode)?,
+            Action::Chunk(action) => action.to_writer(writer, opcode)?,
+            Action::Logic(action) => action.to_writer(writer, opcode)?,
+            Action::Status(action) => action.to_writer(writer, opcode)?,
+            Action::Forward(action) => action.to_writer(writer, opcode)?,
+            Action::IndirectForward(action) => action.to_writer(writer, opcode)?,
+            Action::RequestTag(action) => action.to_writer(writer, opcode)?,
+            Action::Extension(action) => action.to_writer(writer, opcode)?,
         }
 
         Ok(())
@@ -397,7 +373,8 @@ mod test {
         app::{
             interface::{Dash7InterfaceConfiguration, InterfaceConfiguration},
             operation::{
-                ActionHeader, ActionStatus, ChunkStep, FileOffset, LogicOp, Permission, PermissionLevel, RequestTagHeader, ResponseTagHeader, Status, StatusCode
+                ActionHeader, ActionStatus, ChunkStep, FileOffset, LogicOp, Permission,
+                PermissionLevel, RequestTagHeader, ResponseTagHeader, Status, StatusCode,
             },
             query::{NonVoid, Query},
         },
@@ -407,17 +384,18 @@ mod test {
         network::{Address, Addressee, NlsState},
         physical::{Channel, ChannelBand, ChannelClass, ChannelCoding, ChannelHeader},
         session::{Dash7InterfaceStatus, InterfaceStatus, QoS},
-        test_tools::test_item,
+        test_tools::{test_item, WithPadding},
         types::VarInt,
     };
 
     #[test]
     fn test_header() {
         test_item(
-            ActionHeader {
+            WithPadding::<ActionHeader, 0, 6>(
+                ActionHeader {
                 group: true,
                 response: false,
-            },
+            }),
             &[0b1000_0000],
         )
     }
@@ -430,6 +408,7 @@ mod test {
                     group: false,
                     response: true,
                 },
+                opcode: OpCode::NOP,
             }),
             &[0b0100_0000],
         )
@@ -448,6 +427,7 @@ mod test {
                     offset: 2u32.into(),
                 },
                 length: 3u32.into(),
+                opcode: OpCode::READ_FILE_DATA,
             }),
             &hex!("41 01 02 03"),
         )
@@ -462,6 +442,7 @@ mod test {
                     response: false,
                 },
                 file_id: 9,
+                opcode: OpCode::READ_FILE_PROPERTIES,
             }),
             &hex!("02 09"),
         )
@@ -481,6 +462,7 @@ mod test {
                     offset: 5u32.into(),
                 },
                 File::Other(data),
+                OpCode::WRITE_FILE_DATA,
             )),
             &hex!("84 F9 05 03 010203"),
         )
@@ -520,6 +502,7 @@ mod test {
                     file_size: 0xDEAD_BEEF,
                     allocated_size: 0xBAAD_FACE,
                 },
+                opcode: OpCode::READ_FILE_PROPERTIES,
             }),
             &hex!("21 09  B8 13 01 02 DEADBEEF BAADFACE"),
         )
@@ -559,6 +542,7 @@ mod test {
                     file_size: 0xDEAD_BEEF,
                     allocated_size: 0xBAAD_FACE,
                 },
+                opcode: OpCode::WRITE_FILE_PROPERTIES,
             }),
             &hex!("86 09 B8 13 01 02 DEADBEEF BAADFACE"),
         )
@@ -574,6 +558,7 @@ mod test {
                 },
                 level: PermissionLevel::Root,
                 permission: Permission::Dash7(hex!("0102030405060708")),
+                opcode: OpCode::PERMISSION_REQUEST,
             }),
             &hex!("0A 01 42 0102030405060708"),
         )
@@ -588,6 +573,7 @@ mod test {
                     response: false,
                 },
                 file_id: 9,
+                opcode: OpCode::EXIST_FILE,
             }),
             &hex!("10 09"),
         )
@@ -627,6 +613,7 @@ mod test {
                     file_size: 0xDEAD_BEEF,
                     allocated_size: 0xBAAD_FACE,
                 },
+                opcode: OpCode::CREATE_NEW_FILE,
             }),
             &hex!("91 03 B8 13 01 02 DEADBEEF BAADFACE"),
         )
@@ -641,6 +628,7 @@ mod test {
                     response: true,
                 },
                 file_id: 9,
+                opcode: OpCode::DELETE_FILE,
             }),
             &hex!("52 09"),
         )
@@ -655,6 +643,7 @@ mod test {
                     response: true,
                 },
                 file_id: 9,
+                opcode: OpCode::RESTORE_FILE,
             }),
             &hex!("D3 09"),
         )
@@ -669,6 +658,7 @@ mod test {
                     response: false,
                 },
                 file_id: 9,
+                opcode: OpCode::FLUSH_FILE,
             }),
             &hex!("14 09"),
         )
@@ -684,6 +674,7 @@ mod test {
                 },
                 src_file_id: 0x42,
                 dst_file_id: 0x24,
+                opcode: OpCode::COPY_FILE,
             }),
             &hex!("17 42 24"),
         )
@@ -698,6 +689,7 @@ mod test {
                     response: false,
                 },
                 file_id: 9,
+                opcode: OpCode::EXECUTE_FILE,
             }),
             &hex!("1F 09"),
         )
@@ -718,6 +710,7 @@ mod test {
                     offset: 5u32.into(),
                 },
                 File::Other(data),
+                OpCode::RETURN_FILE_DATA,
             )),
             &hex!("20 F9 05 03 010203"),
         )
@@ -738,8 +731,9 @@ mod test {
                         offset: 6u32.into(),
                     },
                 }),
+                opcode: OpCode::ACTION_QUERY,
             }),
-            &hex!("C8   00 04  05 06"),
+            &hex!("C8 00 04 05 06"),
         )
     }
 
@@ -758,6 +752,7 @@ mod test {
                         offset: 6u32.into(),
                     },
                 }),
+                opcode: OpCode::BREAK_QUERY,
             }),
             &hex!("C9   00 04  05 06"),
         )
@@ -778,6 +773,7 @@ mod test {
                         offset: 6u32.into(),
                     },
                 }),
+                opcode: OpCode::VERIFY_CHECKSUM,
             }),
             &hex!("0B   00 04  05 06"),
         )
@@ -799,7 +795,6 @@ mod test {
         )
     }
 
-    #[cfg(not(feature = "subiot"))]
     #[test]
     fn test_indirect_forward_dash7_serialization() {
         use crate::link::AccessClass;
@@ -810,95 +805,37 @@ mod test {
             Some(InterfaceConfiguration::Dash7(Dash7InterfaceConfiguration {
                 qos: QoS::default(),
                 dormant_session_timeout: VarInt::default(),
+                #[cfg(not(feature = "_subiot"))]
                 execution_delay_timeout: VarInt::default(),
                 addressee: Addressee::new(
                     #[cfg(feature = "_wizzilab")]
                     false,
                     #[cfg(feature = "_wizzilab")]
                     GroupCondition::Any,
-                    Address::Vid(0xABCD),
+                    Address::VId(0xABCD),
                     NlsState::AesCcm32([1, 2, 3, 4, 5]),
                     AccessClass::unavailable(),
                 ),
             })),
         ));
 
+        #[cfg(not(feature = "_subiot"))]
         let data = &hex!("F3 09 00 00 00 37 FF ABCD 01 02 03 04 05");
+
+        #[cfg(feature = "_subiot")]
+        let data = &hex!("F3 09 00 00 37 FF ABCD 01 02 03 04 05");
+
         let result = item.to_bytes().unwrap();
 
         assert_eq!(result.as_slice(), data, "{:?} == {:?}", &item, data);
     }
 
-    #[cfg(not(feature = "_subiot"))]
     #[test]
     fn test_indirect_forward_dash7_deserialization() {
+        #[cfg(not(feature = "_subiot"))]
         let input = &hex!("F3 09 00 00 00 37 FF ABCD 01 02 03 04 05");
 
-        let expected = Action::IndirectForward(IndirectForward::new(
-            true,
-            9,
-            Some(InterfaceConfiguration::Unknown),
-        ));
-
-        let ((rest, offset), result) =
-            Action::from_bytes((input, 0)).expect("should be parsed without error");
-
-        assert_eq!(result, expected.clone(), "{:?} == {:?}", result, &expected);
-
-        let expected_config = Dash7InterfaceConfiguration {
-            qos: QoS::default(),
-            dormant_session_timeout: VarInt::default(),
-            execution_delay_timeout: VarInt::default(),
-            addressee: Addressee::new(
-                #[cfg(feature = "_wizzilab")]
-                false,
-                #[cfg(feature = "_wizzilab")]
-                GroupCondition::Any,
-                Address::Vid(0xABCD),
-                NlsState::AesCcm32([1, 2, 3, 4, 5]),
-                AccessClass::unavailable(),
-            ),
-        };
-
-        // now continue parsing the config itself
-        let (_, config_result) = Dash7InterfaceConfiguration::from_bytes((rest, offset))
-            .expect("should be parsed without error");
-
-        assert_eq!(
-            config_result,
-            expected_config.clone(),
-            "{:?} == {:?}",
-            config_result,
-            &expected_config
-        );
-    }
-
-    #[cfg(feature = "_subiot")]
-    #[test]
-    fn test_indirect_forward_dash7_serialization_subiot() {
-        let item = Action::IndirectForward(IndirectForward::new(
-            true,
-            9,
-            Some(InterfaceConfiguration::Dash7(Dash7InterfaceConfiguration {
-                qos: QoS::default(),
-                dormant_session_timeout: VarInt::default(),
-                addressee: Addressee::new(
-                    Address::Vid(0xABCD),
-                    NlsState::AesCcm32([1, 2, 3, 4, 5]),
-                    AccessClass::unavailable(),
-                ),
-            })),
-        ));
-
-        let data = &hex!("F3 09 00 00 37 FF ABCD 01 02 03 04 05");
-        let result = item.to_bytes().unwrap();
-
-        assert_eq!(result.as_slice(), data, "{:?} == {:?}", &item, data);
-    }
-
-    #[cfg(feature = "_subiot")]
-    #[test]
-    fn test_indirect_forward_dash7_deserialization_subiot() {
+        #[cfg(feature = "_subiot")]
         let input = &hex!("F3 09 00 00 37 FF ABCD 01 02 03 04 05");
 
         let expected = Action::IndirectForward(IndirectForward::new(
@@ -915,8 +852,14 @@ mod test {
         let expected_config = Dash7InterfaceConfiguration {
             qos: QoS::default(),
             dormant_session_timeout: VarInt::default(),
+            #[cfg(not(feature = "_subiot"))]
+            execution_delay_timeout: VarInt::default(),
             addressee: Addressee::new(
-                Address::Vid(0xABCD),
+                #[cfg(feature = "_wizzilab")]
+                false,
+                #[cfg(feature = "_wizzilab")]
+                GroupCondition::Any,
+                Address::VId(0xABCD),
                 NlsState::AesCcm32([1, 2, 3, 4, 5]),
                 AccessClass::unavailable(),
             ),
@@ -938,7 +881,11 @@ mod test {
     #[test]
     fn test_request_tag() {
         test_item(
-            Action::RequestTag(RequestTag { header: RequestTagHeader{ eop: true }, id: 8 }),
+            Action::RequestTag(RequestTag {
+                header: RequestTagHeader { end_of_packet: true },
+                id: 8,
+                opcode: OpCode::REQUEST_TAG,
+            }),
             &hex!("B4 08"),
         )
     }
@@ -948,6 +895,7 @@ mod test {
         test_item(
             Action::Logic(Logic {
                 logic: LogicOp::Nand,
+                opcode: OpCode::LOGIC,
             }),
             &[0b1111_0001],
         )
@@ -955,23 +903,19 @@ mod test {
 
     #[test]
     fn test_chunk() {
-        test_item(
-            Action::Chunk(Chunk {
-                step: ChunkStep::End,
-            }),
-            &[0b1011_0000],
-        )
+        test_item(Action::Chunk(ChunkStep::End.into()), &[0b1011_0000])
     }
 
     #[test]
     fn test_response_tag() {
         test_item(
             Action::ResponseTag(ResponseTag {
-                header: ResponseTagHeader{
-                    eop: true,
+                header: ResponseTagHeader {
+                    end_of_packet: true,
                     error: false,
                 },
                 id: 8,
+                opcode: OpCode::RESPONSE_TAG,
             }),
             &hex!("A3 08"),
         )
@@ -983,7 +927,7 @@ mod test {
             Action::Status(
                 Status::Action(ActionStatus {
                     action_id: 2,
-                    status: StatusCode::UnknownOperation,
+                    status: StatusCode::UNKNOWN_OPERATION,
                 })
                 .into(),
             ),
@@ -999,6 +943,7 @@ mod test {
                     group: true,
                     response: true,
                 },
+                opcode: OpCode::EXTENSION,
             }),
             &[0xFF],
         )
@@ -1034,7 +979,7 @@ mod test {
                         false,
                         #[cfg(feature = "_wizzilab")]
                         GroupCondition::Any,
-                        Address::Uid(4123107267735781422u64),
+                        Address::UId(4123107267735781422u64),
                         NlsState::None,
                         AccessClass::new(0, 1),
                     ),

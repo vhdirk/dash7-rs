@@ -84,10 +84,10 @@ pub enum AddressType {
     NoId,
     /// Unicast to target via its UID (Unique Dash7 ID)
     #[deku(id = "0x02")]
-    Uid,
+    UId,
     /// Unicast to target via its VID (Virtual ID)
     #[deku(id = "0x03")]
-    Vid,
+    VId,
 }
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
@@ -100,11 +100,11 @@ pub enum Address {
     #[deku(id = "AddressType::NoId")]
     NoId,
     /// Unicast to target via its UID (Unique Dash7 ID)
-    #[deku(id = "AddressType::Uid")]
-    Uid(#[deku(endian = "big")] u64),
+    #[deku(id = "AddressType::UId")]
+    UId(#[deku(endian = "big")] u64),
     /// Unicast to target via its VID (Virtual ID)
-    #[deku(id = "AddressType::Vid")]
-    Vid(#[deku(endian = "big")] u16),
+    #[deku(id = "AddressType::VId")]
+    VId(#[deku(endian = "big")] u16),
 }
 
 impl Default for Address {
@@ -129,7 +129,7 @@ mod tests {
                 false,
                 #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
-                Address::Vid(0xABCD),
+                Address::VId(0xABCD),
                 NlsState::AesCcm32(hex!("00 11 22 33 44")),
                 AccessClass::new(0x0F, 0x0F),
             ),
@@ -177,7 +177,7 @@ mod tests {
                 false,
                 #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
-                Address::Uid(0),
+                Address::UId(0),
                 NlsState::None,
                 AccessClass::default(),
             ),
@@ -209,7 +209,7 @@ mod tests {
                 false,
                 #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
-                Address::Vid(0x1234),
+                Address::VId(0x1234),
                 NlsState::None,
                 AccessClass::new(0, 5),
             ),
@@ -225,7 +225,7 @@ mod tests {
                 false,
                 #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
-                Address::Uid(0x1234567890123456),
+                Address::UId(0x1234567890123456),
                 NlsState::None,
                 AccessClass::new(0x06, 0x09),
             ),

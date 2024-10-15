@@ -4,12 +4,13 @@ use core::{
     ptr, slice,
 };
 use std::borrow::Cow;
-use std::io::Write;
+use std::fmt::{Debug};
 
 use deku::no_std_io;
 use deku::{
     bitvec::{BitSlice, BitVec, Msb0},
     ctx::{ByteSize, Limit},
+    no_std_io::{Cursor, Write, Read, Seek},
     prelude::*,
 };
 
@@ -31,7 +32,11 @@ impl<T> Drop for TransientDropper<T> {
     }
 }
 
-pub fn pad_rest<'a>(bits_read: usize, rest: (&'a [u8], usize)) -> (&'a [u8], usize) {
+pub fn pad_rest<'a>(rest: (&'a [u8], usize), bits_read: usize) -> (&'a [u8], usize) {
+    if (rest.0.len() * 8 + rest.1) <= bits_read {
+        return (&[],  bits_read % 8);
+    }
+
     let read_whole_byte = (bits_read % 8) == 0;
     let idx = if read_whole_byte {
         bits_read / 8
@@ -62,7 +67,7 @@ pub fn from_bytes<'a, T, Ctx>(
     ctx: Ctx,
 ) -> Result<((&'a [u8], usize), T), DekuError>
 where
-    T: DekuReader<'a, Ctx>,
+    T: DekuReader<'a, Ctx> + Debug,
 {
     let mut cursor = no_std_io::Cursor::new(input.0);
     let mut reader = &mut Reader::new(&mut cursor);
@@ -70,8 +75,9 @@ where
         reader.skip_bits(input.1)?;
     }
     let value = T::from_reader_with_ctx(&mut reader, ctx)?;
+    println!("value {:?}, reader.bits_read {:?}  {:?}", value, reader.bits_read, input);
 
-    Ok((pad_rest(reader.bits_read, input), value))
+    Ok((pad_rest(input, reader.bits_read), value))
 }
 
 pub fn read_length_prefixed<'a, T, L, R>(
@@ -86,20 +92,19 @@ where
     T::from_reader_with_ctx(reader, Into::<L>::into(length))
 }
 
-pub fn write_length_prefixed<W, T, L>(
+pub fn write_length_prefixed<W, T, Ctx>(
     writer: &mut Writer<W>,
     item: &T,
-    fallback_length: L,
+    ctx: Ctx,
 ) -> Result<(), DekuError>
 where
-    T: DekuWriter<L>,
+    T: DekuWriter<Ctx>,
     W: no_std_io::Write + no_std_io::Seek,
-    L: Into<Length>,
 {
     // first write the whole item into a byte buffer
     let mut out_buf_cur = no_std_io::Cursor::new(Vec::new());
     let mut tmp_writer = Writer::new(&mut out_buf_cur);
-    item.to_writer(&mut tmp_writer, fallback_length)?;
+    item.to_writer(&mut tmp_writer, ctx)?;
     tmp_writer.finalize();
 
     // get the length of it
