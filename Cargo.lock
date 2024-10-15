@@ -243,7 +243,7 @@ dependencies = [
 
 [[package]]
 name = "dash7"
-version = "0.7.3"
+version = "0.7.4"
 dependencies = [
  "deku",
  "enum_dispatch",
@@ -253,7 +253,7 @@ dependencies = [
 
 [[package]]
 name = "dash7-cli"
-version = "0.7.3"
+version = "0.7.4"
 dependencies = [
  "anyhow",
  "clap",
