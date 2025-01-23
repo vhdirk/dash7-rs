@@ -20,7 +20,7 @@ pub enum ArithmeticComparisonType {
     GreaterThanOrEqual,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct ArithmeticQueryParams {
     #[deku(bits = 1)]
     pub signed: bool,
@@ -37,14 +37,14 @@ pub enum RangeComparisonType {
     InRange,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct RangeQueryParams {
     #[deku(bits = 1)]
     pub signed: bool,
     pub comparison_type: RangeComparisonType,
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, strum::Display, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(bits = 3, id_type = "u8")]
 pub enum Query {
     #[deku(id = "0x00")]
@@ -69,14 +69,14 @@ impl Default for Query {
 
 // ALP_SPEC Does this fail if the content overflows the file?
 /// Checks if the file content exists.
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct NonVoid {
     #[deku(pad_bits_before = "5")]
     pub length: Length,
     pub file: FileOffset,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct ComparisonWithZero {
     #[deku(bits = 1, update = "self.mask.len() > 0")]
     mask_present: bool,
@@ -91,9 +91,7 @@ pub struct ComparisonWithZero {
     pub file: FileOffset,
 }
 
-#[uniffi::export]
 impl ComparisonWithZero {
-    #[uniffi::constructor]
     pub fn new(params: ArithmeticQueryParams, mask: Vec<u8>, file: FileOffset) -> Self {
         Self {
             mask_present: mask.len() > 0,
@@ -106,7 +104,7 @@ impl ComparisonWithZero {
 }
 
 /// Compare some file content optionally masked, with a value
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct ComparisonWithValue {
     #[deku(bits = 1, update = "self.mask.len() > 0")]
     mask_present: bool,
@@ -125,10 +123,7 @@ pub struct ComparisonWithValue {
     pub file: FileOffset,
 }
 
-#[uniffi::export]
 impl ComparisonWithValue {
-
-    #[uniffi::constructor]
     pub fn new(
         params: ArithmeticQueryParams,
         mask: Vec<u8>,
@@ -147,7 +142,7 @@ impl ComparisonWithValue {
 }
 
 /// Compare content of 2 files optionally masked
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct ComparisonWithOtherFile {
     #[deku(bits = 1, update = "self.mask.len() > 0")]
     mask_present: bool,
@@ -161,10 +156,7 @@ pub struct ComparisonWithOtherFile {
     pub file2: FileOffset,
 }
 
-#[uniffi::export]
 impl ComparisonWithOtherFile {
-
-    #[uniffi::constructor]
     pub fn new(
         params: ArithmeticQueryParams,
         mask: Vec<u8>,
@@ -183,7 +175,7 @@ impl ComparisonWithOtherFile {
 }
 
 /// Check if the content of a file is (not) contained in the sent bitmap values
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct BitmapRangeComparison {
     #[deku(bits = 1, update = "self.mask.len() > 0")]
     mask_present: bool,
@@ -202,9 +194,7 @@ pub struct BitmapRangeComparison {
     pub file: FileOffset,
 }
 
-#[uniffi::export]
 impl BitmapRangeComparison {
-    #[uniffi::constructor]
     pub fn new(
         params: RangeQueryParams,
         start: u32,
@@ -226,7 +216,7 @@ impl BitmapRangeComparison {
 
 /// Compare some file content, optional masked, with an array of bytes and up to a certain number
 /// of errors.
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct StringTokenSearch {
     #[deku(bits = 1, update = "self.mask.len() > 0", pad_bits_after = "1")]
     mask_present: bool,
@@ -247,10 +237,7 @@ pub struct StringTokenSearch {
     pub file: FileOffset,
 }
 
-#[uniffi::export]
 impl StringTokenSearch {
-
-    #[uniffi::constructor]
     pub fn new(max_errors: u8, mask: Vec<u8>, value: Vec<u8>, file: FileOffset) -> Self {
         Self {
             mask_present: mask.len() > 0,

@@ -1,3 +1,4 @@
+use std::sync::Arc;
 #[cfg(feature = "std")]
 use std::fmt::Display;
 
@@ -130,7 +131,7 @@ pub enum RetryMode {
 }
 
 /// QoS of the request
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct QoS {
     #[deku(bits = 1)]
     pub stop_on_error: bool,
@@ -179,7 +180,7 @@ impl Display for InterfaceStatus {
     }
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct Dash7InterfaceStatus {
     /// PHY layer channel
     pub channel: Channel,
@@ -206,7 +207,7 @@ pub struct Dash7InterfaceStatus {
     pub sequence_number: u8,
 
     /// Response delay (request to response time) in TiT
-    pub response_timeout: VarInt,
+    pub response_timeout: Arc<VarInt>,
 
     /// Address of source
     pub addressee: Addressee,
@@ -228,7 +229,7 @@ impl Display for Dash7InterfaceStatus {
         f.write_str(&format!("sequence_number: {:?}, ", self.sequence_number))?;
         f.write_str(&format!(
             "response_timeout: {:?}, ",
-            Into::<u32>::into(self.response_timeout)
+            Into::<u32>::into(*self.response_timeout)
         ))?;
         f.write_str(&format!("addressee: {:?}, ", self.addressee))?;
         f.write_str(" }")?;

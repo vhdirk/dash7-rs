@@ -20,7 +20,7 @@ use super::{
     operation::{RequestTag, ResponseTag, ResponseTagHeader, Status},
 };
 
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Default, uniffi::Object)]
 pub struct Command {
     // we cannot process an indirect forward without knowing the interface type, which is stored in the interface file
     // as identified by the indirectforward itself
@@ -239,6 +239,7 @@ impl Display for Command {
 
 #[cfg(test)]
 mod test {
+    use std::sync::Arc;
 
     use hex_literal::hex;
 
@@ -710,7 +711,7 @@ mod test {
                             unicast: false,
                             fifo_token: 0,
                             sequence_number: 0,
-                            response_timeout: 384.into(),
+                            response_timeout: Arc::new(384.into()),
                             addressee: Addressee::new(
                                 #[cfg(feature = "_wizzilab")]
                                 false,

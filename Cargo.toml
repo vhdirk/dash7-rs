@@ -18,3 +18,7 @@ categories = ["encoding", "parser-implementations"]
 [workspace.dependencies]
 deku = { version = "0.18.1" }
 
+
+[patch.crates-io]
+uniffi = { version = "0.28", git="https://github.com/mozilla/uniffi-rs", branch = "main"}
+deku = {path = "../deku" }

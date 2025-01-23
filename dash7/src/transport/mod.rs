@@ -1,6 +1,7 @@
 use deku::prelude::*;
 
 use crate::{app::command::Command, types::VarInt};
+use std::sync::Arc;
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, strum::Display, uniffi::Enum)]
 #[deku(bits = 2, id_type = "u8")]
@@ -21,7 +22,7 @@ pub enum GroupCondition {
 }
 
 // TODO: make these names more readable
-#[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default, uniffi::Record)]
 pub struct Control {
     #[deku(bits = 1)]
     pub is_dialog_start: bool,
@@ -39,13 +40,13 @@ pub struct Control {
     pub has_agc: bool,
 }
 
-#[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default, uniffi::Record)]
 pub struct AckTemplate {
     pub transaction_id_start: u8,
     pub transaction_id_stop: u8,
 }
 
-#[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default, uniffi::Record)]
 #[deku(ctx = "command_length: u32", ctx_default = "0")]
 pub struct Frame {
     pub control: Control,
@@ -57,7 +58,7 @@ pub struct Frame {
     pub target_rx_level_i: Option<u8>,
 
     #[deku(cond = "control.has_listen_timeout")]
-    pub listen_timeout: Option<VarInt>,
+    pub listen_timeout: Option<Arc<VarInt>>,
 
     /// Execution Delay Timeout
     /// For every Request, upper layer provides an Execution Delay Timeout Te for the transaction. If Te > Tt , the Requester
@@ -66,7 +67,7 @@ pub struct Frame {
     /// starting from the end date of the Request segment reception.
     /// SPEC: 8.2.7
     #[deku(cond = "control.has_execution_delay_timeout")]
-    pub execution_delay_timeout: Option<VarInt>,
+    pub execution_delay_timeout: Option<Arc<VarInt>>,
 
     // TODO currently we have no way to know if Tc is present or not
     /// Tc is present when control.is_ack_requested AND when we are requester,
@@ -74,12 +75,12 @@ pub struct Frame {
     /// When parsing single frames without knowledge of dialogs we cannot determine this.
     /// We use control.is_dialog_start for now but this will break when we start supporting multiple transactions per dialog
     #[deku(cond = "control.is_ack_requested && control.is_dialog_start")]
-    pub congestion_timeout: Option<VarInt>,
+    pub congestion_timeout: Option<Arc<VarInt>>,
 
     #[deku(cond = "control.is_ack_not_void")]
     pub ack_template: Option<AckTemplate>,
 
     // TODO: is this really the command length or rather the length of the entire message?
     #[deku(ctx = "command_length")]
-    pub command: Command,
+    pub command: Arc<Command>,
 }

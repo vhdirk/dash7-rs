@@ -13,7 +13,7 @@ use deku::{
 use crate::utils::{from_bytes, from_reader};
 
 use super::operation::{
-    ActionQuery, Chunk, CopyFile, Extension, FileData, FileId, FileProperties, Forward,
+    ActionQuery, Chunk, CopyFile, Extension, FileData, FileId, FilePropertiesOperand, Forward,
     IndirectForward, Logic, Nop, PermissionRequest, ReadFileData, RequestTag, ResponseTag,
     StatusOperand,
 };
@@ -125,7 +125,7 @@ pub enum Action {
     // Write
     WriteFileData(FileData),
     WriteFileDataFlush(FileData),
-    WriteFileProperties(FileProperties),
+    WriteFileProperties(FilePropertiesOperand),
 
     /// Add a condition on the execution of the next group of action.
     ///
@@ -144,7 +144,7 @@ pub enum Action {
 
     // Management
     ExistFile(FileId),
-    CreateNewFile(FileProperties),
+    CreateNewFile(FilePropertiesOperand),
     DeleteFile(FileId),
     RestoreFile(FileId),
     FlushFile(FileId),
@@ -153,7 +153,7 @@ pub enum Action {
 
     // Response
     ReturnFileData(FileData),
-    ReturnFileProperties(FileProperties),
+    ReturnFileProperties(FilePropertiesOperand),
     Status(StatusOperand),
     ResponseTag(ResponseTag),
 
@@ -228,7 +228,7 @@ impl<'a> DekuReader<'a, ()> for Action {
                 read_action!(WriteFileDataFlush, FileData, reader, code)
             }
             OpCode::WriteFileProperties => {
-                read_action!(WriteFileProperties, FileProperties, reader, code)
+                read_action!(WriteFileProperties, FilePropertiesOperand, reader, code)
             }
             OpCode::ActionQuery => read_action!(ActionQuery, ActionQuery, reader, code),
             OpCode::BreakQuery => read_action!(BreakQuery, ActionQuery, reader, code),
@@ -240,7 +240,7 @@ impl<'a> DekuReader<'a, ()> for Action {
             }
             OpCode::ExistFile => read_action!(ExistFile, FileId, reader, code),
             OpCode::CreateNewFile => {
-                read_action!(CreateNewFile, FileProperties, reader, code)
+                read_action!(CreateNewFile, FilePropertiesOperand, reader, code)
             }
             OpCode::DeleteFile => read_action!(DeleteFile, FileId, reader, code),
             OpCode::RestoreFile => read_action!(RestoreFile, FileId, reader, code),
@@ -251,7 +251,7 @@ impl<'a> DekuReader<'a, ()> for Action {
                 read_action!(ReturnFileData, FileData, reader, code)
             }
             OpCode::ReturnFileProperties => {
-                read_action!(ReturnFileProperties, FileProperties, reader, code)
+                read_action!(ReturnFileProperties, FilePropertiesOperand, reader, code)
             }
             OpCode::ResponseTag => read_action!(ResponseTag, ResponseTag, reader, code),
 
@@ -501,7 +501,7 @@ mod test {
     #[test]
     fn test_return_file_properties() {
         test_item(
-            Action::ReturnFileProperties(FileProperties {
+            Action::ReturnFileProperties(FilePropertiesOperand {
                 header: ActionHeader {
                     group: false,
                     response: false,
@@ -541,7 +541,7 @@ mod test {
     #[test]
     fn test_write_file_properties() {
         test_item(
-            Action::WriteFileProperties(FileProperties {
+            Action::WriteFileProperties(FilePropertiesOperand {
                 header: ActionHeader {
                     group: true,
                     response: false,
@@ -587,7 +587,7 @@ mod test {
                     response: false,
                 },
                 level: PermissionLevel::Root,
-                permission: Permission::Dash7(hex!("0102030405060708")),
+                permission: Permission::Dash7(0x01_02_03_04_05_06_07_08),
                 opcode: OpCode::PermissionRequest,
             }),
             &hex!("0A 01 42 0102030405060708"),
@@ -612,7 +612,7 @@ mod test {
     #[test]
     fn test_create_new_file() {
         test_item(
-            Action::CreateNewFile(FileProperties {
+            Action::CreateNewFile(FilePropertiesOperand {
                 header: ActionHeader {
                     group: true,
                     response: false,
@@ -837,7 +837,7 @@ mod test {
                 #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
                 Address::VId(0xABCD),
-                NlsState::AesCcm32([1, 2, 3, 4, 5]),
+                NlsState::AesCcm32(0x01_02_03_04_05),
                 AccessClass::unavailable(),
             ))),
         ));
@@ -859,7 +859,7 @@ mod test {
                 #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
                 Address::VId(0xABCD),
-                NlsState::AesCcm32([1, 2, 3, 4, 5]),
+                NlsState::AesCcm32(0x01_02_03_04_05),
                 AccessClass::unavailable(),
             ))),
         ));
@@ -964,7 +964,7 @@ mod test {
                     unicast: false,
                     fifo_token: 0,
                     sequence_number: 0,
-                    response_timeout: 384.into(),
+                    response_timeout: Arc::new(384.into()),
                     addressee: Addressee::new(
                         #[cfg(feature = "_wizzilab")]
                         false,

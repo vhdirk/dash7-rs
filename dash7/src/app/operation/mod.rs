@@ -1,5 +1,4 @@
 use deku::{no_std_io, prelude::*};
-
 pub use super::query::Query;
 use super::{
     action::OpCode,
@@ -73,7 +72,7 @@ impl StatusCode {
 }
 
 /// Result of an action in a previously sent request
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct ActionStatus {
     /// Index of the ALP action associated with this status, in the original request as seen from
     /// the receiver side.
@@ -90,12 +89,12 @@ pub struct ActionStatus {
 #[deku(id_type = "u8")]
 pub enum Permission {
     #[deku(id = "0x42")] // ALP_SPEC Undefined
-    Dash7([u8; 8]),
+    Dash7(u64),
 }
 
 impl Default for Permission {
     fn default() -> Self {
-        Self::Dash7([0; 8])
+        Self::Dash7(0)
     }
 }
 
@@ -110,7 +109,7 @@ pub enum PermissionLevel {
     // ALP SPEC: Does something else exist?
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct ActionHeader {
     /// Group with next action
     #[deku(bits = 1)]
@@ -121,9 +120,7 @@ pub struct ActionHeader {
     //OpCode would be here. 6 bits padding instead
 }
 
-#[uniffi::export]
 impl ActionHeader {
-    #[uniffi::constructor]
     pub fn new(group: bool, response: bool) -> Self {
         Self { group, response }
     }
@@ -131,7 +128,7 @@ impl ActionHeader {
 
 // Nop
 /// Does nothing
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
 pub struct Nop {
     pub header: ActionHeader,
@@ -142,7 +139,7 @@ pub struct Nop {
 
 /// Checks whether a file exists
 // ALP_SPEC: How is the result of this command different from a read file of size 0?
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
 pub struct FileId {
     pub header: ActionHeader,
@@ -156,7 +153,7 @@ pub struct FileId {
 /// Write data to a file
 // TODO: figure out a way to immediately decode the file
 // This will probably invole
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
 pub struct FileData {
     pub header: ActionHeader,
@@ -173,9 +170,7 @@ pub struct FileData {
     data: File,
 }
 
-#[uniffi::export]
 impl FileData {
-    #[uniffi::constructor]
     pub fn new(header: ActionHeader, offset: FileOffset, data: File, opcode: OpCode) -> Self {
         // TODO file id has to match data!
         Self {
@@ -209,9 +204,9 @@ impl FileData {
     }
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
-pub struct FileProperties {
+pub struct FilePropertiesOperand {
     pub header: ActionHeader,
 
     #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
@@ -223,7 +218,7 @@ pub struct FileProperties {
 
 // Read
 /// Read data from a file
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
 pub struct ReadFileData {
     pub header: ActionHeader,
@@ -235,7 +230,7 @@ pub struct ReadFileData {
     pub length: Length,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
 pub struct ActionQuery {
     pub header: ActionHeader,
@@ -247,7 +242,7 @@ pub struct ActionQuery {
 }
 
 /// Request a level of permission using some permission type
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
 pub struct PermissionRequest {
     pub header: ActionHeader,
@@ -266,7 +261,7 @@ pub struct PermissionRequest {
 // overwrite the first part of the destination file?
 //
 // Wouldn't it be more appropriate to have 1 size and 2 file offsets?
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
 pub struct CopyFile {
     pub header: ActionHeader,
@@ -331,7 +326,7 @@ impl Into<StatusOperand> for Status {
     }
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
 pub struct StatusOperand {
     pub status_type: StatusType,
@@ -343,7 +338,7 @@ pub struct StatusOperand {
     pub status: Status,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct InterfaceStatusOperation {
     pub interface_type: InterfaceType,
 
@@ -409,7 +404,7 @@ impl InterfaceStatusOperation {
     }
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct ResponseTagHeader {
     /// Header
     /// End of packet
@@ -425,7 +420,7 @@ pub struct ResponseTagHeader {
 /// Action received before any responses to a request that contained a RequestTag
 ///
 /// This allows matching responses to requests when doing multiple requests in parallel.
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
 pub struct ResponseTag {
     pub header: ResponseTagHeader,
@@ -467,7 +462,7 @@ impl Into<Chunk> for ChunkStep {
 /// ALP Command Chunk to define its chunk state: START, CONTINUE or END (see 6.2.2.1). If the Chunk Action is not
 /// present, the ALP Command is not chunked (implicit START/END). The Group (11.5.3) and Break Query conditions are
 /// extended over all chunks of the ALP Command.
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
 pub struct Chunk {
     pub step: ChunkStep,
@@ -491,7 +486,7 @@ pub enum LogicOp {
     Nand,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
 pub struct Logic {
     pub logic: LogicOp,
@@ -500,14 +495,14 @@ pub struct Logic {
     pub opcode: OpCode,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct ForwardHeader {
     #[deku(bits = 1, pad_bits_before = "1")]
     pub response: bool,
 }
 
 /// Forward rest of the command over the interface
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
 pub struct Forward {
     pub header: ForwardHeader,
@@ -518,9 +513,7 @@ pub struct Forward {
     pub configuration: InterfaceConfiguration,
 }
 
-#[uniffi::export]
 impl Forward {
-    #[uniffi::constructor]
     pub fn new(response: bool, configuration: InterfaceConfiguration) -> Self {
         Self {
             header: ForwardHeader { response },
@@ -530,7 +523,7 @@ impl Forward {
     }
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct IndirectForwardHeader {
     #[deku(bits = 1)]
     pub overloaded: bool,
@@ -539,9 +532,7 @@ pub struct IndirectForwardHeader {
     pub response: bool,
 }
 
-#[uniffi::export]
 impl IndirectForwardHeader {
-    #[uniffi::constructor]
     pub fn new(overloaded: bool, response: bool) -> Self {
         Self {
             overloaded,
@@ -551,7 +542,7 @@ impl IndirectForwardHeader {
 }
 
 /// Forward rest of the command over the interface
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
 pub struct IndirectForward {
     #[deku(
@@ -566,9 +557,7 @@ pub struct IndirectForward {
     pub configuration: Option<IndirectInterface>,
 }
 
-#[uniffi::export]
 impl IndirectForward {
-    #[uniffi::constructor]
     pub fn new(response: bool, configuration: Option<IndirectInterface>) -> Self {
         Self {
             header: IndirectForwardHeader {
@@ -581,14 +570,14 @@ impl IndirectForward {
     }
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct RequestTagHeader {
     #[deku(bits = 1, pad_bits_after = "1")]
     pub end_of_packet: bool,
 }
 
 /// Provide command payload identifier
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
 pub struct RequestTag {
     pub header: RequestTagHeader,
@@ -599,7 +588,7 @@ pub struct RequestTag {
     pub id: u8,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
 pub struct Extension {
     pub header: ActionHeader,
@@ -674,7 +663,7 @@ mod test {
             unicast: false,
             fifo_token: 0,
             sequence_number: 0,
-            response_timeout: 384.into(),
+            response_timeout: Arc::new(384.into()),
             addressee: Addressee::new(
                 #[cfg(feature = "_wizzilab")]
                 false,

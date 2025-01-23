@@ -7,7 +7,7 @@ use crate::transport::GroupCondition;
 
 use super::{Address, AddressType, NlsMethod, NlsState};
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct Addressee {
     /// Group condition
     #[cfg(feature = "_wizzilab")]
@@ -34,10 +34,8 @@ pub struct Addressee {
     pub nls_state: NlsState,
 }
 
-#[uniffi::export]
 impl Addressee {
     #[cfg(not(feature = "_wizzilab"))]
-    #[cfg_attr(not(feature="_wizzilab"), uniffi::constructor)]
     pub fn new(address: Address, nls_state: NlsState, access_class: AccessClass) -> Self {
         Self {
             address_type: address.deku_id().unwrap(),
@@ -48,23 +46,22 @@ impl Addressee {
         }
     }
 
-    // #[cfg(feature = "_wizzilab")]
-    // #[cfg_attr(feature="_wizzilab", uniffi::constructor)]
-    // pub fn new(
-    //     use_vid: bool,
-    //     group_condition: GroupCondition,
-    //     address: Address,
-    //     nls_state: NlsState,
-    //     access_class: AccessClass,
-    // ) -> Self {
-    //     Self {
-    //         use_vid,
-    //         group_condition,
-    //         address_type: address.deku_id().unwrap(),
-    //         nls_method: nls_state.deku_id().unwrap(),
-    //         access_class,
-    //         address,
-    //         nls_state,
-    //     }
-    // }
+    #[cfg(feature = "_wizzilab")]
+    pub fn new(
+        use_vid: bool,
+        group_condition: GroupCondition,
+        address: Address,
+        nls_state: NlsState,
+        access_class: AccessClass,
+    ) -> Self {
+        Self {
+            use_vid,
+            group_condition,
+            address_type: address.deku_id().unwrap(),
+            nls_method: nls_state.deku_id().unwrap(),
+            access_class,
+            address,
+            nls_state,
+        }
+    }
 }

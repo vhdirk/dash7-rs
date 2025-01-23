@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use deku::prelude::*;
 
 mod access_profile;
@@ -10,7 +11,7 @@ mod interface_configuration;
 mod phy_status;
 mod security_key;
 
-pub use access_profile::AccessProfile;
+pub use access_profile::AccessProfileFile;
 pub use dll_config::DllConfig;
 pub use dll_status::DllStatus;
 pub use engineering_mode::{EngineeringMode, EngineeringModeMethod};
@@ -144,7 +145,7 @@ pub trait SystemFile {
 )]
 pub enum File {
     #[deku(id = "FileId::AccessProfile00")]
-    AccessProfile00(AccessProfile<0>),
+    AccessProfile00(AccessProfileFile<0>),
     // #[deku(id = "FileId::AccessProfile01")]
     // AccessProfile01(AccessProfile<1>),
     // #[deku(id = "FileId::AccessProfile02")]
@@ -199,7 +200,7 @@ pub enum File {
     DllStatus(DllStatus),
 
     #[deku(id = "FileId::NetworkSecurityKey")]
-    NwlSecurityKey(SecurityKey),
+    NwlSecurityKey(Arc<SecurityKey>),
 
     #[deku(id_pat = "_")]
     Other {
