@@ -25,51 +25,83 @@ use super::interface_final::*;
 // OpCodes
 // ===============================================================================
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct OpCode(#[deku(bits = 6)] pub u8);
-
-impl OpCode {
-    pub const NOP: OpCode = OpCode(0u8);
-
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
+#[deku(bits = 6, id_type = "u8")]
+pub enum OpCode {
+    // Nop
+    #[default]
+    #[deku(id = "0")]
+    Nop,
     // Read
-    pub const READ_FILE_DATA: OpCode = OpCode(0x01u8);
-    pub const READ_FILE_PROPERTIES: OpCode = OpCode(0x02u8);
+    #[deku(id = "1")]
+    ReadFileData,
+    #[deku(id = "2")]
+    ReadFileProperties,
 
     // Write
-    pub const WRITE_FILE_DATA: OpCode = OpCode(0x04u8);
-    pub const WRITE_FILE_DATA_FLUSH: OpCode = OpCode(0x05u8);
-    pub const WRITE_FILE_PROPERTIES: OpCode = OpCode(0x06u8);
-    pub const ACTION_QUERY: OpCode = OpCode(0x08u8);
-    pub const BREAK_QUERY: OpCode = OpCode(0x09u8);
-    pub const PERMISSION_REQUEST: OpCode = OpCode(0x0au8);
-    pub const VERIFY_CHECKSUM: OpCode = OpCode(0x0bu8);
+    #[deku(id = "4")]
+    WriteFileData,
+    #[deku(id = "5")]
+    WriteFileDataFlush,
+    #[deku(id = "6")]
+    WriteFileProperties,
+    #[deku(id = "8")]
+    ActionQuery,
+    #[deku(id = "9")]
+    BreakQuery,
+    #[deku(id = "10")]
+    PermissionRequest,
+    #[deku(id = "11")]
+    VerifyChecksum,
 
     // Management
-    pub const EXIST_FILE: OpCode = OpCode(16u8);
-    pub const CREATE_NEW_FILE: OpCode = OpCode(17u8);
-    pub const DELETE_FILE: OpCode = OpCode(18u8);
-    pub const RESTORE_FILE: OpCode = OpCode(19u8);
-    pub const FLUSH_FILE: OpCode = OpCode(20u8);
-    pub const COPY_FILE: OpCode = OpCode(23u8);
-    pub const EXECUTE_FILE: OpCode = OpCode(31u8);
+    #[deku(id = "16")]
+    ExistFile,
+    #[deku(id = "17")]
+    CreateNewFile,
+    #[deku(id = "18")]
+    DeleteFile,
+    #[deku(id = "19")]
+    RestoreFile,
+    #[deku(id = "20")]
+    FlushFile,
+    #[deku(id = "23")]
+    CopyFile,
+    #[deku(id = "31")]
+    ExecuteFile,
 
     // Response
-    pub const RETURN_FILE_DATA: OpCode = OpCode(32u8);
-    pub const RETURN_FILE_PROPERTIES: OpCode = OpCode(33u8);
-    pub const STATUS: OpCode = OpCode(34u8);
-    pub const RESPONSE_TAG: OpCode = OpCode(35u8);
+    #[deku(id = "32")]
+    ReturnFileData,
+    #[deku(id = "33")]
+    ReturnFileProperties,
+    #[deku(id = "34")]
+    Status,
+    #[deku(id = "35")]
+    ResponseTag,
 
     #[cfg(feature = "_wizzilab")]
-    pub const TX_STATUS: OpCode = OpCode(38u8);
+    #[deku(id = "38")]
+    TxStatus,
 
     // Special
-    pub const CHUNK: OpCode = OpCode(48u8);
-    pub const LOGIC: OpCode = OpCode(49u8);
-    pub const FORWARD: OpCode = OpCode(50u8);
-    pub const INDIRECT_FORWARD: OpCode = OpCode(51u8);
-    pub const REQUEST_TAG: OpCode = OpCode(52u8);
-    pub const EXTENSION: OpCode = OpCode(63u8);
+    #[deku(id = "48")]
+    Chunk,
+    #[deku(id = "49")]
+    Logic,
+    #[deku(id = "50")]
+    Forward,
+    #[deku(id = "51")]
+    IndirectForward,
+    #[deku(id = "52")]
+    RequestTag,
+    #[deku(id = "63")]
+    Extension,
+
+    #[deku(id_pat = "_")]
+    Other(u8)
 }
+
 
 impl OpCode {
     pub fn write<W: Write + Seek>(writer: &mut Writer<W>, opcode: OpCode) -> Result<(), DekuError> {
@@ -81,7 +113,7 @@ impl OpCode {
 // Actions
 // ===============================================================================
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 pub enum Action {
     /// Nop
     Nop(Nop),
@@ -184,56 +216,58 @@ impl<'a> DekuReader<'a, ()> for Action {
 
         // now we have to revert for those 2 bits?
         let value = match code {
-            OpCode::NOP => read_action!(Nop, Nop, reader, code),
-            OpCode::READ_FILE_DATA => {
+            OpCode::Nop => read_action!(Nop, Nop, reader, code),
+            OpCode::ReadFileData => {
                 read_action!(ReadFileData, ReadFileData, reader, code)
             }
-            OpCode::READ_FILE_PROPERTIES => {
+            OpCode::ReadFileProperties => {
                 read_action!(ReadFileProperties, FileId, reader, code)
             }
-            OpCode::WRITE_FILE_DATA => read_action!(WriteFileData, FileData, reader, code),
-            OpCode::WRITE_FILE_DATA_FLUSH => {
+            OpCode::WriteFileData => read_action!(WriteFileData, FileData, reader, code),
+            OpCode::WriteFileDataFlush => {
                 read_action!(WriteFileDataFlush, FileData, reader, code)
             }
-            OpCode::WRITE_FILE_PROPERTIES => {
+            OpCode::WriteFileProperties => {
                 read_action!(WriteFileProperties, FileProperties, reader, code)
             }
-            OpCode::ACTION_QUERY => read_action!(ActionQuery, ActionQuery, reader, code),
-            OpCode::BREAK_QUERY => read_action!(BreakQuery, ActionQuery, reader, code),
-            OpCode::PERMISSION_REQUEST => {
+            OpCode::ActionQuery => read_action!(ActionQuery, ActionQuery, reader, code),
+            OpCode::BreakQuery => read_action!(BreakQuery, ActionQuery, reader, code),
+            OpCode::PermissionRequest => {
                 read_action!(PermissionRequest, PermissionRequest, reader, code)
             }
-            OpCode::VERIFY_CHECKSUM => {
+            OpCode::VerifyChecksum => {
                 read_action!(VerifyChecksum, ActionQuery, reader, code)
             }
-            OpCode::EXIST_FILE => read_action!(ExistFile, FileId, reader, code),
-            OpCode::CREATE_NEW_FILE => {
+            OpCode::ExistFile => read_action!(ExistFile, FileId, reader, code),
+            OpCode::CreateNewFile => {
                 read_action!(CreateNewFile, FileProperties, reader, code)
             }
-            OpCode::DELETE_FILE => read_action!(DeleteFile, FileId, reader, code),
-            OpCode::RESTORE_FILE => read_action!(RestoreFile, FileId, reader, code),
-            OpCode::FLUSH_FILE => read_action!(FlushFile, FileId, reader, code),
-            OpCode::COPY_FILE => read_action!(CopyFile, CopyFile, reader, code),
-            OpCode::EXECUTE_FILE => read_action!(ExecuteFile, FileId, reader, code),
-            OpCode::RETURN_FILE_DATA => {
+            OpCode::DeleteFile => read_action!(DeleteFile, FileId, reader, code),
+            OpCode::RestoreFile => read_action!(RestoreFile, FileId, reader, code),
+            OpCode::FlushFile => read_action!(FlushFile, FileId, reader, code),
+            OpCode::CopyFile => read_action!(CopyFile, CopyFile, reader, code),
+            OpCode::ExecuteFile => read_action!(ExecuteFile, FileId, reader, code),
+            OpCode::ReturnFileData => {
                 read_action!(ReturnFileData, FileData, reader, code)
             }
-            OpCode::RETURN_FILE_PROPERTIES => {
+            OpCode::ReturnFileProperties => {
                 read_action!(ReturnFileProperties, FileProperties, reader, code)
             }
-            OpCode::RESPONSE_TAG => read_action!(ResponseTag, ResponseTag, reader, code),
+            OpCode::ResponseTag => read_action!(ResponseTag, ResponseTag, reader, code),
 
             #[cfg(feature = "_wizzilab")]
-            OpCode::TX_STATUS => read_action!(TxStatus, TxStatusOperation, reader, code),
-            OpCode::CHUNK => read_action!(Chunk, Chunk, reader, code),
-            OpCode::LOGIC => read_action!(Logic, Logic, reader, code),
-            OpCode::REQUEST_TAG => read_action!(RequestTag, RequestTag, reader, code),
-            OpCode::STATUS => read_action!(Status, StatusOperand, reader, code),
-            OpCode::FORWARD => read_action!(Forward, Forward, reader, code),
-            OpCode::INDIRECT_FORWARD => {
+            OpCode::TxStatus => read_action!(TxStatus, TxStatusOperation, reader, code),
+            OpCode::Chunk => read_action!(Chunk, Chunk, reader, code),
+            OpCode::Logic => read_action!(Logic, Logic, reader, code),
+            OpCode::RequestTag => read_action!(RequestTag, RequestTag, reader, code),
+            OpCode::Status => read_action!(Status, StatusOperand, reader, code),
+            OpCode::Forward => read_action!(Forward, Forward, reader, code),
+            OpCode::IndirectForward => {
                 read_action!(IndirectForward, IndirectForward, reader, code)
             }
-            OpCode::EXTENSION => read_action!(Extension, Extension, reader, code),
+            OpCode::Extension => read_action!(Extension, Extension, reader, code),
+
+            // TODO: Other!
             _ => return Err(DekuError::InvalidParam("opcode".into())),
         };
         Ok(value)
@@ -270,35 +304,35 @@ impl DekuContainerRead<'_> for Action {
 impl DekuEnumExt<'_, OpCode> for Action {
     fn deku_id(&self) -> Result<OpCode, DekuError> {
         match self {
-            Action::Nop(_) => Ok(OpCode::NOP),
-            Action::ReadFileData(_) => Ok(OpCode::READ_FILE_DATA),
-            Action::ReadFileProperties(_) => Ok(OpCode::READ_FILE_PROPERTIES),
-            Action::WriteFileData(_) => Ok(OpCode::WRITE_FILE_DATA),
-            Action::WriteFileDataFlush(_) => Ok(OpCode::WRITE_FILE_DATA_FLUSH),
-            Action::WriteFileProperties(_) => Ok(OpCode::WRITE_FILE_PROPERTIES),
-            Action::ActionQuery(_) => Ok(OpCode::ACTION_QUERY),
-            Action::BreakQuery(_) => Ok(OpCode::BREAK_QUERY),
-            Action::PermissionRequest(_) => Ok(OpCode::PERMISSION_REQUEST),
-            Action::VerifyChecksum(_) => Ok(OpCode::VERIFY_CHECKSUM),
-            Action::ExistFile(_) => Ok(OpCode::EXIST_FILE),
-            Action::CreateNewFile(_) => Ok(OpCode::CREATE_NEW_FILE),
-            Action::DeleteFile(_) => Ok(OpCode::DELETE_FILE),
-            Action::RestoreFile(_) => Ok(OpCode::RESTORE_FILE),
-            Action::FlushFile(_) => Ok(OpCode::FLUSH_FILE),
-            Action::CopyFile(_) => Ok(OpCode::COPY_FILE),
-            Action::ExecuteFile(_) => Ok(OpCode::EXECUTE_FILE),
-            Action::ReturnFileData(_) => Ok(OpCode::RETURN_FILE_DATA),
-            Action::ReturnFileProperties(_) => Ok(OpCode::RETURN_FILE_PROPERTIES),
-            Action::ResponseTag(_) => Ok(OpCode::RESPONSE_TAG),
+            Action::Nop(_) => Ok(OpCode::Nop),
+            Action::ReadFileData(_) => Ok(OpCode::ReadFileData),
+            Action::ReadFileProperties(_) => Ok(OpCode::ReadFileProperties),
+            Action::WriteFileData(_) => Ok(OpCode::WriteFileData),
+            Action::WriteFileDataFlush(_) => Ok(OpCode::WriteFileDataFlush),
+            Action::WriteFileProperties(_) => Ok(OpCode::WriteFileProperties),
+            Action::ActionQuery(_) => Ok(OpCode::ActionQuery),
+            Action::BreakQuery(_) => Ok(OpCode::BreakQuery),
+            Action::PermissionRequest(_) => Ok(OpCode::PermissionRequest),
+            Action::VerifyChecksum(_) => Ok(OpCode::VerifyChecksum),
+            Action::ExistFile(_) => Ok(OpCode::ExistFile),
+            Action::CreateNewFile(_) => Ok(OpCode::CreateNewFile),
+            Action::DeleteFile(_) => Ok(OpCode::DeleteFile),
+            Action::RestoreFile(_) => Ok(OpCode::RestoreFile),
+            Action::FlushFile(_) => Ok(OpCode::FlushFile),
+            Action::CopyFile(_) => Ok(OpCode::CopyFile),
+            Action::ExecuteFile(_) => Ok(OpCode::ExecuteFile),
+            Action::ReturnFileData(_) => Ok(OpCode::ReturnFileData),
+            Action::ReturnFileProperties(_) => Ok(OpCode::ReturnFileProperties),
+            Action::ResponseTag(_) => Ok(OpCode::ResponseTag),
             #[cfg(feature = "_wizzilab")]
-            Action::TxStatus(_) => Ok(OpCode::TX_STATUS),
-            Action::Chunk(_) => Ok(OpCode::CHUNK),
-            Action::Logic(_) => Ok(OpCode::LOGIC),
-            Action::Status(_) => Ok(OpCode::STATUS),
-            Action::Forward(_) => Ok(OpCode::FORWARD),
-            Action::IndirectForward(_) => Ok(OpCode::INDIRECT_FORWARD),
-            Action::RequestTag(_) => Ok(OpCode::REQUEST_TAG),
-            Action::Extension(_) => Ok(OpCode::EXTENSION),
+            Action::TxStatus(_) => Ok(OpCode::TxStatus),
+            Action::Chunk(_) => Ok(OpCode::Chunk),
+            Action::Logic(_) => Ok(OpCode::Logic),
+            Action::Status(_) => Ok(OpCode::Status),
+            Action::Forward(_) => Ok(OpCode::Forward),
+            Action::IndirectForward(_) => Ok(OpCode::IndirectForward),
+            Action::RequestTag(_) => Ok(OpCode::RequestTag),
+            Action::Extension(_) => Ok(OpCode::Extension),
         }
     }
 }
@@ -404,7 +438,7 @@ mod test {
                     group: false,
                     response: true,
                 },
-                opcode: OpCode::NOP,
+                opcode: OpCode::Nop,
             }),
             &[0b0100_0000],
         )
@@ -423,7 +457,7 @@ mod test {
                     offset: 2u32.into(),
                 },
                 length: 3u32.into(),
-                opcode: OpCode::READ_FILE_DATA,
+                opcode: OpCode::ReadFileData,
             }),
             &hex!("41 01 02 03"),
         )
@@ -438,7 +472,7 @@ mod test {
                     response: false,
                 },
                 file_id: 9,
-                opcode: OpCode::READ_FILE_PROPERTIES,
+                opcode: OpCode::ReadFileProperties,
             }),
             &hex!("02 09"),
         )
@@ -457,8 +491,8 @@ mod test {
                     file_id: 0xF9,
                     offset: 5u32.into(),
                 },
-                File::Other(data),
-                OpCode::WRITE_FILE_DATA,
+                File::Other{id: 0xF9, buffer: data},
+                OpCode::WriteFileData,
             )),
             &hex!("84 F9 05 03 010203"),
         )
@@ -498,7 +532,7 @@ mod test {
                     file_size: 0xDEAD_BEEF,
                     allocated_size: 0xBAAD_FACE,
                 },
-                opcode: OpCode::RETURN_FILE_PROPERTIES,
+                opcode: OpCode::ReturnFileProperties,
             }),
             &hex!("21 09  B8 13 01 02 DEADBEEF BAADFACE"),
         )
@@ -538,7 +572,7 @@ mod test {
                     file_size: 0xDEAD_BEEF,
                     allocated_size: 0xBAAD_FACE,
                 },
-                opcode: OpCode::WRITE_FILE_PROPERTIES,
+                opcode: OpCode::WriteFileProperties,
             }),
             &hex!("86 09 B8 13 01 02 DEADBEEF BAADFACE"),
         )
@@ -554,7 +588,7 @@ mod test {
                 },
                 level: PermissionLevel::Root,
                 permission: Permission::Dash7(hex!("0102030405060708")),
-                opcode: OpCode::PERMISSION_REQUEST,
+                opcode: OpCode::PermissionRequest,
             }),
             &hex!("0A 01 42 0102030405060708"),
         )
@@ -569,7 +603,7 @@ mod test {
                     response: false,
                 },
                 file_id: 9,
-                opcode: OpCode::EXIST_FILE,
+                opcode: OpCode::ExistFile,
             }),
             &hex!("10 09"),
         )
@@ -609,7 +643,7 @@ mod test {
                     file_size: 0xDEAD_BEEF,
                     allocated_size: 0xBAAD_FACE,
                 },
-                opcode: OpCode::CREATE_NEW_FILE,
+                opcode: OpCode::CreateNewFile,
             }),
             &hex!("91 03 B8 13 01 02 DEADBEEF BAADFACE"),
         )
@@ -624,7 +658,7 @@ mod test {
                     response: true,
                 },
                 file_id: 9,
-                opcode: OpCode::DELETE_FILE,
+                opcode: OpCode::DeleteFile,
             }),
             &hex!("52 09"),
         )
@@ -639,7 +673,7 @@ mod test {
                     response: true,
                 },
                 file_id: 9,
-                opcode: OpCode::RESTORE_FILE,
+                opcode: OpCode::RestoreFile,
             }),
             &hex!("D3 09"),
         )
@@ -654,7 +688,7 @@ mod test {
                     response: false,
                 },
                 file_id: 9,
-                opcode: OpCode::FLUSH_FILE,
+                opcode: OpCode::FlushFile,
             }),
             &hex!("14 09"),
         )
@@ -670,7 +704,7 @@ mod test {
                 },
                 src_file_id: 0x42,
                 dst_file_id: 0x24,
-                opcode: OpCode::COPY_FILE,
+                opcode: OpCode::CopyFile,
             }),
             &hex!("17 42 24"),
         )
@@ -685,7 +719,7 @@ mod test {
                     response: false,
                 },
                 file_id: 9,
-                opcode: OpCode::EXECUTE_FILE,
+                opcode: OpCode::ExecuteFile,
             }),
             &hex!("1F 09"),
         )
@@ -705,8 +739,8 @@ mod test {
                     file_id: 0xF9,
                     offset: 5u32.into(),
                 },
-                File::Other(data),
-                OpCode::RETURN_FILE_DATA,
+                File::Other{id: 0xF9, buffer: data},
+                OpCode::ReturnFileData,
             )),
             &hex!("20 F9 05 03 010203"),
         )
@@ -727,7 +761,7 @@ mod test {
                         offset: 6u32.into(),
                     },
                 }),
-                opcode: OpCode::ACTION_QUERY,
+                opcode: OpCode::ActionQuery,
             }),
             &hex!("C8 00 04 05 06"),
         )
@@ -748,7 +782,7 @@ mod test {
                         offset: 6u32.into(),
                     },
                 }),
-                opcode: OpCode::BREAK_QUERY,
+                opcode: OpCode::BreakQuery,
             }),
             &hex!("C9 00 04  05 06"),
         )
@@ -769,7 +803,7 @@ mod test {
                         offset: 6u32.into(),
                     },
                 }),
-                opcode: OpCode::VERIFY_CHECKSUM,
+                opcode: OpCode::VerifyChecksum,
             }),
             &hex!("0B 00 04  05 06"),
         )
@@ -841,7 +875,7 @@ mod test {
                     end_of_packet: true,
                 },
                 id: 8,
-                opcode: OpCode::REQUEST_TAG,
+                opcode: OpCode::RequestTag,
             }),
             &hex!("B4 08"),
         )
@@ -852,7 +886,7 @@ mod test {
         test_item(
             Action::Logic(Logic {
                 logic: LogicOp::Nand,
-                opcode: OpCode::LOGIC,
+                opcode: OpCode::Logic,
             }),
             &[0b1111_0001],
         )
@@ -872,7 +906,7 @@ mod test {
                     error: false,
                 },
                 id: 8,
-                opcode: OpCode::RESPONSE_TAG,
+                opcode: OpCode::ResponseTag,
             }),
             &hex!("A3 08"),
         )
@@ -884,7 +918,7 @@ mod test {
             Action::Status(
                 Status::Action(ActionStatus {
                     action_id: 2,
-                    status: StatusCode::UNKNOWN_OPERATION,
+                    status: StatusCode::UnknownOperation,
                 })
                 .into(),
             ),
@@ -900,7 +934,7 @@ mod test {
                     group: true,
                     response: true,
                 },
-                opcode: OpCode::EXTENSION,
+                opcode: OpCode::Extension,
             }),
             &[0xFF],
         )

@@ -271,7 +271,7 @@ mod test {
                     header: RequestTagHeader {
                         end_of_packet: true,
                     },
-                    opcode: OpCode::REQUEST_TAG,
+                    opcode: OpCode::RequestTag,
                 }),
                 Action::ReadFileData(ReadFileData {
                     header: ActionHeader {
@@ -283,7 +283,7 @@ mod test {
                         offset: 0u32.into(),
                     },
                     length: 8u32.into(),
-                    opcode: OpCode::READ_FILE_DATA,
+                    opcode: OpCode::ReadFileData,
                 }),
                 Action::ReadFileData(ReadFileData {
                     header: ActionHeader {
@@ -295,14 +295,14 @@ mod test {
                         offset: 2u32.into(),
                     },
                     length: 3u32.into(),
-                    opcode: OpCode::READ_FILE_DATA,
+                    opcode: OpCode::ReadFileData,
                 }),
                 Action::Nop(Nop {
                     header: ActionHeader {
                         response: true,
                         group: true,
                     },
-                    opcode: OpCode::NOP,
+                    opcode: OpCode::Nop,
                 }),
             ],
         };
@@ -321,14 +321,14 @@ mod test {
                             end_of_packet: true
                         },
                         id: 66,
-                        opcode: OpCode::REQUEST_TAG
+                        opcode: OpCode::RequestTag
                     }),
                     Action::Nop(Nop {
                         header: ActionHeader {
                             group: true,
                             response: true
                         },
-                        opcode: OpCode::NOP
+                        opcode: OpCode::Nop
                     })
                 ]
             }
@@ -343,14 +343,14 @@ mod test {
                             group: true,
                             response: false
                         },
-                        opcode: OpCode::NOP
+                        opcode: OpCode::Nop
                     }),
                     Action::RequestTag(RequestTag {
                         header: RequestTagHeader {
                             end_of_packet: true
                         },
                         id: 44,
-                        opcode: OpCode::REQUEST_TAG
+                        opcode: OpCode::RequestTag
                     }),
                 ]
             }
@@ -365,14 +365,14 @@ mod test {
                             group: true,
                             response: false
                         },
-                        opcode: OpCode::NOP
+                        opcode: OpCode::Nop
                     }),
                     Action::Nop(Nop {
                         header: ActionHeader {
                             group: true,
                             response: false
                         },
-                        opcode: OpCode::NOP
+                        opcode: OpCode::Nop
                     })
                 ]
             }
@@ -392,14 +392,14 @@ mod test {
                             error: true,
                         },
                         id: 66,
-                        opcode: OpCode::RESPONSE_TAG
+                        opcode: OpCode::ResponseTag
                     }),
                     Action::Nop(Nop {
                         header: ActionHeader {
                             group: true,
                             response: true
                         },
-                        opcode: OpCode::NOP
+                        opcode: OpCode::Nop
                     })
                 ]
             }
@@ -414,7 +414,7 @@ mod test {
                             group: true,
                             response: false
                         },
-                        opcode: OpCode::NOP
+                        opcode: OpCode::Nop
                     }),
                     Action::ResponseTag(ResponseTag {
                         header: ResponseTagHeader {
@@ -422,7 +422,7 @@ mod test {
                             error: true,
                         },
                         id: 44,
-                        opcode: OpCode::RESPONSE_TAG
+                        opcode: OpCode::ResponseTag
                     }),
                 ]
             }
@@ -437,14 +437,14 @@ mod test {
                             group: true,
                             response: false
                         },
-                        opcode: OpCode::NOP
+                        opcode: OpCode::Nop
                     }),
                     Action::Nop(Nop {
                         header: ActionHeader {
                             group: true,
                             response: false
                         },
-                        opcode: OpCode::NOP
+                        opcode: OpCode::Nop
                     })
                 ]
             }
@@ -463,14 +463,14 @@ mod test {
                         error: true,
                     },
                     id: 66,
-                    opcode: OpCode::RESPONSE_TAG
+                    opcode: OpCode::ResponseTag
                 }),
                 Action::Nop(Nop {
                     header: ActionHeader {
                         group: true,
                         response: true
                     },
-                    opcode: OpCode::NOP
+                    opcode: OpCode::Nop
                 })
             ]
         }
@@ -484,14 +484,14 @@ mod test {
                         error: false,
                     },
                     id: 66,
-                    opcode: OpCode::RESPONSE_TAG
+                    opcode: OpCode::ResponseTag
                 }),
                 Action::Nop(Nop {
                     header: ActionHeader {
                         group: true,
                         response: true
                     },
-                    opcode: OpCode::NOP
+                    opcode: OpCode::Nop
                 })
             ]
         }
@@ -505,7 +505,7 @@ mod test {
                         error: true,
                     },
                     id: 44,
-                    opcode: OpCode::RESPONSE_TAG
+                    opcode: OpCode::ResponseTag
                 }),
                 Action::ResponseTag(ResponseTag {
                     header: ResponseTagHeader {
@@ -513,7 +513,7 @@ mod test {
                         error: true
                     },
                     id: 44,
-                    opcode: OpCode::RESPONSE_TAG
+                    opcode: OpCode::ResponseTag
                 }),
             ]
         }
@@ -526,14 +526,14 @@ mod test {
                         group: true,
                         response: false
                     },
-                    opcode: OpCode::NOP
+                    opcode: OpCode::Nop
                 }),
                 Action::Nop(Nop {
                     header: ActionHeader {
                         group: true,
                         response: false
                     },
-                    opcode: OpCode::NOP
+                    opcode: OpCode::Nop
                 })
             ]
         }
@@ -735,15 +735,16 @@ mod test {
                         file_id: 53,
                         offset: 0u32.into(),
                     },
-                    File::Other(
-                        hex!(
+                    File::Other {
+                        id: 53,
+                        buffer: hex!(
                             r#"
                        00 F4 01 00 00 44 48 00 09 00 00 00 00 00 00 30 00 00 44
                        48 00 09 00 00 30 00 00 00 00 02 00 44 48 00 09 00 00 70 00 00 00 30 02 00"#
                         )
                         .to_vec(),
-                    ),
-                    OpCode::WRITE_FILE_DATA,
+                    },
+                    OpCode::WriteFileData,
                 )),
             ],
         };

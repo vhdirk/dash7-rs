@@ -111,7 +111,7 @@ pub enum FileId {
     #[deku(id = "0x2E")]
     AccessProfile14,
     #[deku(id_pat = "_")]
-    Other,
+    Other(u8),
 }
 
 impl TryFrom<u8> for FileId {
@@ -140,7 +140,7 @@ pub trait SystemFile {
 #[deku(
     ctx = "file_id: FileId, length: u32",
     id = "file_id",
-    ctx_default = "FileId::Other, 0"
+    ctx_default = "FileId::Other(0xFF), 0"
 )]
 pub enum File {
     #[deku(id = "FileId::AccessProfile00")]
@@ -202,12 +202,16 @@ pub enum File {
     NwlSecurityKey(SecurityKey),
 
     #[deku(id_pat = "_")]
-    Other(#[deku(count = "length")] Vec<u8>),
+    Other {
+        id: u8,
+        #[deku(count = "length")]
+        buffer: Vec<u8>,
+    },
 }
 
 impl Default for File {
     fn default() -> Self {
-        Self::Other(vec![])
+        Self::Other{id: 0xFF, buffer: vec![]}
     }
 }
 

@@ -2,7 +2,7 @@ use deku::prelude::*;
 
 use crate::{app::command::Command, types::VarInt};
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, strum::Display, uniffi::Enum)]
 #[deku(bits = 2, id_type = "u8")]
 pub enum GroupCondition {
     /// <, =, > (always true)
@@ -21,7 +21,7 @@ pub enum GroupCondition {
 }
 
 // TODO: make these names more readable
-#[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
+#[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default, uniffi::Object)]
 pub struct Control {
     #[deku(bits = 1)]
     pub is_dialog_start: bool,
@@ -39,13 +39,13 @@ pub struct Control {
     pub has_agc: bool,
 }
 
-#[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
+#[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default, uniffi::Object)]
 pub struct AckTemplate {
     pub transaction_id_start: u8,
     pub transaction_id_stop: u8,
 }
 
-#[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
+#[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default, uniffi::Object)]
 #[deku(ctx = "command_length: u32", ctx_default = "0")]
 pub struct Frame {
     pub control: Control,

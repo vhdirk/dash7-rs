@@ -6,7 +6,7 @@ use crate::{network::Addressee, session::QoS, types::VarInt};
 ///
 /// Parameters to handle the sending of a request.
 // ALP SPEC: Add link to D7a section
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
 pub struct Dash7InterfaceConfiguration {
     pub qos: QoS,
 
@@ -32,7 +32,7 @@ pub struct Dash7InterfaceConfiguration {
     pub addressee: Addressee,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
 pub struct LoRaWANInterfaceConfiguration {
     /// Automatic data rate enabled
     #[deku(pad_bits_before = "5", bits = 1)]
@@ -45,7 +45,7 @@ pub struct LoRaWANInterfaceConfiguration {
     pub data_rate: u8,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
 pub struct LoRaWANOTAAInterfaceConfiguration {
     pub base: LoRaWANInterfaceConfiguration,
 
@@ -59,7 +59,7 @@ pub struct LoRaWANOTAAInterfaceConfiguration {
     pub app_key: Vec<u8>,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
 pub struct LoRaWANABPInterfaceConfiguration {
     pub base: LoRaWANInterfaceConfiguration,
 
@@ -74,7 +74,7 @@ pub struct LoRaWANABPInterfaceConfiguration {
     pub network_id: u32,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
 #[deku(id_type = "u8")]
 pub enum InterfaceConfiguration {
     #[default]
@@ -97,7 +97,7 @@ pub enum InterfaceConfiguration {
     Unknown(u8),
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
 #[deku(id_type = "u8")]
 pub enum IndirectInterface {
     #[default]

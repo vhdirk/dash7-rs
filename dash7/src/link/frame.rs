@@ -5,7 +5,7 @@ use crate::{
     network::{self, Address, AddressType},
 };
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
 pub struct BackgroundFrameControl {
     address_type: AddressType,
 
@@ -13,7 +13,7 @@ pub struct BackgroundFrameControl {
     tag_id: u8,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
 pub struct BackgroundFrame {
     subnet: u8,
     control: BackgroundFrameControl,
@@ -21,7 +21,7 @@ pub struct BackgroundFrame {
     crc16: u16,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
 pub struct ForegroundFrameControl {
     address_type: AddressType,
 
@@ -29,7 +29,7 @@ pub struct ForegroundFrameControl {
     eirp_index: u8,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
 pub struct ForegroundFrame {
     length: Length,
     subnet: u8,

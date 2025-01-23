@@ -4,42 +4,42 @@ use crate::{link::AccessClass, transport};
 
 use super::{Address, AddressType, NlsMethod};
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
 pub struct Control {
     #[deku(bits = 1)]
-    has_no_origin_access_id: bool,
+    pub has_no_origin_access_id: bool,
     #[deku(bits = 1)]
-    has_hopping: bool,
+    pub has_hopping: bool,
 
-    origin_address_type: AddressType,
+    pub origin_address_type: AddressType,
 
     #[deku(pad_bits_before = "1")]
-    nls_method: NlsMethod,
+    pub nls_method: NlsMethod,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
 pub struct HoppingControl {
     /// Hopping counter for no-hop and one-hop routing.
     #[deku(bits = 1, pad_bits_before = "1")]
-    hop_counter: bool,
+    pub hop_counter: bool,
 
     #[deku(pad_bits_after = "4")]
-    destination_address_type: AddressType,
+    pub destination_address_type: AddressType,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
 #[deku(ctx = "command_length: u32", ctx_default = "0")]
 pub struct Frame {
-    control: Control,
+    pub control: Control,
 
     #[deku(cond = "control.has_hopping")]
-    hopping_control: Option<HoppingControl>,
+    pub hopping_control: Option<HoppingControl>,
 
-    origin_access_class: AccessClass,
+    pub origin_access_class: AccessClass,
 
     #[deku(ctx = "control.origin_address_type")]
-    origin_access_adress: Address,
+    pub origin_access_adress: Address,
 
     #[deku(ctx = "command_length")]
-    frame: transport::Frame,
+    pub frame: transport::Frame,
 }

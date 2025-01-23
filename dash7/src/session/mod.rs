@@ -10,7 +10,7 @@ mod interface_final;
 #[cfg(feature = "_wizzilab")]
 pub use interface_final::{InterfaceFinalStatus, InterfaceFinalStatusCode, InterfaceTxStatus};
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, Copy, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, Copy, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(bits = 8, id_type = "u8")]
 pub enum InterfaceType {
     #[default]
@@ -48,7 +48,7 @@ impl Into<u8> for InterfaceType {
 }
 
 /// The Response Modes define the condition for termination on success of a Request
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(bits = 3, id_type = "u8")]
 pub enum ResponseMode {
     /// A Request is acknowledged if the DLL CSMA-CA routine succeeds. No
@@ -107,7 +107,7 @@ pub enum ResponseMode {
 /// The Retry Modes define the pattern for re-flushing a FIFO that terminates on error.
 ///
 /// In other words, what is the retry policy when sending your payload.
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(bits = 3, id_type = "u8")]
 pub enum RetryMode {
     #[default]
@@ -130,7 +130,7 @@ pub enum RetryMode {
 }
 
 /// QoS of the request
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
 pub struct QoS {
     #[deku(bits = 1)]
     pub stop_on_error: bool,
@@ -141,7 +141,7 @@ pub struct QoS {
     pub response_mode: ResponseMode,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Enum)]
 #[deku(ctx = "interface_id: InterfaceType, length: u32", id = "interface_id")]
 pub enum InterfaceStatus {
     #[default]
@@ -179,7 +179,7 @@ impl Display for InterfaceStatus {
     }
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Object)]
 pub struct Dash7InterfaceStatus {
     /// PHY layer channel
     pub channel: Channel,

@@ -16,8 +16,13 @@ path = "src/lib.rs"
 
 [dependencies]
 deku = { workspace = true, default-features = false }
+strum = { version = "0.26.2", features = ["derive"] }
 enum_dispatch = "0.3.13"
 mutually_exclusive_features = "0.1.0"
+uniffi = { version = "0.28.3" }
+
+[build-dependencies]
+uniffi = { version = "0.28.3", features = [ "build" ] }
 
 [dev-dependencies]
 hex-literal = "0.4.1"

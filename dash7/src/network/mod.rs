@@ -10,7 +10,7 @@ use crate::types::VarInt;
 
 /// Network Layer Security
 /// SPEC: 7.4
-#[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[cfg_attr(not(feature = "_wizzilab"), deku(bits = 4))]
 #[cfg_attr(feature = "_wizzilab", deku(bits = 3))]
 #[deku(id_type = "u8")]
@@ -50,7 +50,7 @@ pub enum NlsMethod {
 }
 
 /// Encryption algorithm for over-the-air packets
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(ctx = "nls_method: NlsMethod", id = "nls_method")]
 pub enum NlsState {
     #[default]
@@ -72,7 +72,7 @@ pub enum NlsState {
     AesCcm32([u8; 5]),
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(bits = 2, id_type = "u8")]
 pub enum AddressType {
     /// Broadcast to an estimated number of receivers, encoded in compressed format on a byte.
@@ -90,7 +90,7 @@ pub enum AddressType {
     VId,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(ctx = "address_type: AddressType", id = "address_type")]
 pub enum Address {
     /// Broadcast to an estimated number of receivers, encoded in compressed format on a byte.

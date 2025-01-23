@@ -2,7 +2,7 @@ use deku::prelude::*;
 
 use crate::{network::Addressee, physical::Channel};
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(ctx = "interface_id: u8, length: u32", id = "interface_id")]
 pub enum InterfaceFinalStatus {
     #[deku(id = "0xD7")]
@@ -12,7 +12,7 @@ pub enum InterfaceFinalStatus {
     Other(#[deku(count = "length")] Vec<u8>),
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(id_type = "u8")]
 pub enum InterfaceFinalStatusCode {
     /// No error
@@ -63,7 +63,7 @@ pub enum InterfaceFinalStatusCode {
     NotSupportedMode = 0xEA,
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(ctx = "interface_id: u8, length: u32", id = "interface_id")]
 pub enum InterfaceTxStatus {
     #[deku(id = "0xD7")]
@@ -73,7 +73,7 @@ pub enum InterfaceTxStatus {
     Other(#[deku(count = "length")] Vec<u8>),
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Object)]
 pub struct Dash7InterfaceTxStatus {
     /// PHY layer channel header
     pub channel: Channel,
