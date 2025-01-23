@@ -56,20 +56,20 @@ pub enum NlsState {
     #[default]
     #[deku(id = "NlsMethod::None")]
     None,
-    #[deku(id = "NlsMethod::AesCtr")]
-    AesCtr([u8; 5]),
-    #[deku(id = "NlsMethod::AesCbcMac128")]
-    AesCbcMac128([u8; 5]),
-    #[deku(id = "NlsMethod::AesCbcMac64")]
-    AesCbcMac64([u8; 5]),
-    #[deku(id = "NlsMethod::AesCbcMac32")]
-    AesCbcMac32([u8; 5]),
-    #[deku(id = "NlsMethod::AesCcm128")]
-    AesCcm128([u8; 5]),
-    #[deku(id = "NlsMethod::AesCcm64")]
-    AesCcm64([u8; 5]),
-    #[deku(id = "NlsMethod::AesCcm32")]
-    AesCcm32([u8; 5]),
+    // #[deku(id = "NlsMethod::AesCtr")]
+    // AesCtr([u8; 5]),
+    // #[deku(id = "NlsMethod::AesCbcMac128")]
+    // AesCbcMac128([u8; 5]),
+    // #[deku(id = "NlsMethod::AesCbcMac64")]
+    // AesCbcMac64([u8; 5]),
+    // #[deku(id = "NlsMethod::AesCbcMac32")]
+    // AesCbcMac32([u8; 5]),
+    // #[deku(id = "NlsMethod::AesCcm128")]
+    // AesCcm128([u8; 5]),
+    // #[deku(id = "NlsMethod::AesCcm64")]
+    // AesCcm64([u8; 5]),
+    // #[deku(id = "NlsMethod::AesCcm32")]
+    // AesCcm32([u8; 5]),
 }
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq, strum::Display, uniffi::Enum)]

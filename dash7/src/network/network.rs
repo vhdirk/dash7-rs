@@ -4,7 +4,7 @@ use crate::{link::AccessClass, transport};
 
 use super::{Address, AddressType, NlsMethod};
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct Control {
     #[deku(bits = 1)]
     pub has_no_origin_access_id: bool,
@@ -17,7 +17,7 @@ pub struct Control {
     pub nls_method: NlsMethod,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct HoppingControl {
     /// Hopping counter for no-hop and one-hop routing.
     #[deku(bits = 1, pad_bits_before = "1")]
@@ -27,7 +27,7 @@ pub struct HoppingControl {
     pub destination_address_type: AddressType,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "command_length: u32", ctx_default = "0")]
 pub struct Frame {
     pub control: Control,

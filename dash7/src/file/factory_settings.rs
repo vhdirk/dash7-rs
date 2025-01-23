@@ -1,6 +1,6 @@
 use deku::prelude::*;
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct FactorySettings {
     pub gain: i8,
     #[deku(endian = "big")]

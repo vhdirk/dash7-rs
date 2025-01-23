@@ -2,7 +2,7 @@ use deku::prelude::*;
 
 use crate::physical::ChannelStatus;
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct PhyStatus {
     #[deku(endian = "big")]
     pub up_time: u32,

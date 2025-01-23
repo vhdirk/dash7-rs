@@ -1,6 +1,6 @@
 use deku::prelude::*;
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct DllConfig {
     pub ac: u8,
     #[deku(pad_bits_before = "16")]

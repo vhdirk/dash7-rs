@@ -4,8 +4,8 @@ use crate::link;
 
 use super::SystemFile;
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct AccessProfile<const S: u8> {
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
+pub struct AccessProfile<const S: u8 = 0> {
     pub profile: link::AccessProfile,
 }
 

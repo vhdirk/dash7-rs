@@ -19,10 +19,10 @@ deku = { workspace = true, default-features = false }
 strum = { version = "0.26.2", features = ["derive"] }
 enum_dispatch = "0.3.13"
 mutually_exclusive_features = "0.1.0"
-uniffi = { version = "0.28.3" }
+uniffi = { version = "0.28", git="https://github.com/mozilla/uniffi-rs" }
 
 [build-dependencies]
-uniffi = { version = "0.28.3", features = [ "build" ] }
+uniffi = { version = "0.28", git="https://github.com/mozilla/uniffi-rs", features = [ "build" ] }
 
 [dev-dependencies]
 hex-literal = "0.4.1"
@@ -48,3 +48,6 @@ spec = ["spec_v1_2"]
 subiot = ["subiot_v0_1"]
 wizzilab = ["wizzilab_v5_3"]
 
+
+[patch.crates-io]
+uniffi = { version = "0.28", git="https://github.com/mozilla/uniffi-rs", branch = "main"}

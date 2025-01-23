@@ -5,7 +5,7 @@ use crate::utils::{read_string, write_string};
 use super::SystemFile;
 
 // TODO: actual fixed length strings would be better here
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct FirmwareVersion {
     pub major: u8,
     pub minor: u8,

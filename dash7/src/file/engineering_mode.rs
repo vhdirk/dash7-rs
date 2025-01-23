@@ -2,7 +2,7 @@ use deku::prelude::*;
 
 use crate::physical::Channel;
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(id_type = "u8")]
 pub enum EngineeringModeMethod {
     #[deku(id = "0")]
@@ -17,7 +17,7 @@ pub enum EngineeringModeMethod {
     PerTx,
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct EngineeringMode {
     pub mode: EngineeringModeMethod,
     pub flags: u8,

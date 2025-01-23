@@ -25,7 +25,7 @@ use crate::{
     utils::from_bytes,
 };
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(id_type = "u8", bits = "8")]
 pub enum FileId {
     #[deku(id = "0x00")]
@@ -136,7 +136,7 @@ pub trait SystemFile {
 /// File IDs 0x00-0x17 and 0x20-0x2F are reserved by the DASH7 spec.
 /// File IDs 0x18-0x1F Reserved for D7AALP.
 /// File IDs 0x20+I with I in [0, 14] are reserved for Access Profiles.
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(
     ctx = "file_id: FileId, length: u32",
     id = "file_id",
@@ -145,34 +145,34 @@ pub trait SystemFile {
 pub enum File {
     #[deku(id = "FileId::AccessProfile00")]
     AccessProfile00(AccessProfile<0>),
-    #[deku(id = "FileId::AccessProfile01")]
-    AccessProfile01(AccessProfile<1>),
-    #[deku(id = "FileId::AccessProfile02")]
-    AccessProfile02(AccessProfile<2>),
-    #[deku(id = "FileId::AccessProfile03")]
-    AccessProfile03(AccessProfile<3>),
-    #[deku(id = "FileId::AccessProfile04")]
-    AccessProfile04(AccessProfile<4>),
-    #[deku(id = "FileId::AccessProfile05")]
-    AccessProfile05(AccessProfile<5>),
-    #[deku(id = "FileId::AccessProfile06")]
-    AccessProfile06(AccessProfile<6>),
-    #[deku(id = "FileId::AccessProfile07")]
-    AccessProfile07(AccessProfile<7>),
-    #[deku(id = "FileId::AccessProfile08")]
-    AccessProfile08(AccessProfile<8>),
-    #[deku(id = "FileId::AccessProfile09")]
-    AccessProfile09(AccessProfile<9>),
-    #[deku(id = "FileId::AccessProfile10")]
-    AccessProfile10(AccessProfile<10>),
-    #[deku(id = "FileId::AccessProfile11")]
-    AccessProfile11(AccessProfile<11>),
-    #[deku(id = "FileId::AccessProfile12")]
-    AccessProfile12(AccessProfile<12>),
-    #[deku(id = "FileId::AccessProfile13")]
-    AccessProfile13(AccessProfile<13>),
-    #[deku(id = "FileId::AccessProfile14")]
-    AccessProfile14(AccessProfile<14>),
+    // #[deku(id = "FileId::AccessProfile01")]
+    // AccessProfile01(AccessProfile<1>),
+    // #[deku(id = "FileId::AccessProfile02")]
+    // AccessProfile02(AccessProfile<2>),
+    // #[deku(id = "FileId::AccessProfile03")]
+    // AccessProfile03(AccessProfile<3>),
+    // #[deku(id = "FileId::AccessProfile04")]
+    // AccessProfile04(AccessProfile<4>),
+    // #[deku(id = "FileId::AccessProfile05")]
+    // AccessProfile05(AccessProfile<5>),
+    // #[deku(id = "FileId::AccessProfile06")]
+    // AccessProfile06(AccessProfile<6>),
+    // #[deku(id = "FileId::AccessProfile07")]
+    // AccessProfile07(AccessProfile<7>),
+    // #[deku(id = "FileId::AccessProfile08")]
+    // AccessProfile08(AccessProfile<8>),
+    // #[deku(id = "FileId::AccessProfile09")]
+    // AccessProfile09(AccessProfile<9>),
+    // #[deku(id = "FileId::AccessProfile10")]
+    // AccessProfile10(AccessProfile<10>),
+    // #[deku(id = "FileId::AccessProfile11")]
+    // AccessProfile11(AccessProfile<11>),
+    // #[deku(id = "FileId::AccessProfile12")]
+    // AccessProfile12(AccessProfile<12>),
+    // #[deku(id = "FileId::AccessProfile13")]
+    // AccessProfile13(AccessProfile<13>),
+    // #[deku(id = "FileId::AccessProfile14")]
+    // AccessProfile14(AccessProfile<14>),
 
     #[deku(id = "FileId::UId")]
     UId(#[deku(ctx = "AddressType::UId")] Address),

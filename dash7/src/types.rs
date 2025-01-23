@@ -10,28 +10,28 @@ use uniffi;
 
 #[derive(Debug, Clone, PartialEq, strum::Display, uniffi::Error)]
 pub enum VarIntError {
-    ValueTooLarge(u32),
-    ExponentTooLarge(u8),
-    MantissaTooLarge(u8),
+    ValueTooLarge { value: u32 },
+    ExponentTooLarge { exponent: u8 },
+    MantissaTooLarge { mantissa: u8 },
     Unknown,
 }
 
 impl Into<DekuError> for VarIntError {
     fn into(self) -> DekuError {
         match self {
-            VarIntError::ValueTooLarge(value) => DekuError::InvalidParam(Cow::Owned(format!(
+            VarIntError::ValueTooLarge { value } => DekuError::InvalidParam(Cow::Owned(format!(
                 "VarInt: Value too large: {:?}. Max: {:?}",
                 value,
                 VarInt::MAX
             ))),
-            VarIntError::ExponentTooLarge(exponent) => {
+            VarIntError::ExponentTooLarge { exponent } => {
                 DekuError::InvalidParam(Cow::Owned(format!(
                     "VarInt: Exponent too large {:?}. Max: {:?}",
                     exponent,
                     2 ^ 3
                 )))
             }
-            VarIntError::MantissaTooLarge(mantissa) => {
+            VarIntError::MantissaTooLarge { mantissa } => {
                 DekuError::InvalidParam(Cow::Owned(format!(
                     "VarInt: Mantissa too large {:?}. Max: {:?}",
                     mantissa,
@@ -105,7 +105,7 @@ impl VarInt {
     #[uniffi::constructor]
     pub fn new(value: u32, ceil: bool) -> Result<Self, VarIntError> {
         if !Self::is_valid(value) {
-            Err(VarIntError::ValueTooLarge(value))
+            Err(VarIntError::ValueTooLarge { value })
         } else {
             Ok(Self { value, ceil })
         }
@@ -119,16 +119,17 @@ impl VarInt {
     #[uniffi::constructor]
     pub fn decompress(exponent: u8, mantissa: u8) -> Result<u32, VarIntError> {
         if exponent & 0b11111000 > 0 {
-            return Err(VarIntError::ExponentTooLarge(exponent));
+            return Err(VarIntError::ExponentTooLarge { exponent });
         }
 
         if mantissa & 0b11100000 > 0 {
-            return Err(VarIntError::ExponentTooLarge(mantissa));
+            return Err(VarIntError::MantissaTooLarge { mantissa });
         }
 
         Ok(4u32.pow(exponent as u32) * mantissa as u32)
     }
 
+    #[uniffi::method]
     pub fn compress(&self) -> Result<FloatingPoint, VarIntError> {
         for i in 0..8 {
             let exp = 4u32.pow(i);

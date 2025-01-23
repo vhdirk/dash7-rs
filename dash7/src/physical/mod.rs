@@ -76,7 +76,7 @@ pub enum NoiseFloor {
     Other,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct ChannelHeader {
     #[deku(pad_bits_before = "1")]
     pub channel_band: ChannelBand,
@@ -84,9 +84,7 @@ pub struct ChannelHeader {
     pub channel_coding: ChannelCoding,
 }
 
-#[uniffi::export]
 impl ChannelHeader {
-    #[uniffi::constructor]
     pub fn new(
         channel_band: ChannelBand,
         channel_class: ChannelClass,
@@ -100,14 +98,14 @@ impl ChannelHeader {
     }
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct Channel {
     pub header: ChannelHeader,
     #[deku(endian = "big")]
     pub index: u16,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct ChannelStatusIdentifier {
     // TODO update to D7AP v1.1
     pub channel_band: ChannelBand,
@@ -117,7 +115,7 @@ pub struct ChannelStatusIdentifier {
     pub index: u16,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(endian = "big")]
 pub struct SubBand {
     pub channel_index_start: u16,
@@ -127,7 +125,7 @@ pub struct SubBand {
     pub duty: u8,
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct ChannelStatus {
     pub identifier: ChannelStatusIdentifier,
     pub noise_floor: u8,
