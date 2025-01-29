@@ -45,7 +45,7 @@ pub struct VarIntParts {
 
 /// Variable int format
 /// SPEC: 6.2.2 Compressed Format
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, Copy, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, Copy, PartialEq, uniffi::Record)]
 pub struct VarInt {
     #[deku(
         reader = "VarInt::read(deku::reader)",
@@ -54,6 +54,7 @@ pub struct VarInt {
     value: u32,
 
     #[deku(skip, default = "false")]
+    #[uniffi(default=false)]
     ceil: bool,
 }
 
@@ -64,8 +65,8 @@ impl VarInt {
     const EXPONENT_BITS: u8 = 3;
     const MANTISSA_BITS: u8 = 5;
 
-    const MAX_EXPONENT: u8 = 2 ^ Self::EXPONENT_BITS;
-    const MAX_MANTISSA: u8 = 2 ^ Self::MANTISSA_BITS;
+    const MAX_EXPONENT: u8 = (1 << Self::EXPONENT_BITS) - 1;
+    const MAX_MANTISSA: u8 = (1 << Self::MANTISSA_BITS) - 1;
 
     /// Returns whether the value is encodable into a VarInt or not.
     /// Makes no guarantees about precision
@@ -100,20 +101,20 @@ impl VarInt {
             Err(err) => Err(err.into()),
         }
     }
-    pub fn new(value: u32, ceil: bool) -> Result<Arc<Self>, VarIntError> {
+    pub fn new(value: u32, ceil: bool) -> Result<Self, VarIntError> {
         if !Self::is_valid(value) {
             Err(VarIntError::ValueTooLarge { value })
         } else {
-            Ok(Arc::new(Self { value, ceil }))
+            Ok(Self { value, ceil })
         }
     }
 
     pub const fn decompress(exponent: u8, mantissa: u8) -> Result<Self, VarIntError> {
-        if exponent & (1 << Self::EXPONENT_BITS) - 1 > 0 {
+        if exponent & !Self::MAX_EXPONENT > 0 {
             return Err(VarIntError::ExponentTooLarge { exponent });
         }
 
-        if mantissa & (1 << Self::MANTISSA_BITS) - 1 > 0 {
+        if mantissa & !Self::MAX_MANTISSA > 0 {
             return Err(VarIntError::MantissaTooLarge { mantissa });
         }
 
@@ -124,14 +125,11 @@ impl VarInt {
     }
 }
 
-#[uniffi::export]
 impl VarInt {
-    #[uniffi::constructor]
     pub const fn new_unchecked(value: u32, ceil: bool) -> Self {
         Self { value, ceil }
     }
 
-    #[uniffi::method]
     pub fn compress(&self) -> Result<VarIntParts, VarIntError> {
         for i in 0..8 {
             let exp = 4u32.pow(i);
@@ -167,6 +165,7 @@ impl From<u32> for VarInt {
     }
 }
 
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -180,18 +179,18 @@ mod test {
 
     #[test]
     fn test_decompress() {
-        assert_eq!(0u32, (*VarInt::decompress(0, 0).unwrap()).into());
-        assert_eq!(4u32, (*VarInt::decompress(1, 1).unwrap()).into());
-        assert_eq!(32u32, (*VarInt::decompress(2, 2).unwrap()).into());
-        assert_eq!(192u32, (*VarInt::decompress(3, 3).unwrap()).into());
-        assert_eq!(507904u32, (*VarInt::decompress(7, 31).unwrap()).into());
+        assert_eq!(0u32, (VarInt::decompress(0, 0).unwrap()).into());
+        assert_eq!(4u32, (VarInt::decompress(1, 1).unwrap()).into());
+        assert_eq!(32u32, (VarInt::decompress(2, 2).unwrap()).into());
+        assert_eq!(192u32, (VarInt::decompress(3, 3).unwrap()).into());
+        assert_eq!(507904u32, (VarInt::decompress(7, 31).unwrap()).into());
     }
 
     #[test]
     fn test() {
         test_item(VarInt::default(), &[0x00]);
-        test_item(*VarInt::new_unchecked(1, false), &[0x01u8]);
-        test_item(*VarInt::new_unchecked(32, false), &[0b00101000u8]);
-        test_item(*VarInt::new_unchecked(507904, false), &[0xFFu8]);
+        test_item(VarInt::new_unchecked(1, false), &[0x01u8]);
+        test_item(VarInt::new_unchecked(32, false), &[0b00101000u8]);
+        test_item(VarInt::new_unchecked(507904, false), &[0xFFu8]);
     }
 }

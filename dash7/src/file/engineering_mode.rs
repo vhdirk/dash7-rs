@@ -18,7 +18,7 @@ pub enum EngineeringModeMethod {
 }
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
-pub struct EngineeringMode {
+pub struct EngineeringModeFile {
     pub mode: EngineeringModeMethod,
     pub flags: u8,
     pub timeout: u8,

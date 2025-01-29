@@ -1,10 +1,10 @@
 use clap::{Args, ValueEnum};
 use dash7::{
     app::command::Command,
-    file::{File, FileId},
+    file::{File, OtherFile},
     link::{BackgroundFrame, ForegroundFrame},
 };
-use deku::DekuError;
+use deku::{DekuError};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum ParseType {
@@ -37,7 +37,7 @@ fn remove_whitespace(s: &str) -> String {
 }
 
 fn parse_foreground_frame(input: &[u8]) -> Result<(), DekuError> {
-    let frame = ForegroundFrame::try_from(input)?;
+    let frame = ForegroundFrame::<OtherFile>::try_from(input)?;
     println!("{:?}", frame);
     Ok(())
 }
@@ -49,7 +49,7 @@ fn parse_background_frame(input: &[u8]) -> Result<(), DekuError> {
 }
 
 fn parse_alp_command(input: &[u8]) -> Result<(), DekuError> {
-    let command = Command::try_from(input)?;
+    let command = Command::<OtherFile>::try_from(input)?;
     println!("{}", command);
     Ok(())
 }
@@ -58,15 +58,16 @@ fn parse_serial(_input: &[u8]) -> Result<(), DekuError> {
     Err(DekuError::Assertion("Not implemented".into()))
 }
 
-fn parse_file(input: &[u8], file_id: FileId) -> Result<(), DekuError> {
-    let file = File::from_bytes((input, 0), file_id, 0)?;
+fn parse_file(input: &[u8], file_id: u8) -> Result<(), DekuError> {
+    let file = File::<OtherFile>::from_bytes((input, 0), file_id, 0u32);
     println!("{:?}", file);
     Ok(())
 }
 
 fn parse_any_file(input: &[u8]) -> Result<(), DekuError> {
-    for file_id_raw in 0..=0x2Eu8 {
-        let file_id: FileId = file_id_raw.try_into()?;
+    // just try everything ¯\_(ツ)_/¯
+    for file_id_raw in 0..=0xFF {
+        let file_id: u8 = file_id_raw.try_into()?;
         if parse_file(input, file_id).is_ok() {
             return Ok(());
         }
@@ -108,13 +109,12 @@ pub fn main(args: ParseArgs) {
         Some(ParseType::Alp) => parse_alp_command(input).expect("Could not parse command"),
         Some(ParseType::Serial) => parse_serial(input).expect("Could not parse serial"),
         Some(ParseType::Systemfile) => {
-            if let Some(file_id_raw) = args.file_id {
-                let file_id: FileId = file_id_raw.try_into().expect("File id invalid");
+            if let Some(file_id) = args.file_id {
                 parse_file(input, file_id).expect("Could not parse file")
             } else {
                 parse_any_file(input).expect("Could not parse file")
             }
         }
-        None => parse_any(input).expect("Could not parse input"),
+        _ => parse_any(input).expect("Could not parse input"),
     }
 }

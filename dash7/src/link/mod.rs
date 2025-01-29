@@ -10,7 +10,7 @@ pub use frame::{BackgroundFrame, BackgroundFrameControl, ForegroundFrame, Foregr
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct SubProfile {
     pub subband_bitmap: u8,
-    pub scan_automation_period: Arc<VarInt>,
+    pub scan_automation_period: VarInt,
 }
 
 /// The Access Specifier is the Index of the D7A file containing the Access

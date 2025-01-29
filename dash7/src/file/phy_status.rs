@@ -3,7 +3,7 @@ use deku::prelude::*;
 use crate::physical::ChannelStatus;
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
-pub struct PhyStatus {
+pub struct PhyStatusFile {
     #[deku(endian = "big")]
     pub up_time: u32,
     #[deku(endian = "big")]
@@ -20,7 +20,7 @@ pub struct PhyStatus {
     pub channel_status: Vec<ChannelStatus>,
 }
 
-impl PhyStatus {
+impl PhyStatusFile {
     pub fn new(
         up_time: u32,
         rx_time: u32,

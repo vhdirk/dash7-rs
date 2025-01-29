@@ -13,22 +13,23 @@ pub use interface_final::{InterfaceFinalStatus, InterfaceFinalStatusCode, Interf
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, Copy, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(bits = 8, id_type = "u8")]
+#[repr(u8)]
 pub enum InterfaceType {
     #[default]
     #[deku(id = "0x00")]
-    Host,
+    Host = 0x00,
 
     #[deku(id = "0x01")]
-    Serial,
+    Serial = 0x01,
 
     #[deku(id = "0x02")]
-    LoRaWanABP,
+    LoRaWanABP = 0x02,
 
     #[deku(id = "0x03")]
-    LoRaWanOTAA,
+    LoRaWanOTAA = 0x03,
 
     #[deku(id = "0xD7")]
-    Dash7,
+    Dash7 = 0xD7,
 
     #[deku(id_pat = "_")]
     Unknown,
@@ -207,7 +208,7 @@ pub struct Dash7InterfaceStatus {
     pub sequence_number: u8,
 
     /// Response delay (request to response time) in TiT
-    pub response_timeout: Arc<VarInt>,
+    pub response_timeout: VarInt,
 
     /// Address of source
     pub addressee: Addressee,
@@ -228,9 +229,8 @@ impl Display for Dash7InterfaceStatus {
         f.write_str(&format!("fifo_token: {:?}, ", self.fifo_token))?;
         f.write_str(&format!("sequence_number: {:?}, ", self.sequence_number))?;
         f.write_str(&format!(
-            "response_timeout: {:?}, ",
-            Into::<u32>::into(*self.response_timeout)
-        ))?;
+            "response_timeout: {:?}, ", self.response_timeout)
+        )?;
         f.write_str(&format!("addressee: {:?}, ", self.addressee))?;
         f.write_str(" }")?;
         Ok(())

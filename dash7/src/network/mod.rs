@@ -4,7 +4,7 @@ mod addressee;
 mod network;
 
 pub use addressee::Addressee;
-pub use network::{Control, Frame, HoppingControl};
+pub use network::{NetworkFrameControl, NetworkFrame, HoppingControl};
 
 use crate::types::VarInt;
 
@@ -51,7 +51,7 @@ pub enum NlsMethod {
 
 /// Encryption algorithm for over-the-air packets
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
-#[deku(ctx = "nls_method: NlsMethod", id = "nls_method")]
+#[deku(ctx = "nls_method: NlsMethod", id = "nls_method", endian="big")]
 pub enum NlsState {
     #[default]
     #[deku(id = "NlsMethod::None")]
@@ -59,7 +59,7 @@ pub enum NlsState {
     #[deku(id = "NlsMethod::AesCtr")]
     AesCtr(#[deku(bits=40)] u64),
     #[deku(id = "NlsMethod::AesCbcMac128")]
-    AesCbcMac128(#[deku(bits=40)] u64),
+    AesCbcMac128(#[deku(bits=40,)] u64),
     #[deku(id = "NlsMethod::AesCbcMac64")]
     AesCbcMac64(#[deku(bits=40)] u64),
     #[deku(id = "NlsMethod::AesCbcMac32")]
@@ -95,7 +95,7 @@ pub enum AddressType {
 pub enum Address {
     /// Broadcast to an estimated number of receivers, encoded in compressed format on a byte.
     #[deku(id = "AddressType::NbId")]
-    NbId(Arc<VarInt>),
+    NbId(VarInt),
     /// Broadcast to everyone
     #[default]
     #[deku(id = "AddressType::NoId")]
@@ -204,7 +204,7 @@ mod tests {
                 false,
                 #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
-                Address::VId(0x1234),
+                Address::VId(0x12_34),
                 NlsState::None,
                 AccessClass::new(0, 5),
             ),
@@ -220,7 +220,7 @@ mod tests {
                 false,
                 #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
-                Address::UId(0x1234567890123456),
+                Address::UId(0x12_34_56_78_90_12_34_56),
                 NlsState::None,
                 AccessClass::new(0x06, 0x09),
             ),
@@ -243,7 +243,7 @@ mod tests {
                 NlsState::AesCbcMac128(0x10_20_30_40_50),
                 AccessClass::new(0x0B, 0x0E),
             ),
-            &[0b00010010, 0xBE, 10, 20, 30, 40, 50],
+            &[0b00010010, 0xBE, 0x10, 0x20, 0x30, 0x40, 0x50],
         );
     }
 

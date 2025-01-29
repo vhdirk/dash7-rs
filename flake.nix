@@ -15,8 +15,8 @@
     flake-utils,
     rust-overlay,
     ...
-  }:
-    flake-utils.lib.eachDefaultSystem (
+  }: {
+    devShells = flake-utils.lib.eachDefaultSystemPassThrough (
       system: let
         overlays = [(import rust-overlay)];
         pkgs = import nixpkgs {
@@ -26,20 +26,23 @@
           };
         };
       in {
-        devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            rust-bin.beta.latest.default
-            cargo-binstall
-            maturin
-            uv
+        "${system}".default = pkgs.mkShell {
+          buildInputs = with pkgs;
+            [
+              rust-bin.beta.latest.default
+              cargo-binstall
+              maturin
+              uv
 
-            systemd.dev
-            pkg-config
+              systemd.dev
+              pkg-config
 
-            python3Packages.ipython
-          ]  ++ [
-          ];
+              python3Packages.ipython
+            ]
+            ++ [
+            ];
         };
       }
     );
+  };
 }

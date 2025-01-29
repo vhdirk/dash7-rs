@@ -5,16 +5,20 @@ use std::fmt;
 #[cfg(not(feature = "std"))]
 use alloc::fmt;
 
+
 use deku::{
     no_std_io::{self, Seek, Write},
     prelude::*,
 };
 
-use crate::utils::{from_bytes, from_reader};
+use crate::{
+    file::{OtherFile, FileCtx},
+    utils::{from_bytes, from_reader},
+};
 
 use super::operation::{
-    ActionQuery, Chunk, CopyFile, Extension, FileData, FileId, FilePropertiesOperand, Forward,
-    IndirectForward, Logic, Nop, PermissionRequest, ReadFileData, RequestTag, ResponseTag,
+    ActionQuery, Chunk, CopyFile, Extension, FileDataOperand, FileIdOperand, FilePropertiesOperand,
+    Forward, IndirectForward, Logic, Nop, PermissionRequest, ReadFileData, RequestTag, ResponseTag,
     StatusOperand,
 };
 
@@ -99,9 +103,8 @@ pub enum OpCode {
     Extension,
 
     #[deku(id_pat = "_")]
-    Other(u8)
+    Other(u8),
 }
-
 
 impl OpCode {
     pub fn write<W: Write + Seek>(writer: &mut Writer<W>, opcode: OpCode) -> Result<(), DekuError> {
@@ -113,18 +116,21 @@ impl OpCode {
 // Actions
 // ===============================================================================
 
-#[derive(Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
-pub enum Action {
+#[derive(Debug, Clone, PartialEq, strum::Display)]
+pub enum Action<F = OtherFile>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
+{
     /// Nop
     Nop(Nop),
     /// Read
     ReadFileData(ReadFileData),
 
-    ReadFileProperties(FileId),
+    ReadFileProperties(FileIdOperand),
 
     // Write
-    WriteFileData(FileData),
-    WriteFileDataFlush(FileData),
+    WriteFileData(FileDataOperand<F>),
+    WriteFileDataFlush(FileDataOperand<F>),
     WriteFileProperties(FilePropertiesOperand),
 
     /// Add a condition on the execution of the next group of action.
@@ -143,16 +149,16 @@ pub enum Action {
     VerifyChecksum(ActionQuery),
 
     // Management
-    ExistFile(FileId),
+    ExistFile(FileIdOperand),
     CreateNewFile(FilePropertiesOperand),
-    DeleteFile(FileId),
-    RestoreFile(FileId),
-    FlushFile(FileId),
+    DeleteFile(FileIdOperand),
+    RestoreFile(FileIdOperand),
+    FlushFile(FileIdOperand),
     CopyFile(CopyFile),
-    ExecuteFile(FileId),
+    ExecuteFile(FileIdOperand),
 
     // Response
-    ReturnFileData(FileData),
+    ReturnFileData(FileDataOperand<F>),
     ReturnFileProperties(FilePropertiesOperand),
     Status(StatusOperand),
     ResponseTag(ResponseTag),
@@ -188,8 +194,14 @@ macro_rules! read_action {
     }};
 }
 
-impl<'a> DekuReader<'a, ()> for Action {
-    fn from_reader_with_ctx<R>(reader: &mut Reader<R>, _: ()) -> Result<Self, DekuError>
+impl<'a, F> DekuReader<'a, ()> for Action<F>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
+{
+    fn from_reader_with_ctx<R>(
+        reader: &mut Reader<R>,
+        _: (),
+    ) -> Result<Self, DekuError>
     where
         R: no_std_io::Read + no_std_io::Seek,
     {
@@ -221,11 +233,11 @@ impl<'a> DekuReader<'a, ()> for Action {
                 read_action!(ReadFileData, ReadFileData, reader, code)
             }
             OpCode::ReadFileProperties => {
-                read_action!(ReadFileProperties, FileId, reader, code)
+                read_action!(ReadFileProperties, FileIdOperand, reader, code)
             }
-            OpCode::WriteFileData => read_action!(WriteFileData, FileData, reader, code),
+            OpCode::WriteFileData => read_action!(WriteFileData, FileDataOperand<F>, reader, code),
             OpCode::WriteFileDataFlush => {
-                read_action!(WriteFileDataFlush, FileData, reader, code)
+                read_action!(WriteFileDataFlush, FileDataOperand<F>, reader, code)
             }
             OpCode::WriteFileProperties => {
                 read_action!(WriteFileProperties, FilePropertiesOperand, reader, code)
@@ -238,17 +250,17 @@ impl<'a> DekuReader<'a, ()> for Action {
             OpCode::VerifyChecksum => {
                 read_action!(VerifyChecksum, ActionQuery, reader, code)
             }
-            OpCode::ExistFile => read_action!(ExistFile, FileId, reader, code),
+            OpCode::ExistFile => read_action!(ExistFile, FileIdOperand, reader, code),
             OpCode::CreateNewFile => {
                 read_action!(CreateNewFile, FilePropertiesOperand, reader, code)
             }
-            OpCode::DeleteFile => read_action!(DeleteFile, FileId, reader, code),
-            OpCode::RestoreFile => read_action!(RestoreFile, FileId, reader, code),
-            OpCode::FlushFile => read_action!(FlushFile, FileId, reader, code),
+            OpCode::DeleteFile => read_action!(DeleteFile, FileIdOperand, reader, code),
+            OpCode::RestoreFile => read_action!(RestoreFile, FileIdOperand, reader, code),
+            OpCode::FlushFile => read_action!(FlushFile, FileIdOperand, reader, code),
             OpCode::CopyFile => read_action!(CopyFile, CopyFile, reader, code),
-            OpCode::ExecuteFile => read_action!(ExecuteFile, FileId, reader, code),
+            OpCode::ExecuteFile => read_action!(ExecuteFile, FileIdOperand, reader, code),
             OpCode::ReturnFileData => {
-                read_action!(ReturnFileData, FileData, reader, code)
+                read_action!(ReturnFileData, FileDataOperand<F>, reader, code)
             }
             OpCode::ReturnFileProperties => {
                 read_action!(ReturnFileProperties, FilePropertiesOperand, reader, code)
@@ -274,7 +286,11 @@ impl<'a> DekuReader<'a, ()> for Action {
     }
 }
 
-impl TryFrom<&'_ [u8]> for Action {
+
+impl<F> TryFrom<&'_ [u8]> for Action<F>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx> + fmt::Debug,
+{
     type Error = DekuError;
     fn try_from(input: &'_ [u8]) -> Result<Self, Self::Error> {
         let (rest, res) = <Self as DekuContainerRead>::from_bytes((input, 0))?;
@@ -288,7 +304,10 @@ impl TryFrom<&'_ [u8]> for Action {
     }
 }
 
-impl DekuContainerRead<'_> for Action {
+impl<F> DekuContainerRead<'_> for Action<F>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx> + fmt::Debug,
+{
     fn from_reader<'a, R>(input: (&'a mut R, usize)) -> Result<(usize, Self), DekuError>
     where
         R: no_std_io::Read + no_std_io::Seek,
@@ -301,49 +320,49 @@ impl DekuContainerRead<'_> for Action {
     }
 }
 
-impl DekuEnumExt<'_, OpCode> for Action {
+impl<F> DekuEnumExt<'_, OpCode> for Action<F>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
+{
     fn deku_id(&self) -> Result<OpCode, DekuError> {
         match self {
-            Action::Nop(_) => Ok(OpCode::Nop),
-            Action::ReadFileData(_) => Ok(OpCode::ReadFileData),
-            Action::ReadFileProperties(_) => Ok(OpCode::ReadFileProperties),
-            Action::WriteFileData(_) => Ok(OpCode::WriteFileData),
-            Action::WriteFileDataFlush(_) => Ok(OpCode::WriteFileDataFlush),
-            Action::WriteFileProperties(_) => Ok(OpCode::WriteFileProperties),
-            Action::ActionQuery(_) => Ok(OpCode::ActionQuery),
-            Action::BreakQuery(_) => Ok(OpCode::BreakQuery),
-            Action::PermissionRequest(_) => Ok(OpCode::PermissionRequest),
-            Action::VerifyChecksum(_) => Ok(OpCode::VerifyChecksum),
-            Action::ExistFile(_) => Ok(OpCode::ExistFile),
-            Action::CreateNewFile(_) => Ok(OpCode::CreateNewFile),
-            Action::DeleteFile(_) => Ok(OpCode::DeleteFile),
-            Action::RestoreFile(_) => Ok(OpCode::RestoreFile),
-            Action::FlushFile(_) => Ok(OpCode::FlushFile),
-            Action::CopyFile(_) => Ok(OpCode::CopyFile),
-            Action::ExecuteFile(_) => Ok(OpCode::ExecuteFile),
-            Action::ReturnFileData(_) => Ok(OpCode::ReturnFileData),
-            Action::ReturnFileProperties(_) => Ok(OpCode::ReturnFileProperties),
-            Action::ResponseTag(_) => Ok(OpCode::ResponseTag),
+            Self::Nop(_) => Ok(OpCode::Nop),
+            Self::ReadFileData(_) => Ok(OpCode::ReadFileData),
+            Self::ReadFileProperties(_) => Ok(OpCode::ReadFileProperties),
+            Self::WriteFileData(_) => Ok(OpCode::WriteFileData),
+            Self::WriteFileDataFlush(_) => Ok(OpCode::WriteFileDataFlush),
+            Self::WriteFileProperties(_) => Ok(OpCode::WriteFileProperties),
+            Self::ActionQuery(_) => Ok(OpCode::ActionQuery),
+            Self::BreakQuery(_) => Ok(OpCode::BreakQuery),
+            Self::PermissionRequest(_) => Ok(OpCode::PermissionRequest),
+            Self::VerifyChecksum(_) => Ok(OpCode::VerifyChecksum),
+            Self::ExistFile(_) => Ok(OpCode::ExistFile),
+            Self::CreateNewFile(_) => Ok(OpCode::CreateNewFile),
+            Self::DeleteFile(_) => Ok(OpCode::DeleteFile),
+            Self::RestoreFile(_) => Ok(OpCode::RestoreFile),
+            Self::FlushFile(_) => Ok(OpCode::FlushFile),
+            Self::CopyFile(_) => Ok(OpCode::CopyFile),
+            Self::ExecuteFile(_) => Ok(OpCode::ExecuteFile),
+            Self::ReturnFileData(_) => Ok(OpCode::ReturnFileData),
+            Self::ReturnFileProperties(_) => Ok(OpCode::ReturnFileProperties),
+            Self::ResponseTag(_) => Ok(OpCode::ResponseTag),
             #[cfg(feature = "_wizzilab")]
-            Action::TxStatus(_) => Ok(OpCode::TxStatus),
-            Action::Chunk(_) => Ok(OpCode::Chunk),
-            Action::Logic(_) => Ok(OpCode::Logic),
-            Action::Status(_) => Ok(OpCode::Status),
-            Action::Forward(_) => Ok(OpCode::Forward),
-            Action::IndirectForward(_) => Ok(OpCode::IndirectForward),
-            Action::RequestTag(_) => Ok(OpCode::RequestTag),
-            Action::Extension(_) => Ok(OpCode::Extension),
+            Self::TxStatus(_) => Ok(OpCode::TxStatus),
+            Self::Chunk(_) => Ok(OpCode::Chunk),
+            Self::Logic(_) => Ok(OpCode::Logic),
+            Self::Status(_) => Ok(OpCode::Status),
+            Self::Forward(_) => Ok(OpCode::Forward),
+            Self::IndirectForward(_) => Ok(OpCode::IndirectForward),
+            Self::RequestTag(_) => Ok(OpCode::RequestTag),
+            Self::Extension(_) => Ok(OpCode::Extension),
         }
     }
 }
 
-impl DekuUpdate for Action {
-    fn update(&mut self) -> Result<(), DekuError> {
-        Ok(())
-    }
-}
-
-impl DekuWriter<()> for Action {
+impl<F> DekuWriter<()> for Action<F>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
+{
     fn to_writer<W>(&self, writer: &mut Writer<W>, _: ()) -> Result<(), DekuError>
     where
         W: no_std_io::Write + no_std_io::Seek,
@@ -351,48 +370,54 @@ impl DekuWriter<()> for Action {
         let opcode = self.deku_id()?;
 
         match self {
-            Action::Nop(action) => action.to_writer(writer, opcode)?,
-            Action::ReadFileData(action) => action.to_writer(writer, opcode)?,
-            Action::ReadFileProperties(action) => action.to_writer(writer, opcode)?,
-            Action::WriteFileData(action) => action.to_writer(writer, opcode)?,
-            Action::WriteFileDataFlush(action) => action.to_writer(writer, opcode)?,
-            Action::WriteFileProperties(action) => action.to_writer(writer, opcode)?,
-            Action::ActionQuery(action) => action.to_writer(writer, opcode)?,
-            Action::BreakQuery(action) => action.to_writer(writer, opcode)?,
-            Action::PermissionRequest(action) => action.to_writer(writer, opcode)?,
-            Action::VerifyChecksum(action) => action.to_writer(writer, opcode)?,
-            Action::ExistFile(action) => action.to_writer(writer, opcode)?,
-            Action::CreateNewFile(action) => action.to_writer(writer, opcode)?,
-            Action::DeleteFile(action) => action.to_writer(writer, opcode)?,
-            Action::RestoreFile(action) => action.to_writer(writer, opcode)?,
-            Action::FlushFile(action) => action.to_writer(writer, opcode)?,
-            Action::CopyFile(action) => action.to_writer(writer, opcode)?,
-            Action::ExecuteFile(action) => action.to_writer(writer, opcode)?,
-            Action::ReturnFileData(action) => action.to_writer(writer, opcode)?,
-            Action::ReturnFileProperties(action) => action.to_writer(writer, opcode)?,
-            Action::ResponseTag(action) => action.to_writer(writer, opcode)?,
+            Self::Nop(action) => action.to_writer(writer, opcode)?,
+            Self::ReadFileData(action) => action.to_writer(writer, opcode)?,
+            Self::ReadFileProperties(action) => action.to_writer(writer, opcode)?,
+            Self::WriteFileData(action) => action.to_writer(writer, opcode)?,
+            Self::WriteFileDataFlush(action) => action.to_writer(writer, opcode)?,
+            Self::WriteFileProperties(action) => action.to_writer(writer, opcode)?,
+            Self::ActionQuery(action) => action.to_writer(writer, opcode)?,
+            Self::BreakQuery(action) => action.to_writer(writer, opcode)?,
+            Self::PermissionRequest(action) => action.to_writer(writer, opcode)?,
+            Self::VerifyChecksum(action) => action.to_writer(writer, opcode)?,
+            Self::ExistFile(action) => action.to_writer(writer, opcode)?,
+            Self::CreateNewFile(action) => action.to_writer(writer, opcode)?,
+            Self::DeleteFile(action) => action.to_writer(writer, opcode)?,
+            Self::RestoreFile(action) => action.to_writer(writer, opcode)?,
+            Self::FlushFile(action) => action.to_writer(writer, opcode)?,
+            Self::CopyFile(action) => action.to_writer(writer, opcode)?,
+            Self::ExecuteFile(action) => action.to_writer(writer, opcode)?,
+            Self::ReturnFileData(action) => action.to_writer(writer, opcode)?,
+            Self::ReturnFileProperties(action) => action.to_writer(writer, opcode)?,
+            Self::ResponseTag(action) => action.to_writer(writer, opcode)?,
             #[cfg(feature = "_wizzilab")]
-            Action::TxStatus(action) => action.to_writer(writer, opcode)?,
-            Action::Chunk(action) => action.to_writer(writer, opcode)?,
-            Action::Logic(action) => action.to_writer(writer, opcode)?,
-            Action::Status(action) => action.to_writer(writer, opcode)?,
-            Action::Forward(action) => action.to_writer(writer, opcode)?,
-            Action::IndirectForward(action) => action.to_writer(writer, opcode)?,
-            Action::RequestTag(action) => action.to_writer(writer, opcode)?,
-            Action::Extension(action) => action.to_writer(writer, opcode)?,
+            Self::TxStatus(action) => action.to_writer(writer, opcode)?,
+            Self::Chunk(action) => action.to_writer(writer, opcode)?,
+            Self::Logic(action) => action.to_writer(writer, opcode)?,
+            Self::Status(action) => action.to_writer(writer, opcode)?,
+            Self::Forward(action) => action.to_writer(writer, opcode)?,
+            Self::IndirectForward(action) => action.to_writer(writer, opcode)?,
+            Self::RequestTag(action) => action.to_writer(writer, opcode)?,
+            Self::Extension(action) => action.to_writer(writer, opcode)?,
         }
 
         Ok(())
     }
 }
 
-impl TryFrom<Action> for Vec<u8> {
+impl<F> TryFrom<Action<F>> for Vec<u8>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
+{
     type Error = DekuError;
-    fn try_from(input: Action) -> Result<Self, Self::Error> {
+    fn try_from(input: Action<F>) -> Result<Self, Self::Error> {
         DekuContainerWrite::to_bytes(&input)
     }
 }
-impl DekuContainerWrite for Action {}
+impl<F> DekuContainerWrite for Action<F> where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>
+{
+}
 
 #[cfg(test)]
 mod test {
@@ -411,7 +436,7 @@ mod test {
             query::{NonVoid, Query},
         },
         data::{self, FileHeader, FilePermissions, UserPermissions},
-        file::File,
+        file::{FileData, File},
         link::AccessClass,
         network::{Address, Addressee, NlsState},
         physical::{Channel, ChannelBand, ChannelClass, ChannelCoding, ChannelHeader},
@@ -433,7 +458,7 @@ mod test {
     #[test]
     fn test_nop() {
         test_item(
-            Action::Nop(Nop {
+            Action::<OtherFile>::Nop(Nop {
                 header: ActionHeader {
                     group: false,
                     response: true,
@@ -447,15 +472,15 @@ mod test {
     #[test]
     fn test_read_file_data() {
         test_item(
-            Action::ReadFileData(ReadFileData {
+            Action::<OtherFile>::ReadFileData(ReadFileData {
                 header: ActionHeader {
                     group: false,
                     response: true,
                 },
-                offset: FileOffset {
-                    file_id: 1,
-                    offset: 2u32.into(),
-                },
+
+                file_id: 1,
+                offset: 2u32.into(),
+
                 length: 3u32.into(),
                 opcode: OpCode::ReadFileData,
             }),
@@ -466,7 +491,7 @@ mod test {
     #[test]
     fn test_read_file_properties() {
         test_item(
-            Action::ReadFileProperties(FileId {
+            Action::<OtherFile>::ReadFileProperties(FileIdOperand {
                 header: ActionHeader {
                     group: false,
                     response: false,
@@ -482,16 +507,18 @@ mod test {
     fn test_write_file_data() {
         let data = hex!("01 02 03").to_vec();
         test_item(
-            Action::WriteFileData(FileData::new(
+            Action::<OtherFile>::WriteFileData(FileDataOperand::new(
                 ActionHeader {
                     group: true,
                     response: false,
                 },
-                FileOffset {
-                    file_id: 0xF9,
+                FileData {
+                    id: 0xF9,
                     offset: 5u32.into(),
+                    file: File::User(
+                        OtherFile{data}
+                    ),
                 },
-                File::Other{id: 0xF9, buffer: data},
                 OpCode::WriteFileData,
             )),
             &hex!("84 F9 05 03 010203"),
@@ -501,7 +528,7 @@ mod test {
     #[test]
     fn test_return_file_properties() {
         test_item(
-            Action::ReturnFileProperties(FilePropertiesOperand {
+            Action::<OtherFile>::ReturnFileProperties(FilePropertiesOperand {
                 header: ActionHeader {
                     group: false,
                     response: false,
@@ -541,7 +568,7 @@ mod test {
     #[test]
     fn test_write_file_properties() {
         test_item(
-            Action::WriteFileProperties(FilePropertiesOperand {
+            Action::<OtherFile>::WriteFileProperties(FilePropertiesOperand {
                 header: ActionHeader {
                     group: true,
                     response: false,
@@ -581,7 +608,7 @@ mod test {
     #[test]
     fn test_permission_request() {
         test_item(
-            Action::PermissionRequest(PermissionRequest {
+            Action::<OtherFile>::PermissionRequest(PermissionRequest {
                 header: ActionHeader {
                     group: false,
                     response: false,
@@ -597,7 +624,7 @@ mod test {
     #[test]
     fn test_exist_file() {
         test_item(
-            Action::ExistFile(FileId {
+            Action::<OtherFile>::ExistFile(FileIdOperand {
                 header: ActionHeader {
                     group: false,
                     response: false,
@@ -612,7 +639,7 @@ mod test {
     #[test]
     fn test_create_new_file() {
         test_item(
-            Action::CreateNewFile(FilePropertiesOperand {
+            Action::<OtherFile>::CreateNewFile(FilePropertiesOperand {
                 header: ActionHeader {
                     group: true,
                     response: false,
@@ -652,7 +679,7 @@ mod test {
     #[test]
     fn test_delete_file() {
         test_item(
-            Action::DeleteFile(FileId {
+            Action::<OtherFile>::DeleteFile(FileIdOperand {
                 header: ActionHeader {
                     group: false,
                     response: true,
@@ -667,7 +694,7 @@ mod test {
     #[test]
     fn test_restore_file() {
         test_item(
-            Action::RestoreFile(FileId {
+            Action::<OtherFile>::RestoreFile(FileIdOperand {
                 header: ActionHeader {
                     group: true,
                     response: true,
@@ -682,7 +709,7 @@ mod test {
     #[test]
     fn test_flush_file() {
         test_item(
-            Action::FlushFile(FileId {
+            Action::<OtherFile>::FlushFile(FileIdOperand {
                 header: ActionHeader {
                     group: false,
                     response: false,
@@ -697,7 +724,7 @@ mod test {
     #[test]
     fn test_copy_file() {
         test_item(
-            Action::CopyFile(CopyFile {
+            Action::<OtherFile>::CopyFile(CopyFile {
                 header: ActionHeader {
                     group: false,
                     response: false,
@@ -713,7 +740,7 @@ mod test {
     #[test]
     fn test_execute_file() {
         test_item(
-            Action::ExecuteFile(FileId {
+            Action::<OtherFile>::ExecuteFile(FileIdOperand {
                 header: ActionHeader {
                     group: false,
                     response: false,
@@ -730,16 +757,18 @@ mod test {
         let data = hex!("01 02 03").to_vec();
 
         test_item(
-            Action::ReturnFileData(FileData::new(
+            Action::<OtherFile>::ReturnFileData(FileDataOperand::new(
                 ActionHeader {
                     group: false,
                     response: false,
                 },
-                FileOffset {
-                    file_id: 0xF9,
+                FileData {
                     offset: 5u32.into(),
+                    id: 0xF9,
+                    file: File::User(OtherFile {
+                        data,
+                    })
                 },
-                File::Other{id: 0xF9, buffer: data},
                 OpCode::ReturnFileData,
             )),
             &hex!("20 F9 05 03 010203"),
@@ -749,7 +778,7 @@ mod test {
     #[test]
     fn test_action_query() {
         test_item(
-            Action::ActionQuery(ActionQuery {
+            Action::<OtherFile>::ActionQuery(ActionQuery {
                 header: ActionHeader {
                     group: true,
                     response: true,
@@ -770,7 +799,7 @@ mod test {
     #[test]
     fn test_break_query() {
         test_item(
-            Action::BreakQuery(ActionQuery {
+            Action::<OtherFile>::BreakQuery(ActionQuery {
                 header: ActionHeader {
                     group: true,
                     response: true,
@@ -791,7 +820,7 @@ mod test {
     #[test]
     fn test_verify_checksum() {
         test_item(
-            Action::VerifyChecksum(ActionQuery {
+            Action::<OtherFile>::VerifyChecksum(ActionQuery {
                 header: ActionHeader {
                     group: false,
                     response: false,
@@ -812,7 +841,7 @@ mod test {
     #[test]
     fn test_forward() {
         test_item(
-            Action::Forward(Forward::new(true, InterfaceConfiguration::Host)),
+            Action::<OtherFile>::Forward(Forward::new(true, InterfaceConfiguration::Host)),
             &hex!("72 00"),
         )
     }
@@ -820,7 +849,7 @@ mod test {
     #[test]
     fn test_forward_serial() {
         test_item(
-            Action::Forward(Forward::new(false, InterfaceConfiguration::Serial)),
+            Action::<OtherFile>::Forward(Forward::new(false, InterfaceConfiguration::Serial)),
             &hex!("32 01"),
         )
     }
@@ -829,7 +858,7 @@ mod test {
     fn test_indirect_forward_dash7_serialization() {
         use crate::link::AccessClass;
 
-        let item = Action::IndirectForward(IndirectForward::new(
+        let item = Action::<OtherFile>::IndirectForward(IndirectForward::new(
             true,
             Some(IndirectInterface::Dash7(Addressee::new(
                 #[cfg(feature = "_wizzilab")]
@@ -851,7 +880,7 @@ mod test {
     fn test_indirect_forward_dash7_deserialization() {
         let input = &hex!("F3 D7 37 FF ABCD 01 02 03 04 05");
 
-        let expected = Action::IndirectForward(IndirectForward::new(
+        let expected = Action::<OtherFile>::IndirectForward(IndirectForward::new(
             true,
             Some(IndirectInterface::Dash7(Addressee::new(
                 #[cfg(feature = "_wizzilab")]
@@ -870,7 +899,7 @@ mod test {
     #[test]
     fn test_request_tag() {
         test_item(
-            Action::RequestTag(RequestTag {
+            Action::<OtherFile>::RequestTag(RequestTag {
                 header: RequestTagHeader {
                     end_of_packet: true,
                 },
@@ -884,7 +913,7 @@ mod test {
     #[test]
     fn test_logic() {
         test_item(
-            Action::Logic(Logic {
+            Action::<OtherFile>::Logic(Logic {
                 logic: LogicOp::Nand,
                 opcode: OpCode::Logic,
             }),
@@ -894,13 +923,13 @@ mod test {
 
     #[test]
     fn test_chunk() {
-        test_item(Action::Chunk(ChunkStep::End.into()), &[0b1011_0000])
+        test_item(Action::<OtherFile>::Chunk(ChunkStep::End.into()), &[0b1011_0000])
     }
 
     #[test]
     fn test_response_tag() {
         test_item(
-            Action::ResponseTag(ResponseTag {
+            Action::<OtherFile>::ResponseTag(ResponseTag {
                 header: ResponseTagHeader {
                     end_of_packet: true,
                     error: false,
@@ -915,7 +944,7 @@ mod test {
     #[test]
     fn test_status() {
         test_item(
-            Action::Status(
+            Action::<OtherFile>::Status(
                 Status::Action(ActionStatus {
                     action_id: 2,
                     status: StatusCode::UnknownOperation,
@@ -929,7 +958,7 @@ mod test {
     #[test]
     fn test_extension() {
         test_item(
-            Action::Extension(Extension {
+            Action::<OtherFile>::Extension(Extension {
                 header: ActionHeader {
                     group: true,
                     response: true,
@@ -944,7 +973,7 @@ mod test {
     fn test_interface_status() {
         let data = &hex!("62 D7 14 32 00 32 2D 3E 50 80 00 00 58 20 01 39 38 38 37 00 39 00 2E");
 
-        let item = Action::Status(
+        let item = Action::<OtherFile>::Status(
             Status::Interface(
                 InterfaceStatus::Dash7(Dash7InterfaceStatus {
                     channel: Channel {
@@ -964,7 +993,7 @@ mod test {
                     unicast: false,
                     fifo_token: 0,
                     sequence_number: 0,
-                    response_timeout: Arc::new(384.into()),
+                    response_timeout: 384.into(),
                     addressee: Addressee::new(
                         #[cfg(feature = "_wizzilab")]
                         false,

@@ -37,7 +37,7 @@ where
     Ok(())
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct InterfaceFinalStatusOperation {
     pub interface_id: u8,
 
@@ -94,7 +94,7 @@ pub enum TxStatusType {
     Interface,
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
 pub struct TxStatusOperation {
     #[deku(update = "self.status.deku_id().unwrap()", pad_bits_after = "6")]
@@ -114,7 +114,7 @@ pub enum TxStatus {
     Interface(InterfaceTxStatusOperation),
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct InterfaceTxStatusOperation {
     pub interface_id: u8,
 

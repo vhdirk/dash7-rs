@@ -3,7 +3,7 @@ use deku::prelude::*;
 use crate::physical::ChannelHeader;
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
-pub struct DllStatus {
+pub struct DllStatusFile {
     pub last_rx_packet_level: u8,
     pub last_rx_packet_link_budget: u8,
     pub noise_floor: u8,

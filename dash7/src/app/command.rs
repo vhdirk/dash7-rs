@@ -11,6 +11,7 @@ use deku::{
 };
 
 use crate::{
+    file::{FileCtx, OtherFile},
     session::InterfaceStatus,
     utils::{from_bytes, from_reader},
 };
@@ -20,24 +21,30 @@ use super::{
     operation::{RequestTag, ResponseTag, ResponseTagHeader, Status},
 };
 
-#[derive(Clone, Debug, PartialEq, Default, uniffi::Object)]
-pub struct Command {
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct Command<F = OtherFile>
+where
+    F: for<'a> DekuReader<'a, FileCtx> + DekuWriter<FileCtx>,
+{
     // we cannot process an indirect forward without knowing the interface type, which is stored in the interface file
     // as identified by the indirectforward itself
     // As such, we HAVE to bail here
     // Hopefully this will be addressed in SPEC 1.3
     // Always stop reading when length is reached
     // #[deku(bytes_read = "length", until = "|action: &Action| { action.deku_id().unwrap() == OpCode::INDIRECT_FORWARD }")]
-    pub actions: Vec<Action>,
+    pub actions: Vec<Action<F>>,
 }
 
-impl<'a> DekuReader<'a, u32> for Command {
+impl<'a, F> DekuReader<'a, u32> for Command<F>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
+{
     fn from_reader_with_ctx<R>(reader: &mut Reader<R>, length: u32) -> Result<Self, DekuError>
     where
         R: no_std_io::Read + no_std_io::Seek,
         Self: Sized,
     {
-        let mut command = Command { actions: vec![] };
+        let mut command = Self { actions: vec![] };
 
         let valid_length = |r: &mut Reader<R>, l: u32| -> Result<bool, DekuError> {
             Ok(match l {
@@ -61,7 +68,10 @@ impl<'a> DekuReader<'a, u32> for Command {
     }
 }
 
-impl Command {
+impl<F> Command<F>
+where
+    F: for<'a> DekuReader<'a, FileCtx> + DekuWriter<FileCtx> + fmt::Debug,
+{
     pub fn from_reader<'a, R>(input: (&'a mut R, usize)) -> Result<(usize, Self), DekuError>
     where
         R: no_std_io::Read + no_std_io::Seek,
@@ -84,7 +94,10 @@ impl Command {
 }
 
 /// Stub implementation so we can implement DekuContainerWrite
-impl DekuWriter<u32> for Command {
+impl<F> DekuWriter<u32> for Command<F>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
+{
     fn to_writer<W>(&self, writer: &mut Writer<W>, _: u32) -> Result<(), DekuError>
     where
         W: no_std_io::Write + no_std_io::Seek,
@@ -96,8 +109,11 @@ impl DekuWriter<u32> for Command {
     }
 }
 
-impl Command {
-    pub fn new(actions: Vec<Action>) -> Self {
+impl<F> Command<F>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
+{
+    pub fn new(actions: Vec<Action<F>>) -> Self {
         // TODO: validate actions
         Self { actions }
     }
@@ -114,7 +130,7 @@ impl Command {
     }
 
     // TODO: a generator would be great here
-    pub fn actions_without_interface_status(&self) -> Vec<&Action> {
+    pub fn actions_without_interface_status(&self) -> Vec<&Action<F>> {
         let mut actions = vec![];
         for action in self.actions.iter() {
             if let Action::Status(status) = &action {
@@ -171,7 +187,10 @@ impl Command {
     }
 }
 
-impl TryFrom<&'_ [u8]> for Command {
+impl<F> TryFrom<&'_ [u8]> for Command<F>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx> + fmt::Debug,
+{
     type Error = DekuError;
     fn try_from(input: &'_ [u8]) -> Result<Self, Self::Error> {
         let (rest, res) = Self::from_bytes((input, 0))?;
@@ -185,20 +204,26 @@ impl TryFrom<&'_ [u8]> for Command {
     }
 }
 
-impl TryFrom<Command> for Vec<u8> {
+impl<F> TryFrom<Command<F>> for Vec<u8>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx> + fmt::Debug,
+{
     type Error = DekuError;
-    fn try_from(input: Command) -> Result<Self, Self::Error> {
+    fn try_from(input: Command<F>) -> Result<Self, Self::Error> {
         input.to_bytes()
     }
 }
 
 #[cfg(feature = "std")]
-impl Display for Command {
+impl<F> Display for Command<F>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx> + fmt::Debug,
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let tag_str = self
             .tag_id()
             .map_or("".to_string(), |t| format!("with tag {} ", t));
-        f.write_str(&format!("Command {}", &tag_str))?;
+        f.write_str(&format!("Command::<OtherFile> {}", &tag_str))?;
 
         let status = if let Some(operation) = self.response_tag() {
             if operation.header.end_of_packet {
@@ -244,6 +269,7 @@ mod test {
     use hex_literal::hex;
 
     use super::*;
+
     #[cfg(feature = "_wizzilab")]
     use crate::transport::GroupCondition;
     use crate::{
@@ -251,11 +277,11 @@ mod test {
             action::OpCode,
             interface::InterfaceConfiguration,
             operation::{
-                ActionHeader, FileData, FileOffset, Forward, Nop, ReadFileData, RequestTagHeader,
+                ActionHeader, FileDataOperand, Forward, Nop, ReadFileData, RequestTagHeader,
                 ResponseTagHeader, Status,
             },
         },
-        file::File,
+        file::{FileData, SystemFile, File},
         link::AccessClass,
         network::{Address, Addressee, NlsState},
         physical::{Channel, ChannelBand, ChannelClass, ChannelCoding, ChannelHeader},
@@ -265,7 +291,7 @@ mod test {
 
     #[test]
     fn test_command() {
-        let cmd = Command {
+        let cmd = Command::<OtherFile> {
             actions: vec![
                 Action::RequestTag(RequestTag {
                     id: 66,
@@ -279,10 +305,9 @@ mod test {
                         response: true,
                         group: false,
                     },
-                    offset: FileOffset {
-                        file_id: 0,
-                        offset: 0u32.into(),
-                    },
+                    file_id: 0,
+                    offset: 0u32.into(),
+
                     length: 8u32.into(),
                     opcode: OpCode::ReadFileData,
                 }),
@@ -291,10 +316,8 @@ mod test {
                         response: false,
                         group: true,
                     },
-                    offset: FileOffset {
-                        file_id: 4,
-                        offset: 2u32.into(),
-                    },
+                    file_id: 4,
+                    offset: 2u32.into(),
                     length: 3u32.into(),
                     opcode: OpCode::ReadFileData,
                 }),
@@ -315,7 +338,7 @@ mod test {
     #[test]
     fn test_command_request_id() {
         assert_eq!(
-            Command {
+            Command::<OtherFile> {
                 actions: vec![
                     Action::RequestTag(RequestTag {
                         header: RequestTagHeader {
@@ -337,7 +360,7 @@ mod test {
             Some(66)
         );
         assert_eq!(
-            Command {
+            Command::<OtherFile> {
                 actions: vec![
                     Action::Nop(Nop {
                         header: ActionHeader {
@@ -359,7 +382,7 @@ mod test {
             Some(44)
         );
         assert_eq!(
-            Command {
+            Command::<OtherFile> {
                 actions: vec![
                     Action::Nop(Nop {
                         header: ActionHeader {
@@ -385,7 +408,7 @@ mod test {
     #[test]
     fn test_command_response_id() {
         assert_eq!(
-            Command {
+            Command::<OtherFile> {
                 actions: vec![
                     Action::ResponseTag(ResponseTag {
                         header: ResponseTagHeader {
@@ -408,7 +431,7 @@ mod test {
             Some(66)
         );
         assert_eq!(
-            Command {
+            Command::<OtherFile> {
                 actions: vec![
                     Action::Nop(Nop {
                         header: ActionHeader {
@@ -431,7 +454,7 @@ mod test {
             Some(44)
         );
         assert_eq!(
-            Command {
+            Command::<OtherFile> {
                 actions: vec![
                     Action::Nop(Nop {
                         header: ActionHeader {
@@ -456,7 +479,7 @@ mod test {
 
     #[test]
     fn test_command_is_last_response() {
-        assert!(Command {
+        assert!(Command::<SystemFile> {
             actions: vec![
                 Action::ResponseTag(ResponseTag {
                     header: ResponseTagHeader {
@@ -477,7 +500,7 @@ mod test {
         }
         .is_last_response());
 
-        assert!(!Command {
+        assert!(!Command::<OtherFile> {
             actions: vec![
                 Action::ResponseTag(ResponseTag {
                     header: ResponseTagHeader {
@@ -498,7 +521,7 @@ mod test {
         }
         .is_last_response());
 
-        assert!(!Command {
+        assert!(!Command::<OtherFile> {
             actions: vec![
                 Action::ResponseTag(ResponseTag {
                     header: ResponseTagHeader {
@@ -520,7 +543,7 @@ mod test {
         }
         .is_last_response());
 
-        assert!(!Command {
+        assert!(!Command::<OtherFile> {
             actions: vec![
                 Action::Nop(Nop {
                     header: ActionHeader {
@@ -566,7 +589,7 @@ mod test {
             0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, // World
         ];
 
-        let item = Command {
+        let item = Command::<OtherFile> {
             actions: vec![
                 Action::Status(
                     Status::Interface(
@@ -597,8 +620,11 @@ mod test {
                 ),
                 Action::ReturnFileData(FileData::new(
                     ActionHeader::default(),
-                    FileOffset::no_offset(0x51),
-                    File::Other("Hello world".into()),
+                    FileData {
+                        id: 0x51,
+                        offset: 0u32.into(),
+                        data: "Hello world".into(),
+                    },
                 )),
             ],
         };
@@ -633,7 +659,7 @@ mod test {
             0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, // World
         ];
 
-        let item = Command {
+        let item = Command::<OtherFile> {
             actions: vec![
                 Action::RequestTag(RequestTag {
                     header: RequestTagHeader {
@@ -671,7 +697,11 @@ mod test {
                 Action::ReturnFileData(FileData::new(
                     ActionHeader::default(),
                     FileOffset::no_offset(0x51),
-                    File::Other("Hello world".into()),
+                    FileData::{
+                        id: 0x51,
+                        offset: 0u32.into(),
+                        "Hello world".into(),
+                    }
                 )),
             ],
         };
@@ -689,7 +719,7 @@ mod test {
         48 00 09 00 00 30 00 00 00 00 02 00 44 48 00 09 00 00 70 00 00 00 30 02 00"#
         );
 
-        let item = Command {
+        let item = Command::<OtherFile> {
             actions: vec![
                 Action::Status(
                     Status::Interface(
@@ -711,7 +741,7 @@ mod test {
                             unicast: false,
                             fifo_token: 0,
                             sequence_number: 0,
-                            response_timeout: Arc::new(384.into()),
+                            response_timeout: 384.into(),
                             addressee: Addressee::new(
                                 #[cfg(feature = "_wizzilab")]
                                 false,
@@ -727,23 +757,22 @@ mod test {
                     .into(),
                 ),
                 Action::Forward(Forward::new(false, InterfaceConfiguration::Serial)),
-                Action::WriteFileData(FileData::new(
+                Action::WriteFileData(FileDataOperand::new(
                     ActionHeader {
                         group: false,
                         response: true,
                     },
-                    FileOffset {
-                        file_id: 53,
-                        offset: 0u32.into(),
-                    },
-                    File::Other {
+                    FileData {
                         id: 53,
-                        buffer: hex!(
-                            r#"
+                        offset: 0u32.into(),
+                        file: File::User(OtherFile::new(
+                            hex!(
+                                r#"
                        00 F4 01 00 00 44 48 00 09 00 00 00 00 00 00 30 00 00 44
                        48 00 09 00 00 30 00 00 00 00 02 00 44 48 00 09 00 00 70 00 00 00 30 02 00"#
-                        )
-                        .to_vec(),
+                            )
+                            .to_vec(),
+                        )),
                     },
                     OpCode::WriteFileData,
                 )),

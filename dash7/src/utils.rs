@@ -12,7 +12,7 @@ use deku::{
     prelude::*,
 };
 
-use crate::app::operation::Length;
+use crate::types::Length;
 
 struct TransientDropper<T> {
     base_ptr: *mut T,
@@ -138,6 +138,7 @@ where
 
     Ok(())
 }
+
 
 /// Read and convert to String
 pub fn read_string<R, const N: usize>(reader: &mut Reader<R>) -> Result<String, DekuError>

@@ -1,6 +1,7 @@
 use deku::prelude::*;
 
-use super::operation::{FileOffset, Length};
+use super::operation::FileOffset;
+use crate::types::Length;
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(bits = 3, id_type = "u8")]

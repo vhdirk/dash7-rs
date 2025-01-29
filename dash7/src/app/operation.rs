@@ -1,17 +1,12 @@
-use deku::{no_std_io, prelude::*};
 pub use super::query::Query;
 use super::{
     action::OpCode,
     interface::{IndirectInterface, InterfaceConfiguration},
 };
-use crate::utils::write_length_prefixed;
-use crate::{data::FileHeader, file::File, session::InterfaceStatus};
+use crate::{data::FileHeader, file::{FileCtx, SystemFile}, session::InterfaceStatus};
+use crate::{file::FileData, types::Length, utils::write_length_prefixed};
 use crate::{session::InterfaceType, utils::write_length_prefixed_ext};
-
-mod file_offset;
-mod length;
-pub use file_offset::*;
-pub use length::*;
+use deku::{no_std_io, prelude::*};
 
 #[cfg(feature = "_wizzilab")]
 pub use super::interface_final::*;
@@ -71,6 +66,12 @@ impl StatusCode {
     }
 }
 
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FileOffset {
+    pub file_id: u8,
+    pub offset: Length,
+}
+
 /// Result of an action in a previously sent request
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct ActionStatus {
@@ -86,7 +87,7 @@ pub struct ActionStatus {
 
 // ALP SPEC: where is this defined? Link? Not found in either specs !
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
-#[deku(id_type = "u8")]
+#[deku(id_type = "u8", endian = "big")]
 pub enum Permission {
     #[deku(id = "0x42")] // ALP_SPEC Undefined
     Dash7(u64),
@@ -141,7 +142,7 @@ pub struct Nop {
 // ALP_SPEC: How is the result of this command different from a read file of size 0?
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
-pub struct FileId {
+pub struct FileIdOperand {
     pub header: ActionHeader,
 
     #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
@@ -153,56 +154,55 @@ pub struct FileId {
 /// Write data to a file
 // TODO: figure out a way to immediately decode the file
 // This will probably invole
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(ctx = "_opcode: OpCode")]
-pub struct FileData {
+pub struct FileDataOperand<F>
+where
+    F: for<'a> DekuReader<'a, FileCtx> + DekuWriter<FileCtx>,
+{
     pub header: ActionHeader,
 
     #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
     pub opcode: OpCode,
 
-    pub offset: FileOffset,
-
-    #[deku(
-        reader = "FileData::read(deku::reader, offset)",
-        writer = "FileData::write(deku::writer, &self.data, &self.offset)"
-    )]
-    data: File,
+    pub data: FileData<F>,
 }
 
-impl FileData {
-    pub fn new(header: ActionHeader, offset: FileOffset, data: File, opcode: OpCode) -> Self {
+impl<F> FileDataOperand<F>
+where
+    F: for<'a> DekuReader<'a, FileCtx> + DekuWriter<FileCtx>,
+{
+    pub fn new(header: ActionHeader, data: FileData<F>, opcode: OpCode) -> Self {
         // TODO file id has to match data!
         Self {
             header,
-            offset,
             data,
             opcode,
         }
     }
 }
-impl FileData {
-    fn read<'a, R>(reader: &mut Reader<R>, offset: &FileOffset) -> Result<File, DekuError>
-    where
-        R: no_std_io::Read + no_std_io::Seek,
-    {
-        let length = <Length as DekuReader<'_, _>>::from_reader_with_ctx(reader, ())?;
-        let file_id = offset.file_id.try_into()?;
-        File::from_reader_with_ctx(reader, (file_id, Into::<u32>::into(length)))
-    }
+// impl FileDataOperand {
+//     fn read<'a, R>(reader: &mut Reader<R>, offset: &Length) -> Result<File, DekuError>
+//     where
+//         R: no_std_io::Read + no_std_io::Seek,
+//     {
+//         let length = <Length as DekuReader<'_, _>>::from_reader_with_ctx(reader, ())?;
+//         let file_id = offset.file_id.try_into()?;
+//         File::from_reader_with_ctx(reader, (file_id, Into::<u32>::into(length)))
+//     }
 
-    fn write<W>(writer: &mut Writer<W>, data: &File, offset: &FileOffset) -> Result<(), DekuError>
-    where
-        W: no_std_io::Write + no_std_io::Seek,
-    {
-        let vec_size = match data {
-            File::Other { buffer, .. } => buffer.len() as u32,
-            _ => 0,
-        };
+//     fn write<W>(writer: &mut Writer<W>, data: &File, offset: &Length) -> Result<(), DekuError>
+//     where
+//         W: no_std_io::Write + no_std_io::Seek,
+//     {
+//         let vec_size = match data {
+//             File::User { buffer, .. } => buffer.len() as u32,
+//             _ => 0,
+//         };
 
-        write_length_prefixed_ext(writer, data, offset.file_id, vec_size)
-    }
-}
+//         write_length_prefixed_ext(writer, data, data.deku_id()?, vec_size)
+//     }
+// }
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
@@ -226,7 +226,8 @@ pub struct ReadFileData {
     #[deku(writer = "_opcode.to_writer(deku::writer, ())")]
     pub opcode: OpCode,
 
-    pub offset: FileOffset,
+    pub file_id: u8,
+    pub offset: Length,
     pub length: Length,
 }
 
@@ -274,7 +275,9 @@ pub struct CopyFile {
     pub dst_file_id: u8,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Clone, Copy, Debug, PartialEq, strum::Display, uniffi::Enum)]
+#[derive(
+    DekuRead, DekuWrite, Default, Clone, Copy, Debug, PartialEq, strum::Display, uniffi::Enum,
+)]
 #[deku(bits = 2, id_type = "u8")]
 
 pub enum StatusType {
@@ -663,7 +666,7 @@ mod test {
             unicast: false,
             fifo_token: 0,
             sequence_number: 0,
-            response_timeout: Arc::new(384.into()),
+            response_timeout: 384.into(),
             addressee: Addressee::new(
                 #[cfg(feature = "_wizzilab")]
                 false,

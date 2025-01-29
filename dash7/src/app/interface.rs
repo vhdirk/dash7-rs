@@ -21,13 +21,13 @@ pub struct Dash7InterfaceConfiguration {
     /// then we can aggregate the requests, to avoid advertising twice. Another example would be if
     /// the target sends us a packet, the modem can aggregate our request to the response of the
     /// request of the target.
-    pub dormant_session_timeout: Arc<VarInt>,
+    pub dormant_session_timeout: VarInt,
 
     /// Response Execution Delay in Compressed Format, unit is in milliseconds.
     ///
     /// Time given to the target to process the request.
     #[cfg(not(feature = "_subiot"))]
-    pub execution_delay_timeout: Arc<VarInt>,
+    pub execution_delay_timeout: VarInt,
 
     /// Address of the target.
     pub addressee: Addressee,
@@ -138,10 +138,10 @@ mod test {
                     stop_on_error: false,
                     record: false,
                 },
-                dormant_session_timeout: Arc::new(0x20.into()),
+                dormant_session_timeout: 0x20.into(),
 
                 #[cfg(not(feature = "_subiot"))]
-                execution_delay_timeout: Arc::new(0x34.into()),
+                execution_delay_timeout: 0x34.into(),
 
                 addressee: Addressee::new(
                     #[cfg(feature = "_wizzilab")]
@@ -170,17 +170,17 @@ mod test {
                     stop_on_error: false,
                     record: false,
                 },
-                dormant_session_timeout: Arc::new(0x20.into()),
+                dormant_session_timeout: 0x20.into(),
 
                 #[cfg(not(feature = "_subiot"))]
-                execution_delay_timeout: Arc::new(0x34.into()),
+                execution_delay_timeout: 0x34.into(),
 
                 addressee: Addressee::new(
                     #[cfg(feature = "_wizzilab")]
                     true,
                     #[cfg(feature = "_wizzilab")]
                     GroupCondition::NotEqual,
-                    Address::NbId(Arc::new(0x15.into())),
+                    Address::NbId(0x15.into()),
                     NlsState::None,
                     AccessClass::default(),
                 ),
@@ -203,10 +203,10 @@ mod test {
                     stop_on_error: false,
                     record: false,
                 },
-                dormant_session_timeout: Arc::new(0x20.into()),
+                dormant_session_timeout: 0x20.into(),
 
                 #[cfg(not(feature = "_subiot"))]
-                execution_delay_timeout: Arc::new(0x34.into()),
+                execution_delay_timeout: 0x34.into(),
 
                 addressee: Addressee::new(
                     #[cfg(feature = "_wizzilab")]
@@ -237,10 +237,10 @@ mod test {
                     stop_on_error: false,
                     record: false,
                 },
-                dormant_session_timeout: Arc::new(0x20.into()),
+                dormant_session_timeout: 0x20.into(),
 
                 #[cfg(not(feature = "_subiot"))]
-                execution_delay_timeout: Arc::new(0x34.into()),
+                execution_delay_timeout: 0x34.into(),
 
                 addressee: Addressee::new(
                     #[cfg(feature = "_wizzilab")]
@@ -271,10 +271,10 @@ mod test {
                     stop_on_error: false,
                     record: false,
                 },
-                dormant_session_timeout: Arc::new(0x20.into()),
+                dormant_session_timeout: 0x20.into(),
 
                 #[cfg(not(feature = "_subiot"))]
-                execution_delay_timeout: Arc::new(0x34.into()),
+                execution_delay_timeout: 0x34.into(),
 
                 addressee: Addressee::new(
                     #[cfg(feature = "_wizzilab")]

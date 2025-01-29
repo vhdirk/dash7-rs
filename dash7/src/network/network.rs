@@ -1,11 +1,11 @@
 use deku::prelude::*;
 
-use crate::{link::AccessClass, transport};
+use crate::{file::FileCtx, link::AccessClass, transport::TransportFrame};
 
 use super::{Address, AddressType, NlsMethod};
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
-pub struct Control {
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
+pub struct NetworkFrameControl {
     #[deku(bits = 1)]
     pub has_no_origin_access_id: bool,
     #[deku(bits = 1)]
@@ -17,7 +17,7 @@ pub struct Control {
     pub nls_method: NlsMethod,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct HoppingControl {
     /// Hopping counter for no-hop and one-hop routing.
     #[deku(bits = 1, pad_bits_before = "1")]
@@ -27,10 +27,13 @@ pub struct HoppingControl {
     pub destination_address_type: AddressType,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
 #[deku(ctx = "command_length: u32", ctx_default = "0")]
-pub struct Frame {
-    pub control: Control,
+pub struct NetworkFrame<F>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
+{
+    pub control: NetworkFrameControl,
 
     #[deku(cond = "control.has_hopping")]
     pub hopping_control: Option<HoppingControl>,
@@ -41,5 +44,5 @@ pub struct Frame {
     pub origin_access_adress: Address,
 
     #[deku(ctx = "command_length")]
-    pub frame: transport::Frame,
+    pub frame: TransportFrame<F>,
 }

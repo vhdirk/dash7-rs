@@ -73,7 +73,7 @@ pub enum InterfaceTxStatus {
     Other(#[deku(count = "length")] Vec<u8>),
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Object)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct Dash7InterfaceTxStatus {
     /// PHY layer channel header
     pub channel: Channel,

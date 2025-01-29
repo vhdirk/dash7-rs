@@ -1,7 +1,7 @@
 use deku::prelude::*;
 
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
-pub struct DllConfig {
+pub struct DllConfigFile {
     pub ac: u8,
     #[deku(pad_bits_before = "16")]
     pub lq_filter: u8,
