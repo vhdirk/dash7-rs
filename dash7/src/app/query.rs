@@ -1,6 +1,6 @@
 use deku::prelude::*;
 
-use super::operation::FileOffset;
+use super::operand::FileOffset;
 use crate::types::Length;
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]

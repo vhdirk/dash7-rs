@@ -1,16 +1,11 @@
-use std::sync::Arc;
 
-use deku::no_std_io;
-
-use crate::file::{DefaultFileRegistry, FileRegistry};
-
-/// Operations used to build the ALP Actions
-pub mod operation;
+/// operands used to build the ALP Actions
+pub mod operand;
 
 pub mod interface;
 
 /// ALP basic Actions used to build Commands
-pub mod action;
+pub mod operation;
 
 pub mod query;
 
