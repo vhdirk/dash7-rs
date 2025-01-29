@@ -1,10 +1,10 @@
-use deku::{DekuRead, DekuWrite};
+use deku::{DekuError, DekuRead, DekuWrite};
 
 use super::{
     address::AddressFile, AccessProfileFile, DllConfigFile, DllStatusFile, EngineeringModeFile,
     FactorySettingsFile, FileCtx, PhyStatusFile, SecurityKeyFile,
 };
-use crate::network::AddressType;
+use crate::{network::AddressType, utils::from_bytes};
 
 /// File IDs 0x00-0x17 and 0x20-0x2F are reserved by the DASH7 spec.
 /// File IDs 0x18-0x1F Reserved for D7AALP.
@@ -93,3 +93,23 @@ pub enum SystemFile {
     #[deku(id_pat = "0x20..=0x2E")]
     AccessProfile(#[deku(ctx = "ctx.id - 0x20")] AccessProfileFile),
 }
+
+
+impl SystemFile
+{
+    pub fn from_bytes(
+        input: (&'_ [u8], usize),
+        id: u8,
+        offset: u32,
+    ) -> Result<((&'_ [u8], usize), Self), DekuError> {
+        from_bytes(
+            input,
+            FileCtx {
+                id,
+                offset,
+                length: input.0.len() as u32,
+            },
+        )
+    }
+}
+

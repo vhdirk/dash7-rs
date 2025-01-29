@@ -1,7 +1,7 @@
 use clap::{Args, ValueEnum};
 use dash7::{
     app::command::Command,
-    file::{File, OtherFile},
+    file::{File, OtherFile, SystemFile},
     link::{BackgroundFrame, ForegroundFrame},
 };
 use deku::DekuError;
@@ -59,7 +59,7 @@ fn parse_serial(_input: &[u8]) -> Result<(), DekuError> {
 }
 
 fn parse_file(input: &[u8], file_id: u8) -> Result<(), DekuError> {
-    let file = File::<OtherFile>::from_bytes((input, 0), file_id, 0u32);
+    let file = SystemFile::from_bytes((input, 0), file_id, 0u32);
     println!("{:?}", file);
     Ok(())
 }
