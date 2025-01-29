@@ -1,16 +1,17 @@
 use deku::prelude::*;
-
 mod addressee;
 mod network;
 
 pub use addressee::Addressee;
-pub use network::{Control, Frame, HoppingControl};
+pub use network::{HoppingControl, NetworkFrame, NetworkFrameControl};
 
 use crate::types::VarInt;
 
 /// Network Layer Security
 /// SPEC: 7.4
-#[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq)]
+#[derive(
+    DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq, strum::Display, uniffi::Enum,
+)]
 #[cfg_attr(not(feature = "_wizzilab"), deku(bits = 4))]
 #[cfg_attr(feature = "_wizzilab", deku(bits = 3))]
 #[deku(id_type = "u8")]
@@ -50,29 +51,31 @@ pub enum NlsMethod {
 }
 
 /// Encryption algorithm for over-the-air packets
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-#[deku(ctx = "nls_method: NlsMethod", id = "nls_method")]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
+#[deku(ctx = "nls_method: NlsMethod", id = "nls_method", endian = "big")]
 pub enum NlsState {
     #[default]
     #[deku(id = "NlsMethod::None")]
     None,
     #[deku(id = "NlsMethod::AesCtr")]
-    AesCtr([u8; 5]),
+    AesCtr(#[deku(bits = 40)] u64),
     #[deku(id = "NlsMethod::AesCbcMac128")]
-    AesCbcMac128([u8; 5]),
+    AesCbcMac128(#[deku(bits = 40)] u64),
     #[deku(id = "NlsMethod::AesCbcMac64")]
-    AesCbcMac64([u8; 5]),
+    AesCbcMac64(#[deku(bits = 40)] u64),
     #[deku(id = "NlsMethod::AesCbcMac32")]
-    AesCbcMac32([u8; 5]),
+    AesCbcMac32(#[deku(bits = 40)] u64),
     #[deku(id = "NlsMethod::AesCcm128")]
-    AesCcm128([u8; 5]),
+    AesCcm128(#[deku(bits = 40)] u64),
     #[deku(id = "NlsMethod::AesCcm64")]
-    AesCcm64([u8; 5]),
+    AesCcm64(#[deku(bits = 40)] u64),
     #[deku(id = "NlsMethod::AesCcm32")]
-    AesCcm32([u8; 5]),
+    AesCcm32(#[deku(bits = 40)] u64),
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq)]
+#[derive(
+    DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq, strum::Display, uniffi::Enum,
+)]
 #[deku(bits = 2, id_type = "u8")]
 pub enum AddressType {
     /// Broadcast to an estimated number of receivers, encoded in compressed format on a byte.
@@ -90,7 +93,7 @@ pub enum AddressType {
     VId,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(ctx = "address_type: AddressType", id = "address_type")]
 pub enum Address {
     /// Broadcast to an estimated number of receivers, encoded in compressed format on a byte.
@@ -125,7 +128,7 @@ mod tests {
                 #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
                 Address::VId(0xABCD),
-                NlsState::AesCcm32(hex!("00 11 22 33 44")),
+                NlsState::AesCcm32(0x00_11_22_33_44),
                 AccessClass::new(0x0F, 0x0F),
             ),
             &hex!("37 FF ABCD 0011223344"),
@@ -189,7 +192,7 @@ mod tests {
                 #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
                 Address::NbId(VarInt::new(1, false).unwrap()),
-                NlsState::AesCtr([0, 1, 2, 3, 4]),
+                NlsState::AesCtr(0x00_01_02_03_04),
                 AccessClass::default(),
             ),
             &[0b00000001, 0, 1, 0, 1, 2, 3, 4],
@@ -204,7 +207,7 @@ mod tests {
                 false,
                 #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
-                Address::VId(0x1234),
+                Address::VId(0x12_34),
                 NlsState::None,
                 AccessClass::new(0, 5),
             ),
@@ -220,7 +223,7 @@ mod tests {
                 false,
                 #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
-                Address::UId(0x1234567890123456),
+                Address::UId(0x12_34_56_78_90_12_34_56),
                 NlsState::None,
                 AccessClass::new(0x06, 0x09),
             ),
@@ -240,10 +243,10 @@ mod tests {
                 #[cfg(feature = "_wizzilab")]
                 GroupCondition::Any,
                 Address::NoId,
-                NlsState::AesCbcMac128([10, 20, 30, 40, 50]),
+                NlsState::AesCbcMac128(0x10_20_30_40_50),
                 AccessClass::new(0x0B, 0x0E),
             ),
-            &[0b00010010, 0xBE, 10, 20, 30, 40, 50],
+            &[0b00010010, 0xBE, 0x10, 0x20, 0x30, 0x40, 0x50],
         );
     }
 

@@ -29,6 +29,8 @@ exactly_one_of!("_spec", "_subiot", "_wizzilab");
 none_or_one_of!("subiot_v0_0", "subiot_v0_1");
 // none_or_one_of!("wizzilab_v5_3");
 
+uniffi::setup_scaffolding!();
+
 /// Application layer (ALP)
 pub mod app;
 

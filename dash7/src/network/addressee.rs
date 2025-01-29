@@ -7,7 +7,7 @@ use crate::transport::GroupCondition;
 
 use super::{Address, AddressType, NlsMethod, NlsState};
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct Addressee {
     /// Group condition
     #[cfg(feature = "_wizzilab")]
@@ -35,27 +35,17 @@ pub struct Addressee {
 }
 
 impl Addressee {
-    #[cfg(not(feature = "_wizzilab"))]
-    pub fn new(address: Address, nls_state: NlsState, access_class: AccessClass) -> Self {
-        Self {
-            address_type: address.deku_id().unwrap(),
-            nls_method: nls_state.deku_id().unwrap(),
-            access_class,
-            address,
-            nls_state,
-        }
-    }
-
-    #[cfg(feature = "_wizzilab")]
     pub fn new(
-        use_vid: bool,
-        group_condition: GroupCondition,
+        #[cfg(feature = "_wizzilab")] use_vid: bool,
+        #[cfg(feature = "_wizzilab")] group_condition: GroupCondition,
         address: Address,
         nls_state: NlsState,
         access_class: AccessClass,
     ) -> Self {
         Self {
+            #[cfg(feature = "_wizzilab")]
             use_vid,
+            #[cfg(feature = "_wizzilab")]
             group_condition,
             address_type: address.deku_id().unwrap(),
             nls_method: nls_state.deku_id().unwrap(),

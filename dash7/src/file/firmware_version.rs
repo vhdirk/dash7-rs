@@ -2,11 +2,9 @@ use deku::prelude::*;
 
 use crate::utils::{read_string, write_string};
 
-use super::SystemFile;
-
 // TODO: actual fixed length strings would be better here
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct FirmwareVersion {
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FirmwareVersionFile {
     pub major: u8,
     pub minor: u8,
 
@@ -21,9 +19,4 @@ pub struct FirmwareVersion {
         writer = "write_string::<_, 7>(deku::writer, &self.git_sha1)"
     )]
     pub git_sha1: String,
-}
-
-impl SystemFile for FirmwareVersion {
-    const ID: u8 = 0x02;
-    const SIZE: u32 = 17;
 }

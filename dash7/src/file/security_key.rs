@@ -1,7 +1,7 @@
 use deku::prelude::*;
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct SecurityKey {
-    // TODO: not sure if u128 is available on all archs
-    pub key: u128,
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
+pub struct SecurityKeyFile {
+    #[deku(count = "4")]
+    pub key: Vec<u32>,
 }

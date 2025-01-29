@@ -15,16 +15,25 @@ name = "dash7"
 path = "src/lib.rs"
 
 [dependencies]
-deku = { workspace = true, default-features = false }
+deku = { workspace = true, default-features=false, features = ["logging"]}
+strum = { version = "0.26.2", features = ["derive"] }
 enum_dispatch = "0.3.13"
 mutually_exclusive_features = "0.1.0"
+thiserror = "2.0.11"
+uniffi = { version = "0.28" }
+log = "*"
+env_logger = "*"
+downcast-rs = {version = "2.0.1", default-features=false, features = ["sync"]}
+
+[build-dependencies]
+uniffi = { version = "0.28", features = [ "build" ] }
 
 [dev-dependencies]
 hex-literal = "0.4.1"
 
 [features]
 default = ["std", "spec"]
-std = ["deku/std"]
+std = ["deku/std", "downcast-rs/std"]
 alloc = ["deku/alloc"]
 
 # main variants, used in code
@@ -43,3 +52,7 @@ spec = ["spec_v1_2"]
 subiot = ["subiot_v0_1"]
 wizzilab = ["wizzilab_v5_3"]
 
+
+[patch.crates-io]
+# uniffi = { version = "0.28", git="https://github.com/mozilla/uniffi-rs", branch = "main"}
+deku = {path = "../../deku" }

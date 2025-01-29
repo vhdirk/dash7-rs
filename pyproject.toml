@@ -1,0 +1,31 @@
+[project]
+name = "dash7"
+version = "0.1.0"
+description = "Implementation of a DASH7 ALP protocol codec."
+authors = [
+    { name = "Dirk Van Haerenborgh", email = "vhdirk@gmail.com" }
+]
+license = {text = "UNLICENSED" }
+readme = "README.md"
+
+requires-python = ">=3.12"
+
+dependencies = [
+]
+
+[build-system]
+requires = ["maturin>=1.8,<2.0", "uniffi-bindgen>=0.28.3"]
+build-backend = "maturin"
+
+
+[tool.maturin]
+bindings = "uniffi"
+module-name = "dash7._core"
+python-packages = ["testiffi"]
+python-source = "dash7-py/src"
+manifest-path = "dash7/Cargo.toml"
+
+[dependency-groups]
+dev = [
+    "uniffi-bindgen>=0.28.3",
+]

@@ -1,11 +1,12 @@
 use deku::prelude::*;
 
 use crate::{
-    app::operation::Length,
-    network::{self, Address, AddressType},
+    file::{FileCtx, OtherFile},
+    network::{Address, AddressType, NetworkFrame},
+    types::Length,
 };
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct BackgroundFrameControl {
     address_type: AddressType,
 
@@ -13,7 +14,7 @@ pub struct BackgroundFrameControl {
     tag_id: u8,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct BackgroundFrame {
     subnet: u8,
     control: BackgroundFrameControl,
@@ -21,7 +22,7 @@ pub struct BackgroundFrame {
     crc16: u16,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct ForegroundFrameControl {
     address_type: AddressType,
 
@@ -30,7 +31,10 @@ pub struct ForegroundFrameControl {
 }
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
-pub struct ForegroundFrame {
+pub struct ForegroundFrame<F = OtherFile>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
+{
     length: Length,
     subnet: u8,
     control: ForegroundFrameControl,
@@ -39,6 +43,6 @@ pub struct ForegroundFrame {
     target_address: Address,
 
     #[deku(ctx = "Into::<u32>::into(*length)")]
-    frame: network::Frame,
+    frame: NetworkFrame<F>,
     crc16: u16,
 }

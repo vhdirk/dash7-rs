@@ -1,6 +1,6 @@
 use deku::prelude::*;
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(bits = 2, endian = "big", id_type = "u8")]
 pub enum Bandwidth {
     #[default]
@@ -9,7 +9,7 @@ pub enum Bandwidth {
 }
 
 /// D7A channel bands indexes
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(bits = 3, endian = "big", id_type = "u8")]
 pub enum ChannelBand {
     #[default]
@@ -20,7 +20,7 @@ pub enum ChannelBand {
     Band915 = 0x04,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(bits = 2, endian = "big", id_type = "u8")]
 pub enum ChannelClass {
     #[default]
@@ -30,7 +30,7 @@ pub enum ChannelClass {
     HiRate = 3,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(bits = 2, endian = "big", id_type = "u8")]
 pub enum ChannelCoding {
     #[default]
@@ -40,7 +40,7 @@ pub enum ChannelCoding {
     Cw = 3,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(bits = 4, id_type = "u8")]
 pub enum CsmaCaMode {
     #[default]
@@ -54,7 +54,7 @@ pub enum CsmaCaMode {
     Rigd,
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(bits = 4, id_type = "u8")]
 pub enum NoiseFloor {
     /// Noise floor (in dBm). Use the default channel CCA threshold (5.4).
@@ -76,7 +76,7 @@ pub enum NoiseFloor {
     Other,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct ChannelHeader {
     #[deku(pad_bits_before = "1")]
     pub channel_band: ChannelBand,
@@ -98,14 +98,14 @@ impl ChannelHeader {
     }
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct Channel {
     pub header: ChannelHeader,
     #[deku(endian = "big")]
     pub index: u16,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct ChannelStatusIdentifier {
     // TODO update to D7AP v1.1
     pub channel_band: ChannelBand,
@@ -115,7 +115,7 @@ pub struct ChannelStatusIdentifier {
     pub index: u16,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(endian = "big")]
 pub struct SubBand {
     pub channel_index_start: u16,
@@ -125,7 +125,7 @@ pub struct SubBand {
     pub duty: u8,
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct ChannelStatus {
     pub identifier: ChannelStatusIdentifier,
     pub noise_floor: u8,
