@@ -1,9 +1,6 @@
 use core::fmt;
-use deku::ctx::Limit;
-use deku::deku_derive;
 use deku::no_std_io;
 use deku::prelude::*;
-use downcast_rs::{impl_downcast, DowncastSync};
 
 mod access_profile;
 mod address;
@@ -186,11 +183,18 @@ impl<F> File<F>
 where
     F: for<'a> DekuReader<'a, FileCtx> + DekuWriter<FileCtx> + fmt::Debug,
 {
-    pub fn from_bytes(input: (&'_ [u8], usize), id: u8, offset: u32) -> Result<((&'_ [u8], usize), Self), DekuError> {
-        from_bytes(input, FileCtx{
-            id,
-            offset,
-            length: input.0.len() as u32
-        })
+    pub fn from_bytes(
+        input: (&'_ [u8], usize),
+        id: u8,
+        offset: u32,
+    ) -> Result<((&'_ [u8], usize), Self), DekuError> {
+        from_bytes(
+            input,
+            FileCtx {
+                id,
+                offset,
+                length: input.0.len() as u32,
+            },
+        )
     }
 }

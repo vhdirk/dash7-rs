@@ -5,14 +5,13 @@ use std::fmt;
 #[cfg(not(feature = "std"))]
 use alloc::fmt;
 
-
 use deku::{
     no_std_io::{self, Seek, Write},
     prelude::*,
 };
 
 use crate::{
-    file::{OtherFile, FileCtx},
+    file::{FileCtx, OtherFile},
     utils::{from_bytes, from_reader},
 };
 
@@ -198,10 +197,7 @@ impl<'a, F> DekuReader<'a, ()> for Operation<F>
 where
     F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
 {
-    fn from_reader_with_ctx<R>(
-        reader: &mut Reader<R>,
-        _: (),
-    ) -> Result<Self, DekuError>
+    fn from_reader_with_ctx<R>(reader: &mut Reader<R>, _: ()) -> Result<Self, DekuError>
     where
         R: no_std_io::Read + no_std_io::Seek,
     {
@@ -235,7 +231,9 @@ where
             OpCode::ReadFileProperties => {
                 read_operation!(ReadFileProperties, FileIdOperand, reader, code)
             }
-            OpCode::WriteFileData => read_operation!(WriteFileData, FileDataOperand<F>, reader, code),
+            OpCode::WriteFileData => {
+                read_operation!(WriteFileData, FileDataOperand<F>, reader, code)
+            }
             OpCode::WriteFileDataFlush => {
                 read_operation!(WriteFileDataFlush, FileDataOperand<F>, reader, code)
             }
@@ -285,7 +283,6 @@ where
         Ok(value)
     }
 }
-
 
 impl<F> TryFrom<&'_ [u8]> for Operation<F>
 where
@@ -436,7 +433,7 @@ mod test {
             query::{NonVoid, Query},
         },
         data::{self, FileHeader, FilePermissions, UserPermissions},
-        file::{FileData, File},
+        file::{File, FileData},
         link::AccessClass,
         network::{Address, Addressee, NlsState},
         physical::{Channel, ChannelBand, ChannelClass, ChannelCoding, ChannelHeader},
@@ -515,9 +512,7 @@ mod test {
                 FileData {
                     id: 0xF9,
                     offset: 5u32.into(),
-                    file: File::User(
-                        OtherFile{data}
-                    ),
+                    file: File::User(OtherFile { data }),
                 },
                 OpCode::WriteFileData,
             )),
@@ -765,9 +760,7 @@ mod test {
                 FileData {
                     offset: 5u32.into(),
                     id: 0xF9,
-                    file: File::User(OtherFile {
-                        data,
-                    })
+                    file: File::User(OtherFile { data }),
                 },
                 OpCode::ReturnFileData,
             )),
@@ -923,7 +916,10 @@ mod test {
 
     #[test]
     fn test_chunk() {
-        test_item(Operation::<OtherFile>::Chunk(ChunkStep::End.into()), &[0b1011_0000])
+        test_item(
+            Operation::<OtherFile>::Chunk(ChunkStep::End.into()),
+            &[0b1011_0000],
+        )
     }
 
     #[test]

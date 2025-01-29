@@ -1,7 +1,9 @@
 use deku::prelude::*;
 
 use crate::{
-    file::{FileCtx, OtherFile}, network::{Address, AddressType, NetworkFrame}, types::Length
+    file::{FileCtx, OtherFile},
+    network::{Address, AddressType, NetworkFrame},
+    types::Length,
 };
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
@@ -32,7 +34,7 @@ pub struct ForegroundFrameControl {
 pub struct ForegroundFrame<F = OtherFile>
 where
     F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
- {
+{
     length: Length,
     subnet: u8,
     control: ForegroundFrameControl,

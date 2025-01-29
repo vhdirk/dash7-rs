@@ -17,7 +17,8 @@ use crate::{
 };
 
 use super::{
-    operand::{RequestTag, ResponseTag, ResponseTagHeader, Status}, operation::{Operation}
+    operand::{RequestTag, ResponseTag, ResponseTagHeader, Status},
+    operation::Operation,
 };
 
 #[derive(Clone, Debug, PartialEq, Default)]
@@ -263,8 +264,6 @@ where
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
-
     use hex_literal::hex;
 
     use super::*;
@@ -273,14 +272,14 @@ mod test {
     use crate::transport::GroupCondition;
     use crate::{
         app::{
-            operation::OpCode,
             interface::InterfaceConfiguration,
             operand::{
                 ActionHeader, FileDataOperand, Forward, Nop, ReadFileData, RequestTagHeader,
                 ResponseTagHeader, Status,
             },
+            operation::OpCode,
         },
-        file::{FileData, SystemFile, File},
+        file::{File, FileData, SystemFile},
         link::AccessClass,
         network::{Address, Addressee, NlsState},
         physical::{Channel, ChannelBand, ChannelClass, ChannelCoding, ChannelHeader},

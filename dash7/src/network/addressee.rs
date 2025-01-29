@@ -43,8 +43,10 @@ impl Addressee {
         access_class: AccessClass,
     ) -> Self {
         Self {
-            #[cfg(feature = "_wizzilab")] use_vid,
-            #[cfg(feature = "_wizzilab")] group_condition,
+            #[cfg(feature = "_wizzilab")]
+            use_vid,
+            #[cfg(feature = "_wizzilab")]
+            group_condition,
             address_type: address.deku_id().unwrap(),
             nls_method: nls_state.deku_id().unwrap(),
             access_class,

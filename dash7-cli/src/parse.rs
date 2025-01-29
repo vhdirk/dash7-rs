@@ -4,7 +4,7 @@ use dash7::{
     file::{File, OtherFile},
     link::{BackgroundFrame, ForegroundFrame},
 };
-use deku::{DekuError};
+use deku::DekuError;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum ParseType {

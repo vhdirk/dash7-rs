@@ -1,5 +1,4 @@
 use deku::prelude::*;
-use std::sync::Arc;
 
 use crate::physical::{ChannelHeader, SubBand};
 use crate::types::VarInt;

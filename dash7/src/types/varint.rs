@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::sync::Arc;
 
 use deku::{
     ctx::{BitSize, Endian},
@@ -54,7 +53,7 @@ pub struct VarInt {
     value: u32,
 
     #[deku(skip, default = "false")]
-    #[uniffi(default=false)]
+    #[uniffi(default = false)]
     ceil: bool,
 }
 
@@ -164,7 +163,6 @@ impl From<u32> for VarInt {
         Self { value, ceil: false }
     }
 }
-
 
 #[cfg(test)]
 mod test {

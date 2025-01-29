@@ -1,4 +1,3 @@
-use std::sync::Arc;
 #[cfg(feature = "std")]
 use std::fmt::Display;
 
@@ -11,7 +10,9 @@ mod interface_final;
 #[cfg(feature = "_wizzilab")]
 pub use interface_final::{InterfaceFinalStatus, InterfaceFinalStatusCode, InterfaceTxStatus};
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, Copy, PartialEq, strum::Display, uniffi::Enum)]
+#[derive(
+    DekuRead, DekuWrite, Default, Debug, Clone, Copy, PartialEq, strum::Display, uniffi::Enum,
+)]
 #[deku(bits = 8, id_type = "u8")]
 #[repr(u8)]
 pub enum InterfaceType {
@@ -228,9 +229,7 @@ impl Display for Dash7InterfaceStatus {
         f.write_str(&format!("unicast: {:?}, ", self.unicast))?;
         f.write_str(&format!("fifo_token: {:?}, ", self.fifo_token))?;
         f.write_str(&format!("sequence_number: {:?}, ", self.sequence_number))?;
-        f.write_str(&format!(
-            "response_timeout: {:?}, ", self.response_timeout)
-        )?;
+        f.write_str(&format!("response_timeout: {:?}, ", self.response_timeout))?;
         f.write_str(&format!("addressee: {:?}, ", self.addressee))?;
         f.write_str(" }")?;
         Ok(())

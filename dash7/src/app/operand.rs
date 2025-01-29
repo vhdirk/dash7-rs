@@ -1,11 +1,11 @@
 pub use super::query::Query;
 use super::{
-    operation::OpCode,
     interface::{IndirectInterface, InterfaceConfiguration},
+    operation::OpCode,
 };
-use crate::{data::FileHeader, file::{FileCtx, SystemFile}, session::InterfaceStatus};
+use crate::session::InterfaceType;
+use crate::{data::FileHeader, file::FileCtx, session::InterfaceStatus};
 use crate::{file::FileData, types::Length, utils::write_length_prefixed};
-use crate::{session::InterfaceType, utils::write_length_prefixed_ext};
 use deku::{no_std_io, prelude::*};
 
 #[cfg(feature = "_wizzilab")]

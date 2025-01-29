@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use deku::prelude::*;
 
 use crate::{network::Addressee, session::QoS, types::VarInt};

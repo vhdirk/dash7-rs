@@ -1,6 +1,5 @@
 use deku::prelude::*;
 
-
 #[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct FactorySettingsFile {
     pub gain: i8,
@@ -30,7 +29,6 @@ pub struct FactorySettingsFile {
     pub preamble_detector_size_lo_rate: u8,
     pub preamble_detector_size_normal_rate: u8,
     pub preamble_detector_size_hi_rate: u8,
-
 
     pub preamble_tol_lo_rate: u8,
     pub preamble_tol_normal_rate: u8,

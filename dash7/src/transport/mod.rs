@@ -1,7 +1,6 @@
 use deku::prelude::*;
 
 use crate::{app::command::Command, file::FileCtx, types::VarInt};
-use std::sync::Arc;
 
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, strum::Display, uniffi::Enum)]
 #[deku(bits = 2, id_type = "u8")]

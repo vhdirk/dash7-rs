@@ -1,16 +1,17 @@
 use deku::prelude::*;
-use std::sync::Arc;
 mod addressee;
 mod network;
 
 pub use addressee::Addressee;
-pub use network::{NetworkFrameControl, NetworkFrame, HoppingControl};
+pub use network::{HoppingControl, NetworkFrame, NetworkFrameControl};
 
 use crate::types::VarInt;
 
 /// Network Layer Security
 /// SPEC: 7.4
-#[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq, strum::Display, uniffi::Enum)]
+#[derive(
+    DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq, strum::Display, uniffi::Enum,
+)]
 #[cfg_attr(not(feature = "_wizzilab"), deku(bits = 4))]
 #[cfg_attr(feature = "_wizzilab", deku(bits = 3))]
 #[deku(id_type = "u8")]
@@ -51,28 +52,30 @@ pub enum NlsMethod {
 
 /// Encryption algorithm for over-the-air packets
 #[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
-#[deku(ctx = "nls_method: NlsMethod", id = "nls_method", endian="big")]
+#[deku(ctx = "nls_method: NlsMethod", id = "nls_method", endian = "big")]
 pub enum NlsState {
     #[default]
     #[deku(id = "NlsMethod::None")]
     None,
     #[deku(id = "NlsMethod::AesCtr")]
-    AesCtr(#[deku(bits=40)] u64),
+    AesCtr(#[deku(bits = 40)] u64),
     #[deku(id = "NlsMethod::AesCbcMac128")]
-    AesCbcMac128(#[deku(bits=40,)] u64),
+    AesCbcMac128(#[deku(bits = 40)] u64),
     #[deku(id = "NlsMethod::AesCbcMac64")]
-    AesCbcMac64(#[deku(bits=40)] u64),
+    AesCbcMac64(#[deku(bits = 40)] u64),
     #[deku(id = "NlsMethod::AesCbcMac32")]
-    AesCbcMac32(#[deku(bits=40)] u64),
+    AesCbcMac32(#[deku(bits = 40)] u64),
     #[deku(id = "NlsMethod::AesCcm128")]
-    AesCcm128(#[deku(bits=40)] u64),
+    AesCcm128(#[deku(bits = 40)] u64),
     #[deku(id = "NlsMethod::AesCcm64")]
-    AesCcm64(#[deku(bits=40)] u64),
+    AesCcm64(#[deku(bits = 40)] u64),
     #[deku(id = "NlsMethod::AesCcm32")]
-    AesCcm32(#[deku(bits=40)] u64),
+    AesCcm32(#[deku(bits = 40)] u64),
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq, strum::Display, uniffi::Enum)]
+#[derive(
+    DekuRead, DekuWrite, Default, Debug, Copy, Clone, PartialEq, strum::Display, uniffi::Enum,
+)]
 #[deku(bits = 2, id_type = "u8")]
 pub enum AddressType {
     /// Broadcast to an estimated number of receivers, encoded in compressed format on a byte.

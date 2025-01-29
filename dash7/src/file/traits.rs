@@ -1,14 +1,9 @@
-use std::sync::Arc;
 use downcast_rs::{impl_downcast, DowncastSync};
-
-
+use std::sync::Arc;
 
 #[uniffi::export]
 pub trait AlpFile: DowncastSync {}
 impl_downcast!(AlpFile);
-
-
-
 
 #[derive(thiserror::Error, Debug, strum::Display, uniffi::Error)]
 pub enum FileRegistryError {
