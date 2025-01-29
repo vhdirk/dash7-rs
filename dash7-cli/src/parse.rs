@@ -8,16 +8,16 @@ use deku::DekuError;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum ParseType {
-    #[clap(alias = "fg")]
+    #[clap(alias = "f")]
     Foreground,
-    #[clap(alias = "bg")]
+    #[clap(alias = "b")]
     Background,
-    #[clap(alias = "a")]
-    Alp,
+    #[clap(alias = "c")]
+    Command,
     #[clap(alias = "e")]
     Serial,
     #[clap(alias = "s")]
-    Systemfile,
+    SystemFile,
 }
 
 #[derive(Debug, Args)]
@@ -106,9 +106,9 @@ pub fn main(args: ParseArgs) {
         Some(ParseType::Background) => {
             parse_background_frame(input).expect("Could not background frame")
         }
-        Some(ParseType::Alp) => parse_alp_command(input).expect("Could not parse command"),
+        Some(ParseType::Command) => parse_alp_command(input).expect("Could not parse command"),
         Some(ParseType::Serial) => parse_serial(input).expect("Could not parse serial"),
-        Some(ParseType::Systemfile) => {
+        Some(ParseType::SystemFile) => {
             if let Some(file_id) = args.file_id {
                 parse_file(input, file_id).expect("Could not parse file")
             } else {
