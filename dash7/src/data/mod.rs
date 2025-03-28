@@ -1,7 +1,7 @@
 use deku::prelude::*;
 
 /// File access type event that will trigger an ALP action.
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(bits = 3, endian = "big", id_type = "u8")]
 pub enum ActionCondition {
     #[default]
@@ -15,7 +15,7 @@ pub enum ActionCondition {
     WriteFlush,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(bits = 2, id_type = "u8")]
 pub enum StorageClass {
     /// The content is not kept in memory. It cannot be read back.
@@ -37,7 +37,7 @@ pub enum StorageClass {
     Permanent,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct UserPermissions {
     #[deku(bits = 1)]
     pub read: bool,
@@ -47,7 +47,7 @@ pub struct UserPermissions {
     pub executable: bool,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct FilePermissions {
     #[deku(bits = 1)]
     pub encrypted: bool,
@@ -57,7 +57,7 @@ pub struct FilePermissions {
     pub guest: UserPermissions,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct FileProperties {
     /// Enables the D7AActP (ALP action to trigger upon some type of access to this file)
     #[deku(bits = 1)]
@@ -71,7 +71,7 @@ pub struct FileProperties {
     pub storage_class: StorageClass,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct FileHeader {
     pub permissions: FilePermissions,
     pub properties: FileProperties,

@@ -1,21 +1,12 @@
 use deku::prelude::*;
 
-use crate::link;
+use crate::link::AccessProfile;
 
-use super::SystemFile;
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
+#[deku(ctx = "id: u8")]
+pub struct AccessProfileFile {
+    #[deku(skip, default = "id")]
+    pub specifier: u8,
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-pub struct AccessProfile<const S: u8> {
-    pub profile: link::AccessProfile,
-}
-
-impl<const S: u8> AccessProfile<S> {
-    pub fn specifier(&self) -> u8 {
-        S
-    }
-}
-
-impl<const S: u8> SystemFile for AccessProfile<S> {
-    const ID: u8 = 0x20 + S;
-    const SIZE: u32 = 0;
+    pub profile: AccessProfile,
 }

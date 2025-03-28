@@ -80,3 +80,5 @@ impl Length {
         Ok(())
     }
 }
+
+uniffi::custom_newtype!(Length, u32);

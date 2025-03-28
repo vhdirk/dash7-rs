@@ -37,7 +37,7 @@ where
     Ok(())
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct InterfaceFinalStatusOperation {
     pub interface_id: u8,
 
@@ -87,14 +87,14 @@ impl InterfaceFinalStatus {
     }
 }
 
-#[derive(DekuRead, DekuWrite, Clone, Copy, Debug, PartialEq)]
+#[derive(DekuRead, DekuWrite, Clone, Copy, Debug, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(bits = 2, id_type = "u8")]
 pub enum TxStatusType {
     #[deku(id = "1")]
     Interface,
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
 #[deku(ctx = "_opcode: OpCode")]
 pub struct TxStatusOperation {
     #[deku(update = "self.status.deku_id().unwrap()", pad_bits_after = "6")]
@@ -107,14 +107,14 @@ pub struct TxStatusOperation {
     pub status: TxStatus,
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(ctx = "status_type: TxStatusType", id = "status_type")]
 pub enum TxStatus {
     #[deku(id = "TxStatusType::Interface")]
     Interface(InterfaceTxStatusOperation),
 }
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct InterfaceTxStatusOperation {
     pub interface_id: u8,
 

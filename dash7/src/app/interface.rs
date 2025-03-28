@@ -6,7 +6,7 @@ use crate::{network::Addressee, session::QoS, types::VarInt};
 ///
 /// Parameters to handle the sending of a request.
 // ALP SPEC: Add link to D7a section
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct Dash7InterfaceConfiguration {
     pub qos: QoS,
 
@@ -32,7 +32,7 @@ pub struct Dash7InterfaceConfiguration {
     pub addressee: Addressee,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct LoRaWANInterfaceConfiguration {
     /// Automatic data rate enabled
     #[deku(pad_bits_before = "5", bits = 1)]
@@ -45,7 +45,7 @@ pub struct LoRaWANInterfaceConfiguration {
     pub data_rate: u8,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct LoRaWANOTAAInterfaceConfiguration {
     pub base: LoRaWANInterfaceConfiguration,
 
@@ -59,7 +59,7 @@ pub struct LoRaWANOTAAInterfaceConfiguration {
     pub app_key: Vec<u8>,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct LoRaWANABPInterfaceConfiguration {
     pub base: LoRaWANInterfaceConfiguration,
 
@@ -74,7 +74,7 @@ pub struct LoRaWANABPInterfaceConfiguration {
     pub network_id: u32,
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(id_type = "u8")]
 pub enum InterfaceConfiguration {
     #[default]
@@ -97,7 +97,7 @@ pub enum InterfaceConfiguration {
     Unknown(u8),
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, strum::Display, uniffi::Enum)]
 #[deku(id_type = "u8")]
 pub enum IndirectInterface {
     #[default]
@@ -148,7 +148,7 @@ mod test {
                     #[cfg(feature = "_wizzilab")]
                     GroupCondition::Any,
                     Address::VId(0xABCD),
-                    NlsState::AesCcm32([1, 2, 3, 4, 5]),
+                    NlsState::AesCcm32(0x01_02_03_04_05),
                     AccessClass::new(0x0F, 0x0F),
                 ),
             },
@@ -213,7 +213,7 @@ mod test {
                     #[cfg(feature = "_wizzilab")]
                     GroupCondition::Equal,
                     Address::NoId,
-                    NlsState::AesCbcMac128([0x0A, 0x0B, 0x0C, 0x0D, 0x0E]),
+                    NlsState::AesCbcMac128(0x0A_0B_0C_0D_0E),
                     AccessClass::new(0x02, 0x04),
                 ),
             },
@@ -247,7 +247,7 @@ mod test {
                     #[cfg(feature = "_wizzilab")]
                     GroupCondition::GreaterThan,
                     Address::UId(0x0001020304050607),
-                    NlsState::AesCcm64([0xA1, 0xA2, 0xA3, 0xA4, 0xA5]),
+                    NlsState::AesCcm64(0xA1_A2_A3_A4_A5),
                     AccessClass::new(0x04, 0x08),
                 ),
             },
@@ -281,7 +281,7 @@ mod test {
                     #[cfg(feature = "_wizzilab")]
                     GroupCondition::Any,
                     Address::VId(0xABCD),
-                    NlsState::AesCcm32([0xA1, 0xA2, 0xA3, 0xA4, 0xA5]),
+                    NlsState::AesCcm32(0xA1_A2_A3_A4_A5),
                     AccessClass::new(0x0F, 0x0F),
                 ),
             },

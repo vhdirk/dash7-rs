@@ -1,233 +1,200 @@
+use core::fmt;
+use deku::no_std_io;
 use deku::prelude::*;
 
 mod access_profile;
+mod address;
 mod dll_config;
 mod dll_status;
 mod engineering_mode;
 mod factory_settings;
 mod firmware_version;
 mod interface_configuration;
+mod other;
 mod phy_status;
 mod security_key;
+mod system;
+mod traits;
 
-pub use access_profile::AccessProfile;
-pub use dll_config::DllConfig;
-pub use dll_status::DllStatus;
-pub use engineering_mode::{EngineeringMode, EngineeringModeMethod};
-pub use factory_settings::FactorySettings;
-pub use firmware_version::FirmwareVersion;
+pub use access_profile::AccessProfileFile;
+pub use dll_config::DllConfigFile;
+pub use dll_status::DllStatusFile;
+pub use engineering_mode::{EngineeringModeFile, EngineeringModeMethod};
+pub use factory_settings::FactorySettingsFile;
+pub use firmware_version::FirmwareVersionFile;
 pub use interface_configuration::InterfaceConfiguration;
-pub use phy_status::PhyStatus;
-pub use security_key::SecurityKey;
+pub use other::OtherFile;
+pub use phy_status::PhyStatusFile;
+pub use security_key::SecurityKeyFile;
+pub use system::SystemFile;
+pub use traits::*;
 
-use crate::{
-    network::{Address, AddressType},
-    utils::from_bytes,
-};
+use crate::types::Length;
+use crate::utils::from_bytes;
+use crate::utils::write_length_prefixed;
 
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(id_type = "u8", bits = "8")]
-pub enum FileId {
-    #[deku(id = "0x00")]
-    UId,
-    #[deku(id = "0x01")]
-    FactorySettings,
-    #[deku(id = "0x02")]
-    FirmwareVersion,
-    #[deku(id = "0x03")]
-    DeviceCapacity,
-    #[deku(id = "0x04")]
-    DeviceStatus,
-    #[deku(id = "0x05")]
-    EngineeringMode,
-    #[deku(id = "0x06")]
-    VId,
-    #[deku(id = "0x08")]
-    PhyConfig,
-    #[deku(id = "0x09")]
-    PhyStatus,
-    #[deku(id = "0x0A")]
-    DllConfig,
-    #[deku(id = "0x0B")]
-    DllStatus,
-    #[deku(id = "0x0C")]
-    NetworkRouting,
-    #[deku(id = "0x0D")]
-    NetworkSecurity,
-    #[deku(id = "0x0E")]
-    NetworkSecurityKey,
-    #[deku(id = "0x0F")]
-    NetworkSsr,
-    #[deku(id = "0x10")]
-    NetworkStatus,
-    #[deku(id = "0x11")]
-    TrlStatus,
-    #[deku(id = "0x12")]
-    SelConfig,
-    #[deku(id = "0x13")]
-    FofStatus,
-    #[deku(id_pat = "0x07 | 0x14..=0x16")]
-    Rfu,
-    #[deku(id = "0x17")]
-    LocationData,
-    #[deku(id = "0x18")]
-    RootKey,
-    #[deku(id = "0x19")]
-    UserKey,
-    #[deku(id = "0x1B")]
-    SensorDescription,
-    #[deku(id = "0x1C")]
-    Rtc,
-    #[deku(id_pat = "0x1D..=0x1F")]
-    D7AalpRfu,
-    #[deku(id = "0x20")]
-    AccessProfile00,
-    #[deku(id = "0x21")]
-    AccessProfile01,
-    #[deku(id = "0x22")]
-    AccessProfile02,
-    #[deku(id = "0x23")]
-    AccessProfile03,
-    #[deku(id = "0x24")]
-    AccessProfile04,
-    #[deku(id = "0x25")]
-    AccessProfile05,
-    #[deku(id = "0x26")]
-    AccessProfile06,
-    #[deku(id = "0x27")]
-    AccessProfile07,
-    #[deku(id = "0x28")]
-    AccessProfile08,
-    #[deku(id = "0x29")]
-    AccessProfile09,
-    #[deku(id = "0x2A")]
-    AccessProfile10,
-    #[deku(id = "0x2B")]
-    AccessProfile11,
-    #[deku(id = "0x2C")]
-    AccessProfile12,
-    #[deku(id = "0x2D")]
-    AccessProfile13,
-    #[deku(id = "0x2E")]
-    AccessProfile14,
-    #[deku(id_pat = "_")]
-    Other,
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FileCtx {
+    pub id: u8,
+    pub offset: u32,
+    pub length: u32,
 }
 
-impl TryFrom<u8> for FileId {
-    type Error = DekuError;
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct FileData<F>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
+{
+    pub id: u8,
 
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        Ok(Self::from_bytes((&vec![value], 0))?.1)
+    pub offset: Length,
+
+    pub file: File<F>,
+}
+
+impl<F> FileData<F>
+where
+    F: for<'a> DekuReader<'a, FileCtx> + DekuWriter<FileCtx> + fmt::Debug,
+{
+    pub fn from_bytes(input: (&'_ [u8], usize)) -> Result<((&'_ [u8], usize), Self), DekuError> {
+        from_bytes(input, ())
     }
 }
 
-impl Into<u8> for FileId {
-    fn into(self) -> u8 {
-        self.deku_id().unwrap()
-    }
+#[derive(Debug, Clone, PartialEq)]
+pub enum File<F = OtherFile>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
+{
+    System(SystemFile),
+    User(F),
+    Other(OtherFile),
 }
 
-pub trait SystemFile {
-    const ID: u8;
-    const SIZE: u32;
-}
-
-/// File IDs 0x00-0x17 and 0x20-0x2F are reserved by the DASH7 spec.
-/// File IDs 0x18-0x1F Reserved for D7AALP.
-/// File IDs 0x20+I with I in [0, 14] are reserved for Access Profiles.
-#[derive(DekuRead, DekuWrite, Debug, Clone, PartialEq)]
-#[deku(
-    ctx = "file_id: FileId, length: u32",
-    id = "file_id",
-    ctx_default = "FileId::Other, 0"
-)]
-pub enum File {
-    #[deku(id = "FileId::AccessProfile00")]
-    AccessProfile00(AccessProfile<0>),
-    #[deku(id = "FileId::AccessProfile01")]
-    AccessProfile01(AccessProfile<1>),
-    #[deku(id = "FileId::AccessProfile02")]
-    AccessProfile02(AccessProfile<2>),
-    #[deku(id = "FileId::AccessProfile03")]
-    AccessProfile03(AccessProfile<3>),
-    #[deku(id = "FileId::AccessProfile04")]
-    AccessProfile04(AccessProfile<4>),
-    #[deku(id = "FileId::AccessProfile05")]
-    AccessProfile05(AccessProfile<5>),
-    #[deku(id = "FileId::AccessProfile06")]
-    AccessProfile06(AccessProfile<6>),
-    #[deku(id = "FileId::AccessProfile07")]
-    AccessProfile07(AccessProfile<7>),
-    #[deku(id = "FileId::AccessProfile08")]
-    AccessProfile08(AccessProfile<8>),
-    #[deku(id = "FileId::AccessProfile09")]
-    AccessProfile09(AccessProfile<9>),
-    #[deku(id = "FileId::AccessProfile10")]
-    AccessProfile10(AccessProfile<10>),
-    #[deku(id = "FileId::AccessProfile11")]
-    AccessProfile11(AccessProfile<11>),
-    #[deku(id = "FileId::AccessProfile12")]
-    AccessProfile12(AccessProfile<12>),
-    #[deku(id = "FileId::AccessProfile13")]
-    AccessProfile13(AccessProfile<13>),
-    #[deku(id = "FileId::AccessProfile14")]
-    AccessProfile14(AccessProfile<14>),
-
-    #[deku(id = "FileId::UId")]
-    UId(#[deku(ctx = "AddressType::UId")] Address),
-
-    #[deku(id = "FileId::FactorySettings")]
-    FactorySettings(FactorySettings),
-
-    #[deku(id = "FileId::FirmwareVersion")]
-    FirmwareVersion(FirmwareVersion),
-
-    #[deku(id = "FileId::EngineeringMode")]
-    EngineeringMode(EngineeringMode),
-
-    #[deku(id = "FileId::VId")]
-    VId(#[deku(ctx = "AddressType::VId")] Address),
-
-    #[deku(id = "FileId::PhyStatus")]
-    PhyStatus(PhyStatus),
-
-    #[deku(id = "FileId::DllConfig")]
-    DllConfig(DllConfig),
-
-    #[deku(id = "FileId::DllStatus")]
-    DllStatus(DllStatus),
-
-    #[deku(id = "FileId::NetworkSecurityKey")]
-    NwlSecurityKey(SecurityKey),
-
-    #[deku(id_pat = "_")]
-    Other(#[deku(count = "length")] Vec<u8>),
-}
-
-impl Default for File {
+impl<F> Default for File<F>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
+{
     fn default() -> Self {
-        Self::Other(vec![])
+        Self::Other(OtherFile::default())
     }
 }
 
-impl File {
-    pub fn from_bytes<'a>(
-        input: (&'a [u8], usize),
-        file_id: FileId,
-        length: u32,
-    ) -> Result<((&'a [u8], usize), Self), DekuError> {
-        from_bytes(input, (file_id, length))
+impl<F> DekuReader<'_, FileCtx> for File<F>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
+{
+    fn from_reader_with_ctx<R: no_std_io::Read + no_std_io::Seek>(
+        reader: &mut Reader<R>,
+        ctx: FileCtx,
+    ) -> Result<Self, DekuError>
+    where
+        Self: Sized,
+    {
+        // first try userfiles
+        let file = if let Ok(user_file) =
+            <F as DekuReader<'_, _>>::from_reader_with_ctx(reader, ctx.clone())
+        {
+            File::User(user_file)
+        }
+        // then try systemfiles
+        else if let Ok(system_file) =
+            <SystemFile as DekuReader<'_, _>>::from_reader_with_ctx(reader, ctx.clone())
+        {
+            File::System(system_file)
+        }
+        // fallback in case user forgot
+        else {
+            let other_file =
+                <OtherFile as DekuReader<'_, _>>::from_reader_with_ctx(reader, ctx.clone())?;
+            File::Other(other_file)
+        };
+        Ok(file)
     }
+}
 
-    // fn to_bytes(&self) -> Result<Vec<u8>, DekuError> {
-    //     let output = self.to_bits()?;
-    //     Ok(output.into_vec())
-    // }
+impl<F> DekuWriter<FileCtx> for File<F>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
+{
+    fn to_writer<W>(&self, writer: &mut Writer<W>, ctx: FileCtx) -> Result<(), DekuError>
+    where
+        W: no_std_io::Write + no_std_io::Seek,
+    {
+        match self {
+            File::System(ref file) => file.to_writer(writer, ctx),
+            File::User(ref file) => file.to_writer(writer, ctx),
+            File::Other(ref file) => file.to_writer(writer, ctx),
+        }
+    }
+}
 
-    // fn to_bits(&self) -> Result<BitVec<u8, Msb0>, DekuError> {
-    //     let mut output: BitVec<u8, Msb0> = BitVec::new();
-    //     self.write(&mut output, u32::MAX)?;
-    //     Ok(output)
-    // }
+impl<F> DekuReader<'_, ()> for FileData<F>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
+{
+    #[inline]
+    fn from_reader_with_ctx<R>(reader: &mut Reader<R>, _: ()) -> Result<Self, DekuError>
+    where
+        R: no_std_io::Read + no_std_io::Seek,
+    {
+        let id = <u8 as DekuReader<'_, _>>::from_reader_with_ctx(reader, ())?;
+
+        let offset = <Length as DekuReader<'_, _>>::from_reader_with_ctx(reader, ())?;
+
+        let length = <Length as DekuReader<'_, _>>::from_reader_with_ctx(reader, ())?;
+
+        let file = <File<F> as DekuReader<'_, _>>::from_reader_with_ctx(
+            reader,
+            FileCtx {
+                id,
+                offset: offset.into(),
+                length: length.into(),
+            },
+        )?;
+
+        Ok(FileData { id, offset, file })
+    }
+}
+
+impl<F> DekuWriter<()> for FileData<F>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
+{
+    fn to_writer<W>(&self, writer: &mut Writer<W>, _: ()) -> Result<(), DekuError>
+    where
+        W: no_std_io::Write + no_std_io::Seek,
+    {
+        self.id.to_writer(writer, ())?;
+
+        self.offset.to_writer(writer, ())?;
+
+        let ctx = FileCtx {
+            id: self.id,
+            offset: self.offset.into(),
+            length: 0u32.into(),
+        };
+
+        write_length_prefixed(writer, &self.file, ctx)
+    }
+}
+
+impl<F> File<F>
+where
+    F: for<'a> DekuReader<'a, FileCtx> + DekuWriter<FileCtx> + fmt::Debug,
+{
+    pub fn from_bytes(
+        input: (&'_ [u8], usize),
+        id: u8,
+        offset: u32,
+    ) -> Result<((&'_ [u8], usize), Self), DekuError> {
+        from_bytes(
+            input,
+            FileCtx {
+                id,
+                offset,
+                length: input.0.len() as u32,
+            },
+        )
+    }
 }

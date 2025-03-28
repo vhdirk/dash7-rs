@@ -6,7 +6,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.7.3"
+version = "0.8.0"
 edition = "2021"
 authors = ["Dirk Van Haerenborgh <vhdirk@gmail.com>"]
 readme = "README.md"
@@ -17,3 +17,8 @@ categories = ["encoding", "parser-implementations"]
 
 [workspace.dependencies]
 deku = { version = "0.18.1" }
+
+
+[patch.crates-io]
+# uniffi = { version = "0.28", git="https://github.com/mozilla/uniffi-rs", branch = "main"}
+deku = {path = "../deku" }

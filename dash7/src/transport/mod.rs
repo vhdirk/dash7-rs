@@ -1,8 +1,8 @@
 use deku::prelude::*;
 
-use crate::{app::command::Command, types::VarInt};
+use crate::{app::command::Command, file::FileCtx, types::VarInt};
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, strum::Display, uniffi::Enum)]
 #[deku(bits = 2, id_type = "u8")]
 pub enum GroupCondition {
     /// <, =, > (always true)
@@ -21,8 +21,8 @@ pub enum GroupCondition {
 }
 
 // TODO: make these names more readable
-#[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
-pub struct Control {
+#[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default, uniffi::Record)]
+pub struct TransportFrameControl {
     #[deku(bits = 1)]
     pub is_dialog_start: bool,
     #[deku(bits = 1)]
@@ -39,7 +39,7 @@ pub struct Control {
     pub has_agc: bool,
 }
 
-#[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
+#[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default, uniffi::Record)]
 pub struct AckTemplate {
     pub transaction_id_start: u8,
     pub transaction_id_stop: u8,
@@ -47,8 +47,11 @@ pub struct AckTemplate {
 
 #[derive(DekuRead, DekuWrite, Clone, Debug, PartialEq, Default)]
 #[deku(ctx = "command_length: u32", ctx_default = "0")]
-pub struct Frame {
-    pub control: Control,
+pub struct TransportFrame<F>
+where
+    F: for<'f> DekuReader<'f, FileCtx> + DekuWriter<FileCtx>,
+{
+    pub control: TransportFrameControl,
 
     pub dialog_id: u8,
     pub transaction_id: u8,
@@ -81,5 +84,5 @@ pub struct Frame {
 
     // TODO: is this really the command length or rather the length of the entire message?
     #[deku(ctx = "command_length")]
-    pub command: Command,
+    pub command: Command<F>,
 }

@@ -2,12 +2,11 @@ use deku::prelude::*;
 
 use crate::physical::{ChannelHeader, SubBand};
 use crate::types::VarInt;
-use crate::utils::{read_array, write_array};
 
 mod frame;
 pub use frame::{BackgroundFrame, BackgroundFrameControl, ForegroundFrame, ForegroundFrameControl};
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct SubProfile {
     pub subband_bitmap: u8,
     pub scan_automation_period: VarInt,
@@ -19,7 +18,7 @@ pub struct SubProfile {
 /// Access Mask bits set to 1 and having non-void (not null) subband bitmaps are
 /// selected. As a result, only subprofiles performing scan automation (6.7) are
 /// selectable.
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct AccessClass {
     #[deku(bits = 4)]
     pub specifier: u8,
@@ -40,19 +39,13 @@ impl AccessClass {
     }
 }
 
-#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq)]
+#[derive(DekuRead, DekuWrite, Default, Debug, Clone, PartialEq, uniffi::Record)]
 pub struct AccessProfile {
     pub channel_header: ChannelHeader,
 
-    #[deku(
-        reader = "read_array::<_, SubProfile, 4>(deku::reader)",
-        writer = "write_array::<_, SubProfile, 4>(deku::writer, &self.sub_profiles)"
-    )]
-    pub sub_profiles: [SubProfile; 4],
+    #[deku(count = "4")]
+    pub sub_profiles: Vec<SubProfile>,
 
-    #[deku(
-        reader = "read_array::<_, SubBand, 8>(deku::reader)",
-        writer = "write_array::<_, SubBand, 8>(deku::writer, &self.sub_bands)"
-    )]
-    pub sub_bands: [SubBand; 8],
+    #[deku(count = "8")]
+    pub sub_bands: Vec<SubBand>,
 }

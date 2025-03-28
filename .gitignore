@@ -1,4 +1,7 @@
 /target
 
+.direnv
 
 .vscode/settings.json
+
+dash7-py/src/dash7/_core/
