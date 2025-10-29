@@ -20,7 +20,7 @@ enum_dispatch = "0.3.13"
 mutually_exclusive_features = "0.1.0"
 
 [dev-dependencies]
-hex-literal = "0.4.1"
+hex-literal = "1.0.0"
 
 [features]
 default = ["std", "spec"]
