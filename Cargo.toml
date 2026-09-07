@@ -16,4 +16,4 @@ keywords = ["dash7", "alp", "parser", "protocol"]
 categories = ["encoding", "parser-implementations"]
 
 [workspace.dependencies]
-deku = { version = "0.18.1" }
+deku = { version = "0.20.0" }
